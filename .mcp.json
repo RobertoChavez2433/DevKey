@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "html-sync": {
+      "command": "npx",
+      "args": ["-y", "mcp-html-sync-server"],
+      "env": {
+        "NODE_ENV": "production"
+      }
+    }
+  }
+}

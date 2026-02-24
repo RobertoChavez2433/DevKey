@@ -6,6 +6,8 @@ import android.content.Intent;
 import android.util.Log;
 import android.view.inputmethod.InputMethodManager;
 
+import dev.devkey.keyboard.ui.settings.DevKeySettingsActivity;
+
 public class NotificationReceiver extends BroadcastReceiver {
     static final String TAG = "PCKeyboard/Notification";
     static public final String ACTION_SHOW = "dev.devkey.keyboard.SHOW";
@@ -31,7 +33,7 @@ public class NotificationReceiver extends BroadcastReceiver {
                 imm.showSoftInputFromInputMethod(mIME.mToken, InputMethodManager.SHOW_FORCED);
             }
         } else if (action.equals(ACTION_SETTINGS)) {
-            context.startActivity(new Intent(mIME, LatinIMESettings.class));
+            context.startActivity(new Intent(mIME, DevKeySettingsActivity.class));
         }
     }
 }

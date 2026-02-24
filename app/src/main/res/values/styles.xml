@@ -23,7 +23,7 @@
         <item name="keyTextColor">#FFFFFFFF</item>
         <item name="keyHintColor">#FF222222</item>
         <item name="keyCursorColor">#FFBBBBBB</item>
-        <item name="keyPreviewLayout">@layout/key_preview</item>
+        <item name="keyPreviewLayout">@layout/null_layout</item>
         <item name="keyPreviewOffset">@dimen/key_preview_offset</item>
         <item name="keyPreviewHeight">@dimen/key_preview_height</item>
         <item name="labelTextSize">@dimen/key_label_text_size</item>

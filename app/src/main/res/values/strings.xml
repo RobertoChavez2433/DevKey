@@ -19,9 +19,9 @@
 -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <!-- Title for Latin keyboard  -->
-    <string name="english_ime_name">Hacker\'s Keyboard</string>
+    <string name="english_ime_name">DevKey</string>
     <!-- Title for Latin keyboard settings activity / dialog -->
-    <string name="english_ime_settings">Settings for Hacker\'s Keyboard</string>
+    <string name="english_ime_settings">DevKey Settings</string>
     <!-- Title for Latin keyboard input options dialog -->
     <string name="english_ime_input_options">Input options</string>
 
@@ -328,10 +328,6 @@
     <!-- Inform the user that a particular language has an available dictionary -->
     <string name="has_dictionary">Dictionary available</string>
 
-    <!-- Preferences item for enabling to send user statistics to Google -->
-    <string name="prefs_enable_log">Enable user feedback</string>
-    <!-- Description for enabling to send user statistics to Google -->
-    <string name="prefs_description_log">Help improve this input method editor by automatically sending usage statistics and crash reports to Google.</string>
     <!-- Preferences item for enabling to correct suggestions by touching words you have typed -->
     <string name="prefs_enable_recorrection">Touch to correct words</string>
     <!-- The summary for the preferences item for enabling to correct suggestions by touching words you have typed -->
@@ -345,15 +341,11 @@
 
     <!-- Description for keyboard theme switcher -->
     <string name="keyboard_layout">Keyboard Theme</string>
-    <string name="layout_basic" translatable="false">Basic</string>
-    <string name="layout_high_contrast" translatable="false">Basic (High Contrast)</string>
     <string name="layout_stone_bold"  translatable="false">Stone (bold)</string>
-    <string name="layout_stone_normal"  translatable="false">Stone (normal)</string>
-    <string name="layout_gingerbread"  translatable="false">Gingerbread</string>
+<string name="layout_gingerbread"  translatable="false">Gingerbread</string>
     <string name="layout_ics"  translatable="false">Ice Cream Sandwich (bright hints)</string>
     <string name="layout_ics_darker"  translatable="false">Ice Cream Sandwich (dark hints)</string>
-    <string name="layout_trans"  translatable="false">Transparent</string>
-    <string name="layout_trans_neon"  translatable="false">Transparent (experimental)</string>
+<string name="layout_trans_neon"  translatable="false">Transparent (experimental)</string>
 	<string name="layout_material_black" translatable="false">Material Black</string>
     <string name="layout_material_dark" translatable="false">Material Dark</string>
     <string name="layout_material_light" translatable="false">Material Light</string>
@@ -626,9 +618,6 @@
     <string name="voice_not_enabled_warning">Voice input is not available in this version.</string>
     <string name="recorrect_warning">FYI: recorrection does not work correctly on pre-Gingerbread devices due to missing operating system support.</string>
     <string name="no_market_warning">Unable to launch Play Store.</string>
-    <!-- Title for Latin keyboard debug settings activity / dialog -->
-    <string name="english_ime_debug_settings" translatable="false">Debug settings</string>
-    <string name="prefs_debug_mode" translatable="false">Debug Mode</string>
     <string name="main_setup_configure_imes">Enable keyboard</string>
     <string name="main_setup_set_ime">Set input method</string>
     <string name="main_setup_get_dicts">More</string>
@@ -675,7 +664,7 @@
     <string name="seek_pref_0">0%</string>
     <string name="seek_pref_val">x%</string>
     <string name="seek_pref_max">100%</string>
-    <string name="notification_channel_name">Hacker\'s Keyboard</string>
-    <string name="notification_channel_description">Hacker\'s Keyboard</string>
+    <string name="notification_channel_name">DevKey</string>
+    <string name="notification_channel_description">DevKey keyboard notifications</string>
     <string name="notification_action_settings">Settings</string>
 </resources>

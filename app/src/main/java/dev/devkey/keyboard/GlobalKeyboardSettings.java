@@ -79,8 +79,7 @@ public final class GlobalKeyboardSettings {
     // Read by PointerTracker
     public int longpressTimeout = 400;
     //
-    // Read by LatinIMESettings
-    // These are cached values for informational display, don't use for other purposes
+    // Cached values for informational display, don't use for other purposes
     public String editorPackageName; 
     public String editorFieldName; 
     public int editorFieldId; 

@@ -32,9 +32,11 @@ import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.TextView.BufferType;
 
+import dev.devkey.keyboard.ui.settings.DevKeySettingsActivity;
+
 public class Main extends Activity {
 
-    private final static String MARKET_URI = "market://search?q=pub:\"Klaus Weidner\"";
+    private final static String MARKET_URI = "market://details?id=dev.devkey.keyboard";
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -91,7 +93,7 @@ public class Main extends Activity {
         final Button setup5 = (Button) findViewById(R.id.main_setup_btn_settings);
         setup5.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
-                startActivityForResult(new Intent(that, LatinIMESettings.class), 0);
+                startActivityForResult(new Intent(that, DevKeySettingsActivity.class), 0);
             }
         });
     }    

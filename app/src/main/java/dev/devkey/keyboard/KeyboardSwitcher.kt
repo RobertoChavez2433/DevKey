@@ -19,7 +19,7 @@ package dev.devkey.keyboard
 import android.content.SharedPreferences
 import android.content.res.Configuration
 import android.content.res.Resources
-import android.preference.PreferenceManager
+import androidx.preference.PreferenceManager
 import android.util.Log
 import android.view.InflateException
 import java.lang.ref.SoftReference
@@ -62,6 +62,7 @@ class KeyboardSwitcher private constructor() :
 
         const val DEFAULT_LAYOUT_ID = "0"
         const val PREF_KEYBOARD_LAYOUT = "pref_keyboard_layout"
+        const val PREF_SETTINGS_KEY = "settings_key"
 
         private val THEMES = intArrayOf(
             R.layout.input_ics,
@@ -310,13 +311,6 @@ class KeyboardSwitcher private constructor() :
                     id.mKeyboardMode, id.mKeyboardHeightPercent)
             keyboard.setVoiceMode(hasVoiceButton(id.mXml == R.xml.kbd_symbols), mHasVoice)
             keyboard.setLanguageSwitcher(mLanguageSwitcher, mIsAutoCompletionActive)
-//            if (isFullMode()) {
-//                keyboard.setExtension(new LatinKeyboard(mInputMethodService,
-//                        R.xml.kbd_extension_full, 0, id.mRowHeightPercent));
-//            } else if (isAlphabetMode()) { // TODO: not in full keyboard mode? Per-mode extension kbd?
-//                keyboard.setExtension(new LatinKeyboard(mInputMethodService,
-//                        R.xml.kbd_extension, 0, id.mRowHeightPercent));
-//            }
 
             if (id.mEnableShiftLock) {
                 keyboard.enableShiftLock()
@@ -596,7 +590,7 @@ class KeyboardSwitcher private constructor() :
         if (PREF_KEYBOARD_LAYOUT == key) {
             changeLatinKeyboardView(
                 Integer.valueOf(sharedPreferences.getString(key, DEFAULT_LAYOUT_ID)), true)
-        } else if (LatinIMESettings.PREF_SETTINGS_KEY == key) {
+        } else if (PREF_SETTINGS_KEY == key) {
             updateSettingsKeyState(sharedPreferences)
             recreateInputView()
         }
@@ -616,7 +610,7 @@ class KeyboardSwitcher private constructor() :
     private fun updateSettingsKeyState(prefs: SharedPreferences) {
         val resources = mInputMethodService!!.resources
         val settingsKeyMode = prefs.getString(
-                LatinIMESettings.PREF_SETTINGS_KEY,
+                PREF_SETTINGS_KEY,
                 resources.getString(DEFAULT_SETTINGS_KEY_MODE))
         // We show the settings key when 1) SETTINGS_KEY_MODE_ALWAYS_SHOW or
         // 2) SETTINGS_KEY_MODE_AUTO and there are two or more enabled IMEs on the system

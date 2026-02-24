@@ -43,7 +43,7 @@ import android.os.IBinder;
 import android.os.Message;
 import android.os.SystemClock;
 import android.os.Vibrator;
-import android.preference.PreferenceActivity;
+import android.app.Activity;
 import android.preference.PreferenceManager;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
@@ -75,6 +75,7 @@ import dev.devkey.keyboard.feature.command.CommandModeDetector;
 import dev.devkey.keyboard.feature.command.CommandModeRepository;
 import dev.devkey.keyboard.ui.keyboard.ComposeKeyboardViewFactory;
 import dev.devkey.keyboard.ui.keyboard.SessionDependencies;
+import dev.devkey.keyboard.ui.settings.DevKeySettingsActivity;
 
 import java.io.FileDescriptor;
 import java.io.IOException;
@@ -525,7 +526,7 @@ public class LatinIME extends InputMethodService implements
             PendingIntent configPendingIntent =
                     PendingIntent.getBroadcast(getApplicationContext(), 2, configIntent, 0);
 
-            String title = "Show Hacker's Keyboard";
+            String title = "Show DevKey";
             String body = "Select this to open the keyboard. Disable in settings.";
 
             NotificationCompat.Builder mBuilder = new NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
@@ -1503,7 +1504,7 @@ public class LatinIME extends InputMethodService implements
             // Input method selector is available as a button in the soft key area, so just launch
             // HK settings directly. This also works around the alert dialog being clipped
             // in Android O.
-            startActivity(new Intent(this, LatinIMESettings.class));
+            startActivity(new Intent(this, DevKeySettingsActivity.class));
         } else {
             // Show an options menu with choices to change input method or open HK settings.
             if (!isShowingOptionDialog()) {
@@ -3403,11 +3404,11 @@ public class LatinIME extends InputMethodService implements
     }
 
     protected void launchSettings() {
-        launchSettings(LatinIMESettings.class);
+        launchSettings(DevKeySettingsActivity.class);
     }
 
     protected void launchSettings(
-            Class<? extends PreferenceActivity> settingsClass) {
+            Class<? extends Activity> settingsClass) {
         handleClose();
         Intent intent = new Intent();
         intent.setClass(LatinIME.this, settingsClass);

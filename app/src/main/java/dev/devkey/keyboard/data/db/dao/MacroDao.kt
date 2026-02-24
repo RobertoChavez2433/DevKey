@@ -32,4 +32,7 @@ interface MacroDao {
 
     @Query("DELETE FROM macros")
     suspend fun deleteAll()
+
+    @Query("SELECT * FROM macros ORDER BY usage_count DESC")
+    suspend fun getAllMacrosList(): List<MacroEntity>
 }

@@ -70,7 +70,6 @@ object DevKeyTheme {
 
     // ── Clipboard colors ──
     val clipboardPanelBg = Color(0xFF222222)           // clipboard panel background
-    val searchBarBg = Color(0xFF2A2A2A)                // search bar background
     val pinIcon = Color(0xFFFFB300)                    // amber pin icon color
     val timestampText = Color(0xFF888888)              // grey timestamp text
 
@@ -80,7 +79,6 @@ object DevKeyTheme {
     val macroGridMaxHeight: Dp = 168.dp                // 3 rows of cells
     val clipboardPanelMaxHeight: Dp = 200.dp
     val clipboardEntryHeight: Dp = 48.dp
-    val macroChipHeight: Dp = 32.dp
     val recordingBarHeight: Dp = 76.dp                 // toolbar + suggestion bar combined
 
     // ── Session 3 Typography ──
@@ -100,9 +98,6 @@ object DevKeyTheme {
     val cmdBadgeBg = Color(0xFF3A3A2A)
     val cmdBadgeText = Color(0xFFFFB300)
 
-    // ── Session 4: Autocorrect colors ──
-    val autocorrectBold = Color(0xFFFFFFFF)
-
     // ── Session 4 Dimensions ──
     val voicePanelHeight: Dp = 200.dp
     val voiceMicSize: Dp = 64.dp
@@ -112,4 +107,9 @@ object DevKeyTheme {
     // ── Session 4 Typography ──
     val voiceStatusSize: TextUnit = 16.sp
     val cmdBadgeTextSize: TextUnit = 10.sp
+
+    // ── Session 5: Settings colors ──
+    val settingsCategoryColor = Color(0xFF82B1FF)       // blue header text for categories
+    val settingsDescriptionColor = Color(0xFF888888)    // grey description text
+    val settingsDividerColor = Color(0xFF333333)        // subtle divider
 }

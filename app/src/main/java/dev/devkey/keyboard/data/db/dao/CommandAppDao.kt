@@ -29,4 +29,7 @@ interface CommandAppDao {
 
     @Query("DELETE FROM command_apps")
     suspend fun deleteAll()
+
+    @Query("SELECT * FROM command_apps")
+    suspend fun getAllCommandAppsList(): List<CommandAppEntity>
 }

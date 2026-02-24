@@ -41,4 +41,7 @@ interface ClipboardHistoryDao {
 
     @Query("DELETE FROM clipboard_history WHERE id IN (SELECT id FROM clipboard_history WHERE is_pinned = 0 ORDER BY timestamp ASC LIMIT :count)")
     suspend fun deleteOldest(count: Int)
+
+    @Query("SELECT * FROM clipboard_history WHERE is_pinned = 1 ORDER BY timestamp DESC")
+    suspend fun getPinnedEntriesList(): List<ClipboardHistoryEntity>
 }

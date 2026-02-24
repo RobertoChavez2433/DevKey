@@ -19,7 +19,18 @@ object QwertyLayout {
     private const val KEYCODE_DPAD_LEFT = -21
     private const val KEYCODE_DPAD_RIGHT = -22
 
+    /** Tab keycode (Android KeyEvent.KEYCODE_TAB = 61). */
+    private const val KEYCODE_TAB = 61
+
     val layout: KeyboardLayoutData by lazy { buildLayout() }
+    val compactLayout: KeyboardLayoutData by lazy { buildCompactLayout() }
+
+    /**
+     * Returns the appropriate layout based on compact mode setting.
+     */
+    fun getLayout(compactMode: Boolean): KeyboardLayoutData {
+        return if (compactMode) compactLayout else layout
+    }
 
     private fun buildLayout(): KeyboardLayoutData {
         val numberRow = KeyRowData(
@@ -169,6 +180,139 @@ object QwertyLayout {
 
         return KeyboardLayoutData(
             rows = listOf(numberRow, qwertyRow, homeRow, zRow, bottomRow)
+        )
+    }
+
+    /**
+     * Builds a compact 4-row layout (no number row).
+     *
+     * Remaps:
+     * - QWERTY row long-press: digits 1-9,0 instead of symbols
+     * - Shift long-press: Esc (keycode -111)
+     * - Backspace long-press: Tab (keycode 61)
+     */
+    private fun buildCompactLayout(): KeyboardLayoutData {
+        val qwertyRow = KeyRowData(
+            keys = listOf(
+                KeyData("q", 'q'.code, longPressLabel = "1", longPressCode = '1'.code),
+                KeyData("w", 'w'.code, longPressLabel = "2", longPressCode = '2'.code),
+                KeyData("e", 'e'.code, longPressLabel = "3", longPressCode = '3'.code),
+                KeyData("r", 'r'.code, longPressLabel = "4", longPressCode = '4'.code),
+                KeyData("t", 't'.code, longPressLabel = "5", longPressCode = '5'.code),
+                KeyData("y", 'y'.code, longPressLabel = "6", longPressCode = '6'.code),
+                KeyData("u", 'u'.code, longPressLabel = "7", longPressCode = '7'.code),
+                KeyData("i", 'i'.code, longPressLabel = "8", longPressCode = '8'.code),
+                KeyData("o", 'o'.code, longPressLabel = "9", longPressCode = '9'.code),
+                KeyData("p", 'p'.code, longPressLabel = "0", longPressCode = '0'.code)
+            )
+        )
+
+        val homeRow = KeyRowData(
+            keys = listOf(
+                KeyData("a", 'a'.code, longPressLabel = "~", longPressCode = '~'.code),
+                KeyData("s", 's'.code, longPressLabel = "|", longPressCode = '|'.code),
+                KeyData("d", 'd'.code, longPressLabel = "\\", longPressCode = '\\'.code),
+                KeyData("f", 'f'.code, longPressLabel = "{", longPressCode = '{'.code),
+                KeyData("g", 'g'.code, longPressLabel = "}", longPressCode = '}'.code),
+                KeyData("h", 'h'.code, longPressLabel = "[", longPressCode = '['.code),
+                KeyData("j", 'j'.code, longPressLabel = "]", longPressCode = ']'.code),
+                KeyData("k", 'k'.code, longPressLabel = "\"", longPressCode = '"'.code),
+                KeyData("l", 'l'.code, longPressLabel = "'", longPressCode = '\''.code)
+            )
+        )
+
+        val zRow = KeyRowData(
+            keys = listOf(
+                KeyData(
+                    primaryLabel = "Shift",
+                    primaryCode = Keyboard.KEYCODE_SHIFT,
+                    longPressLabel = "Esc",
+                    longPressCode = KEYCODE_ESCAPE,
+                    type = KeyType.MODIFIER,
+                    weight = 1.5f
+                ),
+                KeyData("z", 'z'.code, longPressLabel = ";", longPressCode = ';'.code),
+                KeyData("x", 'x'.code, longPressLabel = ":", longPressCode = ':'.code),
+                KeyData("c", 'c'.code, longPressLabel = "/", longPressCode = '/'.code),
+                KeyData("v", 'v'.code, longPressLabel = "?", longPressCode = '?'.code),
+                KeyData("b", 'b'.code, longPressLabel = "<", longPressCode = '<'.code),
+                KeyData("n", 'n'.code, longPressLabel = ">", longPressCode = '>'.code),
+                KeyData("m", 'm'.code, longPressLabel = "_", longPressCode = '_'.code),
+                KeyData(
+                    primaryLabel = "Del",
+                    primaryCode = Keyboard.KEYCODE_DELETE,
+                    longPressLabel = "Tab",
+                    longPressCode = KEYCODE_TAB,
+                    type = KeyType.ACTION,
+                    weight = 1.5f,
+                    isRepeatable = true
+                )
+            )
+        )
+
+        val bottomRow = KeyRowData(
+            keys = listOf(
+                KeyData(
+                    primaryLabel = "Shift",
+                    primaryCode = Keyboard.KEYCODE_SHIFT,
+                    type = KeyType.MODIFIER,
+                    weight = 1.2f
+                ),
+                KeyData(
+                    primaryLabel = "Ctrl",
+                    primaryCode = KEYCODE_CTRL_LEFT,
+                    type = KeyType.MODIFIER,
+                    weight = 1.2f
+                ),
+                KeyData(
+                    primaryLabel = "Alt",
+                    primaryCode = KEYCODE_ALT_LEFT,
+                    type = KeyType.MODIFIER,
+                    weight = 1.2f
+                ),
+                KeyData(
+                    primaryLabel = " ",
+                    primaryCode = ' '.code,
+                    type = KeyType.SPACEBAR,
+                    weight = 5.0f
+                ),
+                KeyData(
+                    primaryLabel = "\u2190", // left arrow
+                    primaryCode = KEYCODE_DPAD_LEFT,
+                    type = KeyType.ARROW,
+                    weight = 1.0f,
+                    isRepeatable = true
+                ),
+                KeyData(
+                    primaryLabel = "\u2191", // up arrow
+                    primaryCode = KEYCODE_DPAD_UP,
+                    type = KeyType.ARROW,
+                    weight = 1.0f
+                ),
+                KeyData(
+                    primaryLabel = "\u2193", // down arrow
+                    primaryCode = KEYCODE_DPAD_DOWN,
+                    type = KeyType.ARROW,
+                    weight = 1.0f
+                ),
+                KeyData(
+                    primaryLabel = "\u2192", // right arrow
+                    primaryCode = KEYCODE_DPAD_RIGHT,
+                    type = KeyType.ARROW,
+                    weight = 1.0f,
+                    isRepeatable = true
+                ),
+                KeyData(
+                    primaryLabel = "Enter",
+                    primaryCode = 10, // Enter/newline keycode
+                    type = KeyType.ACTION,
+                    weight = 1.5f
+                )
+            )
+        )
+
+        return KeyboardLayoutData(
+            rows = listOf(qwertyRow, homeRow, zRow, bottomRow)
         )
     }
 }

@@ -35,4 +35,7 @@ interface LearnedWordDao {
 
     @Query("DELETE FROM learned_words")
     suspend fun deleteAll()
+
+    @Query("SELECT * FROM learned_words ORDER BY frequency DESC")
+    suspend fun getAllWordsList(): List<LearnedWordEntity>
 }

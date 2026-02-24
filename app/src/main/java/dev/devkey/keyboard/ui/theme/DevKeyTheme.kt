@@ -53,4 +53,39 @@ object DevKeyTheme {
     val dividerColor = Color(0xFF333333)
     val suggestionText = Color(0xFFCCCCCC)
     val iconColor = Color(0xFF888888)
+
+    // ── Ctrl Mode colors ──
+    val ctrlModeBannerBg = Color(0x882A2A5A)          // semi-transparent blue/purple for Ctrl Mode banner
+    val ctrlModeShortcutBg = Color(0xFF3A3A6A)        // blue/purple tint for shortcut keys in Ctrl Mode
+    val ctrlModeRedBg = Color(0xFF5A2A2A)             // red tint for Copy/Paste keys in Ctrl Mode
+    val ctrlModeDimmed = Color(0x4DE0E0E0)            // 30% opacity text for non-shortcut keys
+    val ctrlModeFullDim = Color(0x1AE0E0E0)           // 10% opacity text for number row
+
+    // ── Macro colors ──
+    val macroRecordingRed = Color(0xFFE53935)          // red for recording indicator
+    val macroAmber = Color(0xFFFFB300)                 // amber for macro key combo labels in grid
+    val chipBg = Color(0xFF333333)                     // macro chip background
+    val chipBorder = Color(0xFF555555)                 // macro chip border
+    val dashedBorder = Color(0xFF666666)               // dashed border for "+ Add" / "+ Record"
+
+    // ── Clipboard colors ──
+    val clipboardPanelBg = Color(0xFF222222)           // clipboard panel background
+    val searchBarBg = Color(0xFF2A2A2A)                // search bar background
+    val pinIcon = Color(0xFFFFB300)                    // amber pin icon color
+    val timestampText = Color(0xFF888888)              // grey timestamp text
+
+    // ── Session 3 Dimensions ──
+    val ctrlModeBannerHeight: Dp = 24.dp
+    val macroGridCellHeight: Dp = 56.dp
+    val macroGridMaxHeight: Dp = 168.dp                // 3 rows of cells
+    val clipboardPanelMaxHeight: Dp = 200.dp
+    val clipboardEntryHeight: Dp = 48.dp
+    val macroChipHeight: Dp = 32.dp
+    val recordingBarHeight: Dp = 76.dp                 // toolbar + suggestion bar combined
+
+    // ── Session 3 Typography ──
+    val ctrlModeShortcutLabelSize: TextUnit = 10.sp
+    val macroChipTextSize: TextUnit = 12.sp
+    val clipboardPreviewTextSize: TextUnit = 13.sp
+    val clipboardTimestampSize: TextUnit = 11.sp
 }

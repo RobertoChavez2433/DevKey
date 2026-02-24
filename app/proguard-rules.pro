@@ -1,21 +1,56 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+# Keep JNI native methods (called from C++)
+-keepclasseswithmembernames class * {
+    native <methods>;
+}
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# Keep the JNI bridge class (old package path)
+-keep class org.pocketworkstation.pckeyboard.BinaryDictionary { *; }
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+# Keep IME service and activities referenced in AndroidManifest
+-keep class dev.devkey.keyboard.LatinIME { *; }
+-keep class dev.devkey.keyboard.LatinIMEBackupAgent { *; }
+-keep class dev.devkey.keyboard.ui.settings.DevKeySettingsActivity { *; }
+-keep class dev.devkey.keyboard.feature.voice.PermissionActivity { *; }
+-keep class dev.devkey.keyboard.Main { *; }
+-keep class dev.devkey.keyboard.InputLanguageSelection { *; }
+-keep class dev.devkey.keyboard.PrefScreenActions { *; }
+-keep class dev.devkey.keyboard.PrefScreenView { *; }
+-keep class dev.devkey.keyboard.PrefScreenFeedback { *; }
+-keep class dev.devkey.keyboard.NotificationReceiver { *; }
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# Keep custom preference widgets referenced by name in XML
+-keep class dev.devkey.keyboard.SeekBarPreferenceString { *; }
+-keep class dev.devkey.keyboard.SeekBarPreference { *; }
+-keep class dev.devkey.keyboard.AutoSummaryListPreference { *; }
+-keep class dev.devkey.keyboard.AutoSummaryEditTextPreference { *; }
+-keep class dev.devkey.keyboard.VibratePreference { *; }
+
+# Room database
+-keep class * extends androidx.room.RoomDatabase
+-keep @androidx.room.Entity class *
+-keep @androidx.room.Dao interface *
+
+# kotlinx.serialization
+-keepattributes *Annotation*, InnerClasses
+-dontnote kotlinx.serialization.AnnotationsKt
+-keepclassmembers @kotlinx.serialization.Serializable class ** {
+    *** Companion;
+}
+-keepclasseswithmembers class ** {
+    kotlinx.serialization.KSerializer serializer(...);
+}
+-keep,includedescriptorclasses class dev.devkey.keyboard.data.export.**$$serializer { *; }
+-keepclassmembers class dev.devkey.keyboard.data.export.** {
+    *** Companion;
+}
+
+# TensorFlow Lite
+-keep class org.tensorflow.lite.** { *; }
+-keep class org.tensorflow.lite.support.** { *; }
+
+# Keep Keyboard and Key classes used reflectively
+-keep class dev.devkey.keyboard.Keyboard { *; }
+-keep class dev.devkey.keyboard.Keyboard$Key { *; }
+
+# Compose
+-dontwarn androidx.compose.**

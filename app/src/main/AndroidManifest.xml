@@ -12,13 +12,16 @@
             android:allowBackup="true"
             android:backupAgent="LatinIMEBackupAgent"
             android:restoreAnyVersion="true"
-            android:hardwareAccelerated="false"
+            android:hardwareAccelerated="true"
             android:killAfterRestore="false"
-            android:icon="@drawable/icon">
+            android:icon="@drawable/icon"
+            android:supportsRtl="true"
+            android:theme="@style/Theme.AppCompat.DayNight">
 
         <service android:name="LatinIME"
                 android:label="@string/english_ime_name"
                 android:permission="android.permission.BIND_INPUT_METHOD"
+                android:hardwareAccelerated="false"
                 android:exported="true">
             <intent-filter>
                 <action android:name="android.view.InputMethod" />
@@ -33,7 +36,10 @@
             </intent-filter>
         </activity>
 
-        <activity android:name="LatinIMESettings" android:label="@string/english_ime_settings" android:exported="true">
+        <activity
+            android:name=".ui.settings.DevKeySettingsActivity"
+            android:label="@string/english_ime_settings"
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <action android:name="dev.devkey.keyboard.SETTINGS"/>
@@ -43,42 +49,22 @@
 
         <activity android:name="InputLanguageSelection"
                 android:label="@string/language_selection_title"
-                android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-                <action android:name="dev.devkey.keyboard.INPUT_LANGUAGE_SELECTION"/>
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
+                android:exported="false">
         </activity>
 
         <activity android:name="PrefScreenActions"
                 android:label="@string/pref_screen_actions_title"
-                android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-                <action android:name="dev.devkey.keyboard.PREFS_ACTIONS"/>
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
+                android:exported="false">
         </activity>
             
         <activity android:name="PrefScreenView"
                 android:label="@string/pref_screen_actions_title"
-                android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-                <action android:name="dev.devkey.keyboard.PREFS_VIEW"/>
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
+                android:exported="false">
         </activity>
 
         <activity android:name="PrefScreenFeedback"
                 android:label="@string/pref_screen_feedback_title"
-                android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-                <action android:name="dev.devkey.keyboard.PREFS_FEEDBACK"/>
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
+                android:exported="false">
         </activity>
         <activity
             android:name=".ui.voice.PermissionActivity"

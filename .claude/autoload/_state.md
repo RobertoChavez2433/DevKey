@@ -1,45 +1,49 @@
 # Session State
 
-**Last Updated**: 2026-02-23 | **Session**: 8
+**Last Updated**: 2026-02-23 | **Session**: 9
 
 ## Current Phase
-- **Phase**: Session 3 Designed — Macros, Ctrl Mode, Clipboard & Symbols
-- **Status**: Design doc and 9-phase implementation plan written and committed. Ready to run `/implement` with `session3-implementation-plan.md`.
+- **Phase**: Session 4 Designed — Voice-to-Text, Command Mode & Autocorrect
+- **Status**: Session 3 fully implemented (confirmed). Session 4 design doc and 8-phase implementation plan written and committed. Ready to run `/implement` with `session4-implementation-plan.md`.
 
 ## HOT CONTEXT - Resume Here
 
 ### EXACTLY WHERE WE LEFT OFF
 
-**Session 3 brainstorming complete. Design doc + implementation plan committed. No implementation started yet. On-device testing of Session 2 keyboard still pending.**
+**Session 3 is FULLY IMPLEMENTED (verified — all 17 new files + 8 modified files present). Session 4 brainstorming complete. Design doc + implementation plan committed. No Session 4 implementation started yet.**
 
-- Brainstormed Session 3 features via `/brainstorming` — 8 design sections approved
-- Wrote design doc: `docs/plans/2026-02-23-session3-macros-ctrl-clipboard-design.md`
-- Wrote 9-phase implementation plan: `.claude/plans/session3-implementation-plan.md`
-- Committed both as `d1a9927`
+- Confirmed Session 3 implementation is complete (explore agent verified all files)
+- Brainstormed Session 4 features via `/brainstorming` — 5 design sections approved
+- Wrote design doc: `docs/plans/2026-02-23-session4-voice-command-autocorrect-design.md` (committed `c9b9c30`)
+- Wrote 8-phase implementation plan: `.claude/plans/session4-implementation-plan.md` (committed `08b73c0`)
 
 ### Key Design Decisions
 
 | Decision | Choice |
 |----------|--------|
-| View state | Centralized `KeyboardMode` sealed class (6 modes) |
-| Macro capture | Logical combos, not raw keycodes |
-| Macro access | Both chips (tap ⚡) + grid panel (long-press ⚡) |
-| Ctrl Mode rendering | In-place key transformation (not overlay) |
-| Ctrl Mode activation | HELD state only (not ONE_SHOT/LOCKED) |
-| Clipboard encryption | Deferred to Session 5 |
-| Symbols layer | Included in Session 3 scope |
+| Prediction approach | Dictionary + n-gram (no TF Lite for prediction — user doesn't use next-word much) |
+| Autocorrect level | Standard: completion + basic edit-distance correction (default: mild) |
+| Voice model | Whisper tiny.en (~40MB) bundled in APK assets |
+| Voice model delivery | Bundled in assets/ (no download step) |
+| Command mode | Full auto-detect terminal apps + manual toggle in toolbar overflow |
+| Java↔Compose bridge | SessionDependencies singleton for Suggest/CommandModeDetector |
 
 ### What Needs to Happen Next Session
 
-1. **Run `/implement`** with `.claude/plans/session3-implementation-plan.md` — 9 phases, 17 new files, 8 modified files
-2. **Test on device** — both Session 2 keyboard rendering AND Session 3 features
-3. **Fix any issues** discovered during implementation or testing
+1. **Run `/implement`** with `.claude/plans/session4-implementation-plan.md` — 8 phases, 12 new files, 7 modified files
+2. **Procure Whisper model files** — `whisper-tiny.en.tflite` + `filters_vocab_en.bin` from whisper.tflite/whisper_android repos
+3. **Test on device** — Session 3 features AND Session 4 features
 
 ## Blockers
 
-None.
+- **Whisper model files**: Need to download `whisper-tiny.en.tflite` (~40MB) and `filters_vocab_en.bin` from GitHub repos before voice can work. Plan has graceful degradation if not available.
 
 ## Recent Sessions
+
+### Session 9 (2026-02-23)
+**Work**: Confirmed Session 3 fully implemented. Brainstormed Session 4 (Voice, Command Mode, Autocorrect). Researched TF Lite models — GPT-2 too large/slow for keyboard, pivoted to dictionary-based prediction. 5 design sections approved. Wrote design doc and 8-phase implementation plan. Committed both.
+**Decisions**: No TF Lite for prediction (user doesn't use next-word), Whisper tiny.en bundled in APK, dictionary + edit-distance autocorrect (mild default), auto-detect terminals + manual toggle, SessionDependencies singleton for Java↔Compose bridge.
+**Next**: Run /implement on session4-implementation-plan.md, procure Whisper model files, test on device.
 
 ### Session 8 (2026-02-23)
 **Work**: Brainstormed Session 3 (Macros, Ctrl Mode, Clipboard & Symbols). 8 design sections approved. Wrote design doc and 9-phase implementation plan. Committed.
@@ -61,23 +65,21 @@ None.
 **Decisions**: Kotlin 2.0.21, AGP 8.5.2, JNI bridge at old package path, LatinIME stays Java for now.
 **Next**: Begin Session 2 (Keyboard Layout & Rendering).
 
-### Session 4 (2026-02-23)
-**Work**: Created 30 keyboard layout mockups across 3 rounds via html-sync MCP. Narrowed from 10+ designs to final layout (#8: Esc/Tab in number row, modifiers + arrows bottom). Completed all remaining design sections (data flow, voice, testing, distribution). Wrote full design doc (13 sections) and 5-session implementation plan.
-**Decisions**: Final layout = #8. Macros = chips + grid + recording. Ctrl-held = shortcut labels. Whisper for voice. Local + export/import for data. Unit + integration tests.
-**Next**: Begin Session 1 implementation (infrastructure & scaffolding).
-
 ## Active Plans
 
-- **DevKey Implementation Plan** — `.claude/plans/devkey-implementation-plan.md` — Sessions 1-2 complete.
-- **Session 3 Implementation Plan** — `.claude/plans/session3-implementation-plan.md` — Ready for /implement (9 phases).
+- **DevKey Implementation Plan** — `.claude/plans/devkey-implementation-plan.md` — Sessions 1-3 complete.
+- **Session 4 Implementation Plan** — `.claude/plans/session4-implementation-plan.md` — Ready for /implement (8 phases).
+- **Session 3 Implementation Plan** — `.claude/plans/session3-implementation-plan.md` — COMPLETE.
 - **Session 2 Implementation Plan** — `.claude/plans/session2-implementation-plan.md` — COMPLETE.
 
 ## Reference
 - **Design doc (main)**: `docs/plans/2026-02-23-devkey-design.md`
 - **Design doc (Session 2)**: `docs/plans/2026-02-23-session2-keyboard-layout-design.md`
 - **Design doc (Session 3)**: `docs/plans/2026-02-23-session3-macros-ctrl-clipboard-design.md`
+- **Design doc (Session 4)**: `docs/plans/2026-02-23-session4-voice-command-autocorrect-design.md`
 - **Implementation plan (main)**: `.claude/plans/devkey-implementation-plan.md`
 - **Implementation plan (Session 2)**: `.claude/plans/session2-implementation-plan.md`
 - **Implementation plan (Session 3)**: `.claude/plans/session3-implementation-plan.md`
+- **Implementation plan (Session 4)**: `.claude/plans/session4-implementation-plan.md`
 - **Architecture**: `docs/ARCHITECTURE.md`
 - **Research**: `docs/research/` (3 analysis files + README)

@@ -40,8 +40,8 @@
 ## Implementation Plan (5 Sessions)
 1. ~~Infrastructure & Project Scaffolding~~ — **DONE** (Session 5)
 2. ~~Keyboard Layout & Rendering~~ — **DONE** (Session 7) — 13 Compose files + IME integration
-3. Macros, Ctrl Mode & Clipboard (record/replay, chips, grid, clipboard manager)
-4. AI Prediction, Command Mode & Voice (TF Lite, Whisper, command-aware)
+3. ~~Macros, Ctrl Mode & Clipboard~~ — **DONE** (Session 3 impl confirmed Session 9) — 17 new files + 8 modified
+4. Voice-to-Text, Command Mode & Autocorrect — **DESIGNED** (Session 9) — Whisper TF Lite, dictionary autocorrect, command-aware
 5. Settings, Export/Import, Polish & Testing (settings hub, performance, docs)
 
 ## Build & Migration Patterns

@@ -1,9 +1,9 @@
 {
   "summary": {
     "total": 6,
-    "designed": 4,
+    "designed": 3,
     "in_progress": 0,
-    "complete": 2
+    "complete": 3
   },
   "features": [
     {
@@ -20,15 +20,15 @@
     },
     {
       "name": "Macros, Ctrl Mode & Clipboard",
-      "status": "designed",
+      "status": "complete",
       "session": 3,
-      "details": "Macro engine, recording UI, chips, grid panel, Ctrl-held overlay, clipboard manager, symbols layer"
+      "details": "Macro engine + recording/chips/grid UI, Ctrl-held shortcut overlay, clipboard manager, symbols layer, KeyboardMode sealed class. 17 new files, 8 modified."
     },
     {
-      "name": "AI Prediction, Command Mode & Voice",
+      "name": "Voice-to-Text, Command Mode & Autocorrect",
       "status": "designed",
       "session": 4,
-      "details": "TF Lite prediction, autocorrect, command-aware mode, learned words, Whisper voice-to-text"
+      "details": "Whisper tiny.en TF Lite voice input, dictionary-based autocorrect (mild default), command-aware mode (auto-detect terminals), learned words. 12 new files, 7 modified."
     },
     {
       "name": "Settings, Export/Import & Polish",

@@ -6,6 +6,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -51,6 +52,7 @@ fun KeyView(
     onKeyAction: (Int) -> Unit,
     onKeyPress: (Int) -> Unit,
     onKeyRelease: (Int) -> Unit,
+    ctrlHeld: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val view = LocalView.current
@@ -88,10 +90,21 @@ fun KeyView(
         else -> false
     }
 
+    // Ctrl Mode shortcut lookup for letter keys
+    val ctrlShortcut = if (ctrlHeld && key.type == KeyType.LETTER) {
+        CtrlShortcutMap.getShortcut(key.primaryLabel.lowercase())
+    } else null
+
     // Background color with animation
     val targetColor = when {
         isPressed -> pressedColor
         isModifierActive -> activeColor
+        ctrlHeld && key.type == KeyType.LETTER && ctrlShortcut != null -> {
+            when (ctrlShortcut.highlight) {
+                HighlightType.RED -> DevKeyTheme.ctrlModeRedBg
+                HighlightType.NORMAL -> DevKeyTheme.ctrlModeShortcutBg
+            }
+        }
         else -> normalColor
     }
     val backgroundColor by animateColorAsState(
@@ -99,6 +112,14 @@ fun KeyView(
         animationSpec = tween(durationMillis = 100),
         label = "keyBgColor"
     )
+
+    // Ctrl Mode text color overrides
+    val ctrlTextColor = when {
+        ctrlHeld && key.type == KeyType.LETTER && ctrlShortcut != null -> DevKeyTheme.keyText
+        ctrlHeld && key.type == KeyType.LETTER -> DevKeyTheme.ctrlModeDimmed
+        ctrlHeld && key.type == KeyType.NUMBER -> DevKeyTheme.ctrlModeFullDim
+        else -> null // use default
+    }
 
     // Display label (uppercase if shift is active and this is a letter key)
     val displayLabel = when {
@@ -174,15 +195,35 @@ fun KeyView(
             },
         contentAlignment = Alignment.Center
     ) {
-        // Center label
-        Text(
-            text = displayLabel,
-            color = if (key.type == KeyType.SPACEBAR) DevKeyTheme.spaceKeyText else DevKeyTheme.keyText,
-            fontSize = DevKeyTheme.keyLabelSize
-        )
+        if (ctrlHeld && key.type == KeyType.LETTER && ctrlShortcut != null) {
+            // Ctrl Mode: letter with shortcut label below
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = displayLabel,
+                    color = ctrlTextColor ?: DevKeyTheme.keyText,
+                    fontSize = DevKeyTheme.keyLabelSize
+                )
+                Text(
+                    text = ctrlShortcut.label,
+                    color = DevKeyTheme.keyText,
+                    fontSize = DevKeyTheme.ctrlModeShortcutLabelSize
+                )
+            }
+        } else {
+            // Normal rendering: center label
+            val effectiveTextColor = ctrlTextColor
+                ?: if (key.type == KeyType.SPACEBAR) DevKeyTheme.spaceKeyText else DevKeyTheme.keyText
+            Text(
+                text = displayLabel,
+                color = effectiveTextColor,
+                fontSize = DevKeyTheme.keyLabelSize
+            )
+        }
 
-        // Top-right hint for long-press
-        if (key.longPressLabel != null) {
+        // Top-right hint for long-press (hidden in Ctrl Mode for letter/number keys)
+        if (key.longPressLabel != null && !(ctrlHeld && (key.type == KeyType.LETTER || key.type == KeyType.NUMBER))) {
             Text(
                 text = key.longPressLabel,
                 color = DevKeyTheme.keyHint,

@@ -28,7 +28,8 @@ fun KeyboardView(
     modifierState: ModifierStateManager,
     onKeyAction: (Int) -> Unit,
     onKeyPress: (Int) -> Unit,
-    onKeyRelease: (Int) -> Unit
+    onKeyRelease: (Int) -> Unit,
+    ctrlHeld: Boolean = false
 ) {
     Column(
         modifier = Modifier
@@ -43,7 +44,8 @@ fun KeyboardView(
                 modifierState = modifierState,
                 onKeyAction = onKeyAction,
                 onKeyPress = onKeyPress,
-                onKeyRelease = onKeyRelease
+                onKeyRelease = onKeyRelease,
+                ctrlHeld = ctrlHeld
             )
         }
     }

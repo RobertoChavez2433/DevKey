@@ -26,7 +26,8 @@ fun KeyRow(
     modifierState: ModifierStateManager,
     onKeyAction: (Int) -> Unit,
     onKeyPress: (Int) -> Unit,
-    onKeyRelease: (Int) -> Unit
+    onKeyRelease: (Int) -> Unit,
+    ctrlHeld: Boolean = false
 ) {
     Row(
         modifier = Modifier
@@ -41,6 +42,7 @@ fun KeyRow(
                 onKeyAction = onKeyAction,
                 onKeyPress = onKeyPress,
                 onKeyRelease = onKeyRelease,
+                ctrlHeld = ctrlHeld,
                 modifier = Modifier.weight(key.weight)
             )
         }

@@ -68,6 +68,9 @@ import android.view.inputmethod.InputMethodManager;
 import android.widget.LinearLayout;
 import android.widget.Toast;
 
+import dev.devkey.keyboard.data.db.DevKeyDatabase;
+import dev.devkey.keyboard.feature.clipboard.ClipboardRepository;
+import dev.devkey.keyboard.feature.clipboard.DevKeyClipboardManager;
 import dev.devkey.keyboard.ui.keyboard.ComposeKeyboardViewFactory;
 
 import java.io.FileDescriptor;
@@ -161,6 +164,8 @@ public class LatinIME extends InputMethodService implements
     private CompletionInfo[] mCompletions;
 
     private AlertDialog mOptionsDialog;
+
+    private DevKeyClipboardManager clipboardManager;
 
     /* package */KeyboardSwitcher mKeyboardSwitcher;
 
@@ -361,6 +366,14 @@ public class LatinIME extends InputMethodService implements
         KeyboardSwitcher.init(this);
         super.onCreate();
         sInstance = this;
+
+        // Initialize clipboard listener
+        ClipboardRepository clipboardRepo = new ClipboardRepository(
+            DevKeyDatabase.Companion.getInstance(this).clipboardHistoryDao()
+        );
+        clipboardManager = new DevKeyClipboardManager(this, clipboardRepo);
+        clipboardManager.startListening();
+
         // setStatusIcon(R.drawable.ime_qwerty);
         mResources = getResources();
         final Configuration conf = mResources.getConfiguration();
@@ -647,6 +660,9 @@ public class LatinIME extends InputMethodService implements
 
     @Override
     public void onDestroy() {
+        if (clipboardManager != null) {
+            clipboardManager.stopListening();
+        }
         if (mUserDictionary != null) {
             mUserDictionary.close();
         }

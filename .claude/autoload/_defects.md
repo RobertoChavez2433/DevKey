@@ -19,10 +19,10 @@ Max 7 active. Oldest rotates to `.claude/logs/defects-archive.md`.
 **Prevention**: Convert switch/case on R.* fields to if/else if chains when migrating to AGP 8.x.
 **Ref**: @LatinKeyboardBaseView.java, @LatinKeyboardView.java
 
-### [BUILD] 2026-02-23: Compose compiler plugin requires Kotlin 2.0+
-**Pattern**: `org.jetbrains.kotlin.plugin.compose` plugin ID was introduced in Kotlin 2.0. Using it with Kotlin 1.9.x causes "plugin not found" errors.
-**Prevention**: Use Kotlin 2.0+ when using the compose-compiler plugin. With Kotlin 1.x, use the older `composeOptions { kotlinCompilerExtensionVersion = "..." }` approach instead.
-**Ref**: @build.gradle.kts, @gradle/libs.versions.toml
+### [DB] 2026-02-24: DevKeyDatabase uses destructive migration — wipes user data on schema change
+**Pattern**: `DevKeyDatabase.buildDatabase()` calls `fallbackToDestructiveMigration()`. Any change to Room entities (adding/removing columns, changing types, adding tables) triggers a full database wipe — all macros, learned words, clipboard history, and command apps are lost.
+**Prevention**: Before changing any Room entity, write a proper `Migration(oldVersion, newVersion)` and add it via `.addMigrations()`. Test migration with both fresh install and upgrade scenarios.
+**Ref**: @DevKeyDatabase.kt (buildDatabase method)
 
 ### [BUILD] 2026-02-23: /implement agents need broad Bash/Edit/Write permissions
 **Pattern**: Background agents dispatched by the /implement orchestrator cannot prompt the user for tool permissions. They get blocked on Edit, Write, and Bash commands.

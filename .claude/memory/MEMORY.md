@@ -1,53 +1,61 @@
 # DevKey Memory
 
 ## Project Overview
-- **Name**: DevKey
-- **Type**: Android keyboard (IME) — fork of Hacker's Keyboard
-- **Goal**: Bridge power-user productivity (terminal keys, command awareness) with modern typing UX (AI prediction, voice, Material You)
-- **Unique features**: Command-aware autocorrect, recordable macro system, Ctrl-held shortcut mode
+- Android keyboard (IME) forked from Hacker's Keyboard, modernized with Kotlin + Jetpack Compose
+- Goal: power-user features (terminal keys, macros, command awareness) + modern typing UX (Material You, voice, autocorrect)
+- All AI/ML runs on-device (no cloud). Data stays local with JSON export/import.
 
-## Key Architecture Decisions
-- Kotlin + C++ NDK (progressive modernization from Java)
-- Jetpack Compose for UI (replacing XML layouts)
-- TensorFlow Lite for on-device AI (no cloud dependency)
-- Whisper (TF Lite, MIT license) for voice-to-text — fully offline
-- Room database for macros, learned commands, clipboard, settings
-- Data: local only + JSON export/import (no cloud sync)
+## Architecture
+- **IME entry point**: `LatinIME.java` (3566 lines) — remains Java, orchestrates everything
+- **Java-Compose bridge**: `SessionDependencies` singleton injects Room DAOs/repos into Compose UI at IME startup
+- **JNI bridge**: C++ dictionary at old package path `org.pocketworkstation.pckeyboard.BinaryDictionary` — DO NOT rename
+- **Dual rendering**: Legacy Java `LatinKeyboardBaseView` (Canvas) coexists with new Compose keyboard UI via `ComposeKeyboardViewFactory`
+- **Settings**: SharedPreferences only (no Room for settings), wrapped by `SettingsRepository` with Flow observation
+- **Database**: Room with 4 tables (macros, learned_words, clipboard_history, command_apps), version 2
 
-## Final Layout Design
-- SwiftKey-inspired dark layout (Clean Modern theme)
-- Number row with Esc (left) and Tab (right) replacing backtick/0
-- Long-press on ALL keys with visible hints (symbols on QWERTY, home, Z rows)
-- Bottom row: Shift, Ctrl, Alt, Spacebar, ←↑↓→, Enter
-- Toolbar: Clipboard, Voice, 123 (symbols), Macros (⚡)
-- NO F-keys, NO swipe typing, NO oversized accent keys
+## Tech Stack
+| Component | Version |
+|-----------|---------|
+| Kotlin | 2.0.21 |
+| AGP | 8.5.2 |
+| Gradle | 8.7 |
+| KSP | 2.0.21-1.0.27 |
+| Compose BOM | 2024.06.00 |
+| Material 3 | 1.2.1 |
+| Room | 2.6.1 |
+| Coroutines | 1.8.1 |
+| TF Lite | 2.16.1 / support 0.4.4 |
+| kotlinx.serialization | 1.6.3 |
+| Min SDK | 26 (Android 8.0) |
+| Target/Compile SDK | 34 (Android 14) |
 
-## User Preferences
-- Does NOT want swipe/flow typing
-- Uses voice-to-text frequently
-- Wants Material You + custom theme engine (later phase)
-- Values privacy (fully on-device AI)
-- Prefers progressive modernization (ship early, iterate)
-- Doesn't want oversized or accent-colored keys — keep standard sizing
-- Toolbar should be streamlined: clipboard, voice, symbols, macros only
+## Build
+```bash
+./gradlew assembleDebug    # Build debug APK
+./gradlew test             # Run unit tests (28 tests)
+./gradlew installDebug     # Install on device
+```
+- ProGuard/R8 enabled for release builds with resource shrinking
+- Lint enabled on release builds
+- Version catalogs in `gradle/libs.versions.toml`
 
-## Key Documents
-- **Design doc**: `docs/plans/2026-02-23-devkey-design.md`
-- **Implementation plan**: `.claude/plans/devkey-implementation-plan.md` (5 sessions)
-- **Research**: `docs/research/` (3 analysis files + README)
-- **State**: `.claude/autoload/_state.md`
+## Critical Pitfalls
+- **JNI bridge**: Old package path is hardcoded in C++ — never rename `org.pocketworkstation.pckeyboard.BinaryDictionary`
+- **Kotlin final-by-default**: Add `open` to classes/methods that Java code extends/overrides
+- **Kotlin constants**: Use `const val` (not `@JvmField val`) for primitives used in Java switch/case
+- **AGP 8.x R fields**: `R.styleable.*` non-constant — use if/else if, not switch/case
+- **Destructive migration**: `DevKeyDatabase` uses `fallbackToDestructiveMigration()` — any schema change wipes all user data. Must write proper migrations before changing entities.
+- **Agent permissions**: Add Edit, Write, Bash(*) to `.claude/settings.local.json` BEFORE running `/implement`
 
-## Implementation Plan (5 Sessions)
-1. ~~Infrastructure & Project Scaffolding~~ — **DONE** (Session 5)
-2. ~~Keyboard Layout & Rendering~~ — **DONE** (Session 7) — 13 Compose files + IME integration
-3. ~~Macros, Ctrl Mode & Clipboard~~ — **DONE** (Session 3 impl confirmed Session 9) — 17 new files + 8 modified
-4. Voice-to-Text, Command Mode & Autocorrect — **DESIGNED** (Session 9) — Whisper TF Lite, dictionary autocorrect, command-aware
-5. Settings, Export/Import, Polish & Testing (settings hub, performance, docs)
+## Conventions
+- **DI**: Manual constructor injection (no Dagger/Hilt)
+- **State**: StateFlow + collectAsState() in Compose
+- **Async**: Kotlin Coroutines with structured concurrency (no GlobalScope)
+- **UI**: Jetpack Compose with Material You theming
+- **Serialization**: kotlinx.serialization for JSON export/import
+- **40 Java files** remain from original fork — progressive migration to Kotlin
 
-## Build & Migration Patterns
-- **Kotlin version**: 2.0.21 (required for `kotlin.plugin.compose`)
-- **AGP**: 8.5.2, **Gradle**: 8.7, **KSP**: 2.0.21-1.0.27
-- **JNI bridge**: Old package path (`org.pocketworkstation.pckeyboard.BinaryDictionary`) wraps native methods — DO NOT rename
-- **Kotlin→Java interop**: Mark classes/methods `open` that Java subclasses override. Use `const val` for constants used in Java switch/case.
-- **AGP 8.x migration**: R.styleable fields are non-constant — convert switch/case to if/else if
-- **/implement permissions**: Add Edit, Write, Bash(*) to settings.local.json BEFORE running orchestrator agents
+## Current State
+- All 5 implementation sessions complete (v1 feature-complete)
+- Code review + cleanup done. Build passing, 28 unit tests passing.
+- Blocker: Whisper model files needed for voice input (graceful degradation without them)

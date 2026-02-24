@@ -53,12 +53,12 @@ Open-source Android keyboard: Hacker's Keyboard power-user features + modern Swi
 - **UI**: Jetpack Compose with Material You
 - **State**: StateFlow + collectAsState()
 - **Async**: Kotlin Coroutines (structured concurrency, no GlobalScope)
-- **Database**: Room for learned data, clipboard, settings
+- **Database**: Room for learned data, clipboard, macros, command apps
 
 ### IME-Specific
 - InputMethodService as core entry point
 - C++ NDK for dictionary lookup (liblatinime)
-- TF Lite for AI prediction models
+- TF Lite for on-device voice recognition (Whisper)
 - Modifier keys: true multitouch state machine
 - Command mode: auto-detect terminal apps + manual toggle
 
@@ -76,6 +76,5 @@ Open-source Android keyboard: Hacker's Keyboard power-user features + modern Swi
 | skills/ | Skill definitions (brainstorming, implement, session mgmt) |
 | state/ | JSON state files (PROJECT-STATE.json, FEATURE-MATRIX.json) |
 | logs/ | Archives (state-archive, defects-archive) — on-demand only |
-| plans/ | Implementation plans and design specs |
-| plans/completed/ | Completed plans (reference only) |
+| plans/ | Implementation plans (active and completed/) |
 | memory/ | Key learnings and patterns (MEMORY.md) |

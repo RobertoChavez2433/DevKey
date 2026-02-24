@@ -1,9 +1,9 @@
 {
   "summary": {
     "total": 6,
-    "designed": 3,
+    "designed": 0,
     "in_progress": 0,
-    "complete": 3
+    "complete": 6
   },
   "features": [
     {
@@ -26,21 +26,21 @@
     },
     {
       "name": "Voice-to-Text, Command Mode & Autocorrect",
-      "status": "designed",
+      "status": "complete",
       "session": 4,
-      "details": "Whisper tiny.en TF Lite voice input, dictionary-based autocorrect (mild default), command-aware mode (auto-detect terminals), learned words. 12 new files, 7 modified."
+      "details": "Whisper TF Lite voice input (graceful degradation without model), dictionary-based autocorrect (mild default), command-aware mode (auto-detect terminals + manual toggle), learned words, SessionDependencies bridge. 13 new files, 8 modified."
     },
     {
       "name": "Settings, Export/Import & Polish",
-      "status": "designed",
+      "status": "complete",
       "session": 5,
-      "details": "Settings hub, JSON export/import, compact mode, performance, testing, docs"
+      "details": "Full Compose settings hub replacing legacy PreferenceActivity, JSON export/import via kotlinx.serialization, compact mode (hide number row), performance audit, 28 unit tests, ProGuard rules, resource shrinking, branding cleanup."
     },
     {
       "name": "Room Database",
       "status": "complete",
       "session": 1,
-      "details": "5 tables (macros, learned_words, clipboard_history, settings, command_apps), DAOs with Flow queries"
+      "details": "4 active tables (macros, learned_words, clipboard_history, command_apps), 4 DAOs with Flow queries, destructive migration (needs proper migrations before schema changes)"
     }
   ]
 }

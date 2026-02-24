@@ -57,8 +57,8 @@ Wait for the user to say what they want. Their message determines what happens n
 | Domain | Use |
 |--------|-----|
 | New feature / behavior change | `/brainstorming` then `/implement` |
-| Bug / unexpected behavior | `/systematic-debugging` |
-| Code quality concern | `code-review-agent` (Opus) |
+| Bug / unexpected behavior | Debug directly or use agents |
+| Ending a session | `/end-session` |
 
 ## Context Loading Reference (for when work begins, not this skill)
 

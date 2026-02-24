@@ -1,9 +1,9 @@
 {
   "summary": {
     "total": 6,
-    "designed": 6,
+    "designed": 4,
     "in_progress": 0,
-    "complete": 1
+    "complete": 2
   },
   "features": [
     {
@@ -14,9 +14,9 @@
     },
     {
       "name": "Keyboard Layout & Rendering",
-      "status": "designed",
+      "status": "complete",
       "session": 2,
-      "details": "Compose keyboard UI, key data model, touch handling, modifier state machine, suggestion bar, toolbar"
+      "details": "Compose keyboard UI, theme system, key data model, 5-row QWERTY, touch handling, modifier state machine, suggestion bar, toolbar, IME integration via ComposeView"
     },
     {
       "name": "Macros, Ctrl Mode & Clipboard",

@@ -39,7 +39,7 @@
 
 ## Implementation Plan (5 Sessions)
 1. ~~Infrastructure & Project Scaffolding~~ — **DONE** (Session 5)
-2. Keyboard Layout & Rendering (Compose UI, touch, modifiers, theme)
+2. ~~Keyboard Layout & Rendering~~ — **DONE** (Session 7) — 13 Compose files + IME integration
 3. Macros, Ctrl Mode & Clipboard (record/replay, chips, grid, clipboard manager)
 4. AI Prediction, Command Mode & Voice (TF Lite, Whisper, command-aware)
 5. Settings, Export/Import, Polish & Testing (settings hub, performance, docs)

@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.sqlite.db.SupportSQLiteDatabase
 import dev.devkey.keyboard.data.db.dao.ClipboardHistoryDao
 import dev.devkey.keyboard.data.db.dao.CommandAppDao
 import dev.devkey.keyboard.data.db.dao.LearnedWordDao
@@ -14,6 +15,11 @@ import dev.devkey.keyboard.data.db.entity.CommandAppEntity
 import dev.devkey.keyboard.data.db.entity.LearnedWordEntity
 import dev.devkey.keyboard.data.db.entity.MacroEntity
 import dev.devkey.keyboard.data.db.entity.SettingsEntity
+import dev.devkey.keyboard.feature.macro.DefaultMacros
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 @Database(
     entities = [
@@ -51,7 +57,19 @@ abstract class DevKeyDatabase : RoomDatabase() {
                 context.applicationContext,
                 DevKeyDatabase::class.java,
                 DATABASE_NAME
-            ).build()
+            ).addCallback(object : RoomDatabase.Callback() {
+                override fun onCreate(db: SupportSQLiteDatabase) {
+                    super.onCreate(db)
+                    // Insert default macros on first database creation
+                    CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+                        val database = getInstance(context)
+                        val macroDao = database.macroDao()
+                        for (macro in DefaultMacros.getDefaults()) {
+                            macroDao.insert(macro)
+                        }
+                    }
+                }
+            }).build()
         }
     }
 }

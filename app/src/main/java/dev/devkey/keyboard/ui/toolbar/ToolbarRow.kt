@@ -1,6 +1,5 @@
 package dev.devkey.keyboard.ui.toolbar
 
-import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -12,11 +11,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.devkey.keyboard.ui.keyboard.KeyboardMode
@@ -26,8 +26,8 @@ import dev.devkey.keyboard.ui.theme.DevKeyTheme
  * Toolbar row displayed at the top of the keyboard.
  *
  * Contains icon buttons for clipboard, voice, symbols, macros, and overflow.
- * Clipboard, symbols, and macros buttons have real actions. Voice and overflow
- * show a "Coming soon" toast. The macros button supports long-press to open the grid.
+ * All buttons have real actions. The macros button supports long-press to open the grid.
+ * When command mode is active, a "CMD" badge is shown.
  *
  * @param onClipboard Callback for clipboard button.
  * @param onVoice Callback for voice button.
@@ -36,6 +36,8 @@ import dev.devkey.keyboard.ui.theme.DevKeyTheme
  * @param onMacrosLongPress Callback for macros button (long-press).
  * @param onOverflow Callback for overflow button.
  * @param activeMode The current keyboard mode for visual active state.
+ * @param isCommandMode Whether command mode is currently active.
+ * @param onCommandModeToggle Callback to toggle command mode manually.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -46,10 +48,10 @@ fun ToolbarRow(
     onMacros: () -> Unit,
     onMacrosLongPress: () -> Unit = {},
     onOverflow: () -> Unit,
-    activeMode: KeyboardMode = KeyboardMode.Normal
+    activeMode: KeyboardMode = KeyboardMode.Normal,
+    isCommandMode: Boolean = false,
+    onCommandModeToggle: () -> Unit = {}
 ) {
-    val context = LocalContext.current
-
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
@@ -66,11 +68,8 @@ fun ToolbarRow(
             )
             ToolbarButton(
                 label = "\uD83C\uDFA4", // microphone emoji
-                isActive = false,
-                onClick = {
-                    onVoice()
-                    Toast.makeText(context, "Coming soon", Toast.LENGTH_SHORT).show()
-                }
+                isActive = activeMode is KeyboardMode.Voice,
+                onClick = { onVoice() }
             )
             ToolbarButton(
                 label = "123",
@@ -96,14 +95,44 @@ fun ToolbarRow(
                     fontSize = 16.sp
                 )
             }
-            ToolbarButton(
-                label = "\u00B7\u00B7\u00B7", // middle dots (···)
-                isActive = false,
-                onClick = {
-                    onOverflow()
-                    Toast.makeText(context, "Coming soon", Toast.LENGTH_SHORT).show()
+            // Overflow button — toggles command mode for now (proper menu in Session 5)
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .clickable {
+                        onCommandModeToggle()
+                        onOverflow()
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "\u00B7\u00B7\u00B7", // middle dots (···)
+                        color = DevKeyTheme.iconColor,
+                        fontSize = 16.sp
+                    )
+                    // CMD badge — shown when command mode is active
+                    if (isCommandMode) {
+                        Box(
+                            modifier = Modifier
+                                .padding(start = 4.dp)
+                                .height(DevKeyTheme.cmdBadgeHeight)
+                                .background(
+                                    color = DevKeyTheme.cmdBadgeBg,
+                                    shape = RoundedCornerShape(4.dp)
+                                )
+                                .padding(horizontal = DevKeyTheme.cmdBadgePadding),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "CMD",
+                                color = DevKeyTheme.cmdBadgeText,
+                                fontSize = DevKeyTheme.cmdBadgeTextSize
+                            )
+                        }
+                    }
                 }
-            )
+            }
         }
 
         // 1px bottom border divider

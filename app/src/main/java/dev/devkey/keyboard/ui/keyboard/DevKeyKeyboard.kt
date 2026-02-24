@@ -20,10 +20,18 @@ import dev.devkey.keyboard.core.ModifierKeyState
 import dev.devkey.keyboard.core.ModifierStateManager
 import dev.devkey.keyboard.data.db.DevKeyDatabase
 import dev.devkey.keyboard.feature.clipboard.ClipboardRepository
+import dev.devkey.keyboard.feature.command.CommandModeDetector
+import dev.devkey.keyboard.feature.command.CommandModeRepository
+import dev.devkey.keyboard.feature.command.InputMode
 import dev.devkey.keyboard.feature.macro.MacroEngine
 import dev.devkey.keyboard.feature.macro.MacroRepository
 import dev.devkey.keyboard.feature.macro.MacroSerializer
 import dev.devkey.keyboard.feature.macro.MacroStep
+import dev.devkey.keyboard.feature.prediction.AutocorrectEngine
+import dev.devkey.keyboard.feature.prediction.DictionaryProvider
+import dev.devkey.keyboard.feature.prediction.LearningEngine
+import dev.devkey.keyboard.feature.prediction.PredictionEngine
+import dev.devkey.keyboard.feature.voice.VoiceInputEngine
 import dev.devkey.keyboard.ui.clipboard.ClipboardPanel
 import dev.devkey.keyboard.ui.macro.MacroChipStrip
 import dev.devkey.keyboard.ui.macro.MacroGridPanel
@@ -31,6 +39,7 @@ import dev.devkey.keyboard.ui.macro.MacroNameDialog
 import dev.devkey.keyboard.ui.macro.MacroRecordingBar
 import dev.devkey.keyboard.ui.suggestion.SuggestionBar
 import dev.devkey.keyboard.ui.toolbar.ToolbarRow
+import dev.devkey.keyboard.ui.voice.VoiceInputPanel
 import kotlinx.coroutines.launch
 
 /**
@@ -39,7 +48,7 @@ import kotlinx.coroutines.launch
  * Assembles the toolbar, suggestion bar / dynamic middle area, and keyboard view
  * into a single keyboard UI, wired to the legacy IME action listener.
  * Supports multiple modes: Normal, MacroChips, MacroGrid, MacroRecording,
- * Clipboard, and Symbols.
+ * Clipboard, Symbols, and Voice.
  *
  * @param actionListener The IME action listener to bridge key events to.
  */
@@ -56,14 +65,42 @@ fun DevKeyKeyboard(actionListener: LatinKeyboardBaseView.OnKeyboardActionListene
     val clipboardRepo = remember { ClipboardRepository(database.clipboardHistoryDao()) }
     val macroEngine = remember { MacroEngine() }
 
+    // Session 4: Prediction & command mode dependencies
+    val commandModeRepo = remember { CommandModeRepository(database.commandAppDao()) }
+    val commandModeDetector = remember { CommandModeDetector(commandModeRepo) }
+    val learningEngine = remember { LearningEngine(database.learnedWordDao()) }
+    val dictionaryProvider = remember {
+        val deps = SessionDependencies
+        DictionaryProvider(deps.suggest)
+    }
+    val autocorrectEngine = remember { AutocorrectEngine(dictionaryProvider) }
+    val predictionEngine = remember { PredictionEngine(dictionaryProvider, autocorrectEngine, learningEngine) }
+    val voiceInputEngine = remember { VoiceInputEngine(context) }
+
     // State
     var keyboardMode by remember { mutableStateOf<KeyboardMode>(KeyboardMode.Normal) }
     val ctrlState by modifierState.ctrlState.collectAsState()
     val macros by macroRepo.getAllMacros().collectAsState(initial = emptyList())
     val clipboardEntries by clipboardRepo.getAll().collectAsState(initial = emptyList())
 
+    // Session 4: Observe command mode and voice state
+    val inputMode by commandModeDetector.inputMode.collectAsState()
+    val voiceState by voiceInputEngine.state.collectAsState()
+    val voiceAmplitude by voiceInputEngine.amplitude.collectAsState()
+
     var isSuggestionCollapsed by remember { mutableStateOf(false) }
-    val defaultSuggestions = remember { listOf("the", "I", "and") }
+
+    // Session 4: Track current typed word for predictions
+    var currentWord by remember { mutableStateOf("") }
+    val predictions = remember(currentWord, inputMode) {
+        predictionEngine.inputMode = inputMode
+        if (currentWord.isNotEmpty()) {
+            predictionEngine.predict(currentWord, inputMode == InputMode.COMMAND)
+        } else {
+            emptyList()
+        }
+    }
+    val suggestionStrings = predictions.map { it.word }
 
     // Macro recording state
     var macroNameDialogVisible by remember { mutableStateOf(false) }
@@ -87,12 +124,22 @@ fun DevKeyKeyboard(actionListener: LatinKeyboardBaseView.OnKeyboardActionListene
         if (keyboardMode !is KeyboardMode.MacroRecording) {
             ToolbarRow(
                 onClipboard = { toggleMode(KeyboardMode.Clipboard) },
-                onVoice = { /* Session 4 */ },
+                onVoice = {
+                    if (keyboardMode == KeyboardMode.Voice) {
+                        voiceInputEngine.cancelListening()
+                        keyboardMode = KeyboardMode.Normal
+                    } else {
+                        keyboardMode = KeyboardMode.Voice
+                        coroutineScope.launch { voiceInputEngine.startListening() }
+                    }
+                },
                 onSymbols = { toggleMode(KeyboardMode.Symbols) },
                 onMacros = { toggleMode(KeyboardMode.MacroChips) },
                 onMacrosLongPress = { toggleMode(KeyboardMode.MacroGrid) },
                 onOverflow = { /* Session 5 */ },
-                activeMode = keyboardMode
+                activeMode = keyboardMode,
+                isCommandMode = inputMode == InputMode.COMMAND,
+                onCommandModeToggle = { commandModeDetector.toggleManualOverride() }
             )
         }
 
@@ -100,7 +147,7 @@ fun DevKeyKeyboard(actionListener: LatinKeyboardBaseView.OnKeyboardActionListene
         when (keyboardMode) {
             KeyboardMode.Normal -> {
                 SuggestionBar(
-                    suggestions = defaultSuggestions,
+                    suggestions = suggestionStrings,
                     onSuggestionClick = { suggestion -> bridge.onText(suggestion + " ") },
                     onCollapseToggle = { isSuggestionCollapsed = !isSuggestionCollapsed },
                     isCollapsed = isSuggestionCollapsed
@@ -119,7 +166,7 @@ fun DevKeyKeyboard(actionListener: LatinKeyboardBaseView.OnKeyboardActionListene
             }
             KeyboardMode.MacroGrid -> {
                 SuggestionBar(
-                    suggestions = defaultSuggestions,
+                    suggestions = suggestionStrings,
                     onSuggestionClick = { suggestion -> bridge.onText(suggestion + " ") },
                     onCollapseToggle = { isSuggestionCollapsed = !isSuggestionCollapsed },
                     isCollapsed = isSuggestionCollapsed
@@ -154,7 +201,7 @@ fun DevKeyKeyboard(actionListener: LatinKeyboardBaseView.OnKeyboardActionListene
             }
             KeyboardMode.Clipboard -> {
                 SuggestionBar(
-                    suggestions = defaultSuggestions,
+                    suggestions = suggestionStrings,
                     onSuggestionClick = { suggestion -> bridge.onText(suggestion + " ") },
                     onCollapseToggle = { isSuggestionCollapsed = !isSuggestionCollapsed },
                     isCollapsed = isSuggestionCollapsed
@@ -174,6 +221,25 @@ fun DevKeyKeyboard(actionListener: LatinKeyboardBaseView.OnKeyboardActionListene
             KeyboardMode.Symbols -> {
                 // No suggestion bar for symbols layout
             }
+            KeyboardMode.Voice -> {
+                VoiceInputPanel(
+                    voiceState = voiceState,
+                    amplitude = voiceAmplitude,
+                    onStop = {
+                        coroutineScope.launch {
+                            val transcription = voiceInputEngine.stopListening()
+                            if (transcription.isNotEmpty()) {
+                                bridge.onText(transcription)
+                            }
+                            keyboardMode = KeyboardMode.Normal
+                        }
+                    },
+                    onCancel = {
+                        voiceInputEngine.cancelListening()
+                        keyboardMode = KeyboardMode.Normal
+                    }
+                )
+            }
         }
 
         // 3. Ctrl Mode banner (independent of KeyboardMode)
@@ -185,34 +251,55 @@ fun DevKeyKeyboard(actionListener: LatinKeyboardBaseView.OnKeyboardActionListene
             CtrlModeBanner()
         }
 
-        // 4. Keyboard
-        KeyboardView(
-            layout = if (keyboardMode is KeyboardMode.Symbols) SymbolsLayout.layout else QwertyLayout.layout,
-            modifierState = modifierState,
-            ctrlHeld = ctrlState == ModifierKeyState.HELD,
-            onKeyAction = { code ->
-                // Capture for macro recording
-                if (macroEngine.isRecording) {
-                    val modifiers = buildList {
-                        if (modifierState.isCtrlActive()) add("ctrl")
-                        if (modifierState.isAltActive()) add("alt")
-                        if (modifierState.isShiftActive()) add("shift")
+        // 4. Keyboard (hidden during voice input)
+        if (keyboardMode !is KeyboardMode.Voice) {
+            KeyboardView(
+                layout = if (keyboardMode is KeyboardMode.Symbols) SymbolsLayout.layout else QwertyLayout.layout,
+                modifierState = modifierState,
+                ctrlHeld = ctrlState == ModifierKeyState.HELD,
+                onKeyAction = { code ->
+                    // Capture for macro recording
+                    if (macroEngine.isRecording) {
+                        val modifiers = buildList {
+                            if (modifierState.isCtrlActive()) add("ctrl")
+                            if (modifierState.isAltActive()) add("alt")
+                            if (modifierState.isShiftActive()) add("shift")
+                        }
+                        val key = if (code in 32..126) code.toChar().toString() else ""
+                        if (key.isNotEmpty()) {
+                            macroEngine.captureKey(key, code, modifiers)
+                        }
                     }
-                    val key = if (code in 32..126) code.toChar().toString() else ""
-                    if (key.isNotEmpty()) {
-                        macroEngine.captureKey(key, code, modifiers)
+                    // Handle ABC key from symbols layout
+                    if (code == SymbolsLayout.KEYCODE_ALPHA) {
+                        keyboardMode = KeyboardMode.Normal
+                    } else {
+                        bridge.onKey(code, modifierState)
                     }
-                }
-                // Handle ABC key from symbols layout
-                if (code == SymbolsLayout.KEYCODE_ALPHA) {
-                    keyboardMode = KeyboardMode.Normal
-                } else {
-                    bridge.onKey(code, modifierState)
-                }
-            },
-            onKeyPress = { code -> bridge.onKeyPress(code) },
-            onKeyRelease = { code -> bridge.onKeyRelease(code) }
-        )
+
+                    // Track current word for predictions
+                    if (code == ' '.code || code == '.'.code || code == '\n'.code) {
+                        // Word committed — learn it
+                        if (currentWord.isNotEmpty()) {
+                            coroutineScope.launch {
+                                learningEngine.onWordCommitted(
+                                    currentWord,
+                                    isCommand = inputMode == InputMode.COMMAND,
+                                    contextApp = SessionDependencies.currentPackageName
+                                )
+                            }
+                            currentWord = ""
+                        }
+                    } else if (code == -5) { // KEYCODE_DELETE
+                        currentWord = currentWord.dropLast(1)
+                    } else if (code in 32..126) {
+                        currentWord += code.toChar()
+                    }
+                },
+                onKeyPress = { code -> bridge.onKeyPress(code) },
+                onKeyRelease = { code -> bridge.onKeyRelease(code) }
+            )
+        }
     }
 
     // Macro naming dialog

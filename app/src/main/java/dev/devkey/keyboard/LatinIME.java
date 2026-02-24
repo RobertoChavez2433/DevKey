@@ -71,7 +71,10 @@ import android.widget.Toast;
 import dev.devkey.keyboard.data.db.DevKeyDatabase;
 import dev.devkey.keyboard.feature.clipboard.ClipboardRepository;
 import dev.devkey.keyboard.feature.clipboard.DevKeyClipboardManager;
+import dev.devkey.keyboard.feature.command.CommandModeDetector;
+import dev.devkey.keyboard.feature.command.CommandModeRepository;
 import dev.devkey.keyboard.ui.keyboard.ComposeKeyboardViewFactory;
+import dev.devkey.keyboard.ui.keyboard.SessionDependencies;
 
 import java.io.FileDescriptor;
 import java.io.IOException;
@@ -166,6 +169,7 @@ public class LatinIME extends InputMethodService implements
     private AlertDialog mOptionsDialog;
 
     private DevKeyClipboardManager clipboardManager;
+    private CommandModeDetector commandModeDetector;
 
     /* package */KeyboardSwitcher mKeyboardSwitcher;
 
@@ -373,6 +377,13 @@ public class LatinIME extends InputMethodService implements
         );
         clipboardManager = new DevKeyClipboardManager(this, clipboardRepo);
         clipboardManager.startListening();
+
+        // Session 4: Initialize command mode detection
+        CommandModeRepository cmdRepo = new CommandModeRepository(
+            DevKeyDatabase.Companion.getInstance(this).commandAppDao()
+        );
+        commandModeDetector = new CommandModeDetector(cmdRepo);
+        SessionDependencies.INSTANCE.setCommandModeDetector(commandModeDetector);
 
         // setStatusIcon(R.drawable.ime_qwerty);
         mResources = getResources();
@@ -648,6 +659,7 @@ public class LatinIME extends InputMethodService implements
         mSuggest.setUserDictionary(mUserDictionary);
         //mSuggest.setContactsDictionary(mContactsDictionary);
         mSuggest.setAutoDictionary(mAutoDictionary);
+        SessionDependencies.INSTANCE.setSuggest(mSuggest);
         updateCorrectionMode();
         mWordSeparators = mResources.getString(R.string.word_separators);
         mSentenceSeparators = mResources
@@ -816,7 +828,20 @@ public class LatinIME extends InputMethodService implements
         if (mVoiceRecognitionTrigger != null) {
             mVoiceRecognitionTrigger.onStartInputView();
         }
-        
+
+        // Session 4: Detect command mode for the current app
+        SessionDependencies.INSTANCE.setCurrentPackageName(attribute.packageName);
+        if (commandModeDetector != null) {
+            final String packageName = attribute.packageName;
+            new Thread(() -> {
+                try {
+                    commandModeDetector.detectSync(packageName);
+                } catch (Exception e) {
+                    Log.w(TAG, "Command mode detection failed", e);
+                }
+            }).start();
+        }
+
         mInputTypeNoAutoCorrect = false;
         mPredictionOnForMode = false;
         mCompletionOn = false;

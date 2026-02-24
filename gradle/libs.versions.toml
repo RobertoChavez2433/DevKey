@@ -11,6 +11,7 @@ activity-compose = "1.9.0"
 appcompat = "1.7.0"
 core-ktx = "1.13.1"
 tflite = "2.16.1"
+tflite-support = "0.4.4"
 junit5 = "5.10.3"
 junit = "4.13.2"
 espresso = "3.6.1"
@@ -45,7 +46,7 @@ kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-
 
 # TensorFlow Lite (placeholder)
 tflite = { group = "org.tensorflow", name = "tensorflow-lite", version.ref = "tflite" }
-tflite-support = { group = "org.tensorflow", name = "tensorflow-lite-support", version.ref = "tflite" }
+tflite-support = { group = "org.tensorflow", name = "tensorflow-lite-support", version.ref = "tflite-support" }
 
 # Testing
 junit = { group = "junit", name = "junit", version.ref = "junit" }

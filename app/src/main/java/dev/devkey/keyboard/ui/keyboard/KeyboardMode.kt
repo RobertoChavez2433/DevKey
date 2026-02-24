@@ -24,4 +24,7 @@ sealed class KeyboardMode {
 
     /** Symbols keyboard layout replaces QWERTY. */
     object Symbols : KeyboardMode()
+
+    /** Voice input mode — keyboard replaced with voice recording UI. */
+    object Voice : KeyboardMode()
 }

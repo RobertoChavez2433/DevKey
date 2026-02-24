@@ -88,4 +88,28 @@ object DevKeyTheme {
     val macroChipTextSize: TextUnit = 12.sp
     val clipboardPreviewTextSize: TextUnit = 13.sp
     val clipboardTimestampSize: TextUnit = 11.sp
+
+    // ── Session 4: Voice colors ──
+    val voicePanelBg = Color(0xFF1E1E2E)
+    val voiceMicActive = Color(0xFF4CAF50)
+    val voiceMicInactive = Color(0xFF666666)
+    val voiceWaveform = Color(0xFF4CAF50)
+    val voiceStatusText = Color(0xFFCCCCCC)
+
+    // ── Session 4: Command mode colors ──
+    val cmdBadgeBg = Color(0xFF3A3A2A)
+    val cmdBadgeText = Color(0xFFFFB300)
+
+    // ── Session 4: Autocorrect colors ──
+    val autocorrectBold = Color(0xFFFFFFFF)
+
+    // ── Session 4 Dimensions ──
+    val voicePanelHeight: Dp = 200.dp
+    val voiceMicSize: Dp = 64.dp
+    val cmdBadgeHeight: Dp = 20.dp
+    val cmdBadgePadding: Dp = 4.dp
+
+    // ── Session 4 Typography ──
+    val voiceStatusSize: TextUnit = 16.sp
+    val cmdBadgeTextSize: TextUnit = 10.sp
 }

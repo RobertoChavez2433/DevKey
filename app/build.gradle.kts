@@ -54,6 +54,10 @@ android {
         compose = true
     }
 
+    aaptOptions {
+        noCompress += "tflite"
+    }
+
     lint {
         checkReleaseBuilds = false
     }
@@ -89,9 +93,9 @@ dependencies {
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.coroutines.android)
 
-    // TensorFlow Lite (placeholder — not wired yet)
-    // implementation(libs.tflite)
-    // implementation(libs.tflite.support)
+    // TensorFlow Lite
+    implementation(libs.tflite)
+    implementation(libs.tflite.support)
 
     // Testing
     testImplementation(libs.junit)

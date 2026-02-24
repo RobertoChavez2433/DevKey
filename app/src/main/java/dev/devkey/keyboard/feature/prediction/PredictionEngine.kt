@@ -1,7 +1,6 @@
 package dev.devkey.keyboard.feature.prediction
 
 import dev.devkey.keyboard.feature.command.InputMode
-import kotlinx.coroutines.runBlocking
 
 /**
  * Orchestrates word predictions by combining dictionary completions,
@@ -27,15 +26,13 @@ class PredictionEngine(
      * @param isCommand Whether command mode is active.
      * @return Up to 3 prediction results, with autocorrect suggestion first if applicable.
      */
-    fun predict(currentWord: String, isCommand: Boolean = false): List<PredictionResult> {
+    suspend fun predict(currentWord: String, isCommand: Boolean = false): List<PredictionResult> {
         if (currentWord.isEmpty()) return emptyList()
 
         // Command mode: return command-specific suggestions
         if (inputMode == InputMode.COMMAND || isCommand) {
             return try {
-                val commandSuggestions = runBlocking {
-                    learningEngine.getCommandSuggestions(currentWord)
-                }
+                val commandSuggestions = learningEngine.getCommandSuggestions(currentWord)
                 commandSuggestions.map { PredictionResult(word = it, isAutocorrect = false) }
             } catch (e: Exception) {
                 emptyList()

@@ -3,6 +3,7 @@ package dev.devkey.keyboard.feature.prediction
 import dev.devkey.keyboard.data.db.dao.LearnedWordDao
 import dev.devkey.keyboard.data.db.entity.LearnedWordEntity
 import kotlinx.coroutines.flow.first
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Tracks words the user has committed, enabling personalized predictions
@@ -14,8 +15,8 @@ import kotlinx.coroutines.flow.first
  */
 class LearningEngine(private val dao: LearnedWordDao) {
 
-    /** In-memory cache of learned words for fast lookup. */
-    private val learnedWordsCache = mutableSetOf<String>()
+    /** In-memory cache of learned words for fast lookup (thread-safe). */
+    private val learnedWordsCache: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
     /** Whether initialize() has been called. */
     private var initialized = false

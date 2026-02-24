@@ -260,11 +260,11 @@ class VoiceInputEngine(private val context: Context) {
                 // Run inference
                 // Output shape depends on the model — typically token IDs
                 val outputTokens = IntArray(256) // Max output length
-                val inputBuffer = arrayOf(input)
+                val inputBuffer = arrayOf<Any>(input)
                 val outputBuffer = HashMap<Int, Any>()
                 outputBuffer[0] = outputTokens
 
-                interp.runForMultipleInputsOutputs(arrayOf(inputBuffer), outputBuffer)
+                interp.runForMultipleInputsOutputs(inputBuffer, outputBuffer)
 
                 val transcription = processor.decodeTokens(outputTokens)
 

@@ -20,7 +20,8 @@ class DevKeyClipboardManager(
     private val context: Context,
     private val repository: ClipboardRepository
 ) {
-    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val job = SupervisorJob()
+    private val scope = CoroutineScope(Dispatchers.IO + job)
 
     private val systemClipboardManager: ClipboardManager =
         context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
@@ -56,5 +57,14 @@ class DevKeyClipboardManager(
      */
     fun pasteEntry(content: String, bridge: KeyboardActionBridge) {
         bridge.onText(content)
+    }
+
+    /**
+     * Releases all resources and cancels the coroutine scope.
+     * Call this when the clipboard manager is no longer needed.
+     */
+    fun destroy() {
+        stopListening()
+        job.cancel()
     }
 }

@@ -31,7 +31,6 @@ import dev.devkey.keyboard.core.ModifierKeyState
 import dev.devkey.keyboard.core.ModifierStateManager
 import dev.devkey.keyboard.core.ModifierType
 import dev.devkey.keyboard.ui.theme.DevKeyTheme
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -129,9 +128,6 @@ fun KeyView(
         else -> key.primaryLabel
     }
 
-    // Track repeat job for repeatable keys
-    var repeatJob by remember { mutableStateOf<Job?>(null) }
-
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(DevKeyTheme.keyCornerRadius))
@@ -177,11 +173,9 @@ fun KeyView(
                                     }
                                 }
                             }
-                            repeatJob = job
 
                             val released = tryAwaitRelease()
                             job.cancel()
-                            repeatJob = null
                             isPressed = false
 
                             if (released && !job.isCompleted) {

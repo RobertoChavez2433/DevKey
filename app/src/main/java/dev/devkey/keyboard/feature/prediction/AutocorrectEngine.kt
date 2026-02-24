@@ -36,7 +36,9 @@ class AutocorrectEngine(private val dictionaryProvider: DictionaryProvider) {
         if (typed.isEmpty()) return AutocorrectResult.None
 
         // User has typed this word before — don't correct it
-        if (typed.lowercase() in learnedWords.map { it.lowercase() }.toSet()) {
+        val typedLower = typed.lowercase()
+        val learnedWordsLower = learnedWords.mapTo(HashSet(learnedWords.size)) { it.lowercase() }
+        if (typedLower in learnedWordsLower) {
             return AutocorrectResult.None
         }
 

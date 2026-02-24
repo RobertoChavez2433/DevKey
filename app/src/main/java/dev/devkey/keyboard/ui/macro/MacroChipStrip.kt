@@ -17,7 +17,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.unit.dp
 import dev.devkey.keyboard.data.db.entity.MacroEntity
 import dev.devkey.keyboard.ui.theme.DevKeyTheme
@@ -70,7 +69,7 @@ fun MacroChipStrip(
                 .fillMaxHeight()
                 .padding(end = 8.dp)
         ) {
-            items(macros) { macro ->
+            items(macros, key = { it.id }) { macro ->
                 MacroChip(
                     macro = macro,
                     onClick = { onMacroClick(macro) }

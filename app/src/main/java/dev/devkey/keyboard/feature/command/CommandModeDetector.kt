@@ -32,7 +32,7 @@ class CommandModeDetector(private val repository: CommandModeRepository) {
 
     companion object {
         /** Known terminal emulator packages for auto-detection. */
-        private val TERMINAL_PACKAGES = setOf(
+        val TERMINAL_PACKAGES = setOf(
             "com.termux",
             "org.connectbot",
             "com.sonelli.juicessh",

@@ -14,7 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
@@ -116,7 +116,7 @@ fun MacroRecordingBar(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                items(capturedSteps) { step ->
+                itemsIndexed(capturedSteps, key = { index, _ -> index }) { index, step ->
                     val stepText = buildString {
                         for (mod in step.modifiers) {
                             append(mod.replaceFirstChar { it.uppercase() })
@@ -129,7 +129,7 @@ fun MacroRecordingBar(
                         color = DevKeyTheme.keyText,
                         fontSize = 11.sp
                     )
-                    if (step != capturedSteps.last()) {
+                    if (capturedSteps.isNotEmpty() && step != capturedSteps.lastOrNull()) {
                         Text(
                             text = "\u2192", // →
                             color = DevKeyTheme.timestampText,

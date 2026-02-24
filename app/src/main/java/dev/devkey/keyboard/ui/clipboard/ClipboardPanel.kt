@@ -113,7 +113,7 @@ fun ClipboardPanel(
                     .weight(1f, fill = false)
             ) {
                 // Pinned entries first
-                items(pinnedEntries) { entry ->
+                items(pinnedEntries, key = { it.id }) { entry ->
                     ClipboardEntry(
                         entry = entry,
                         onPaste = onPaste,
@@ -123,7 +123,7 @@ fun ClipboardPanel(
                     )
                 }
                 // Unpinned entries
-                items(unpinnedEntries) { entry ->
+                items(unpinnedEntries, key = { it.id }) { entry ->
                     ClipboardEntry(
                         entry = entry,
                         onPaste = onPaste,

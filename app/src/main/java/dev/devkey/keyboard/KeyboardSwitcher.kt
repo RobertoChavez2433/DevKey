@@ -577,9 +577,11 @@ class KeyboardSwitcher private constructor() :
                 }
                 i++
             }
-            mInputView!!.setExtensionLayoutResId(THEMES[newLayout])
-            mInputView!!.setOnKeyboardActionListener(mInputMethodService)
-            mInputView!!.setPadding(0, 0, 0, 0)
+            // Guard: mInputView may be null if inflate failed or Compose keyboard is active
+            val inputView = mInputView ?: return
+            inputView.setExtensionLayoutResId(THEMES[newLayout])
+            inputView.setOnKeyboardActionListener(mInputMethodService)
+            inputView.setPadding(0, 0, 0, 0)
             mLayoutId = newLayout
         }
         mInputMethodService!!.mHandler.post {
@@ -602,7 +604,7 @@ class KeyboardSwitcher private constructor() :
 
     fun onAutoCompletionStateChanged(isAutoCompletion: Boolean) {
         if (isAutoCompletion != mIsAutoCompletionActive) {
-            val keyboardView = getInputView()!!
+            val keyboardView = getInputView() ?: return
             mIsAutoCompletionActive = isAutoCompletion
             keyboardView.invalidateKey(
                 (keyboardView.keyboard as LatinKeyboard)

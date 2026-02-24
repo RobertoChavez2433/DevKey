@@ -68,6 +68,8 @@ import android.view.inputmethod.InputMethodManager;
 import android.widget.LinearLayout;
 import android.widget.Toast;
 
+import dev.devkey.keyboard.ui.keyboard.ComposeKeyboardViewFactory;
+
 import java.io.FileDescriptor;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -697,11 +699,7 @@ public class LatinIME extends InputMethodService implements
     @Override
     public View onCreateInputView() {
         setCandidatesViewShown(false);  // Workaround for "already has a parent" when reconfiguring
-        mKeyboardSwitcher.recreateInputView();
-        mKeyboardSwitcher.makeKeyboards(true);
-        mKeyboardSwitcher.setKeyboardMode(KeyboardSwitcher.MODE_TEXT, 0,
-                shouldShowVoiceButton(getCurrentInputEditorInfo()));
-        return mKeyboardSwitcher.getInputView();
+        return ComposeKeyboardViewFactory.create(this, this);
     }
 
     @Override

@@ -56,7 +56,7 @@ android {
         compose = true
     }
 
-    aaptOptions {
+    androidResources {
         noCompress += "tflite"
     }
 
@@ -105,4 +105,6 @@ dependencies {
 
     // Testing
     testImplementation(libs.junit)
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
+    testImplementation("org.json:json:20231013")
 }

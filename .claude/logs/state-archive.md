@@ -40,3 +40,23 @@ Archived session entries from `_state.md` rotation.
 **Work**: Implemented Session 2 (Keyboard Layout & Rendering) via /implement orchestrator. 7 phases, 13 new Compose files, 2 modified files. All quality gates passed. Committed.
 **Decisions**: Keycodes duplicated as private consts (Java package-private), detectTapGestures for long-press/repeat, ComposeKeyboardViewFactory for IME lifecycle, phases 2 & 4 parallel.
 **Next**: Test on device, begin Session 3 (Macros, Ctrl Mode & Clipboard).
+
+### Session 8 (2026-02-23)
+**Work**: Brainstormed Session 3 (Macros, Ctrl Mode, Clipboard & Symbols). 8 design sections approved. Wrote design doc and 9-phase implementation plan. Committed.
+**Decisions**: KeyboardMode sealed class, logical combo macro capture, both chips+grid, in-place Ctrl transform, defer clipboard encryption, include symbols layer.
+**Next**: Run /implement on session3-implementation-plan.md, test on device.
+
+### Session 9 (2026-02-23)
+**Work**: Confirmed Session 3 fully implemented. Brainstormed Session 4 (Voice, Command Mode, Autocorrect). Researched TF Lite models — GPT-2 too large/slow for keyboard, pivoted to dictionary-based prediction. 5 design sections approved. Wrote design doc and 8-phase implementation plan. Committed both.
+**Decisions**: No TF Lite for prediction (user doesn't use next-word), Whisper tiny.en bundled in APK, dictionary + edit-distance autocorrect (mild default), auto-detect terminals + manual toggle, SessionDependencies singleton for Java-Compose bridge.
+**Next**: Run /implement on session4-implementation-plan.md, procure Whisper model files, test on device.
+
+### Session 10 (2026-02-23)
+**Work**: Implemented Session 4 via /implement orchestrator — single cycle, 0 handoffs. 13 new files + 8 modified. Dictionary prediction, autocorrect, command mode detection, Whisper voice infrastructure, Compose voice UI, IME integration via SessionDependencies.
+**Decisions**: tflite-support 0.4.4 (not 2.16.1), Whisper graceful degradation, SessionDependencies singleton bridge.
+**Next**: Procure Whisper model files, brainstorm Session 5, test on device.
+
+### Session 11 (2026-02-24)
+**Work**: Brainstormed Session 5 (Settings, Export/Import, Polish & Testing). 6 design sections approved. Wrote design doc and 9-phase implementation plan (14 new files, ~9 modified). Committed both.
+**Decisions**: Full Compose settings replacement, SharedPreferences only (drop Room SettingsEntity), flat list navigation, keep most legacy prefs, user-data-only export via kotlinx.serialization, compact mode Esc/Tab on Shift/Backspace long-press, unit tests for new code only.
+**Next**: Run /implement on session5-implementation-plan.md, procure Whisper model files, test on device.

@@ -1,7 +1,7 @@
 {
   "project": {
     "name": "DevKey",
-    "description": "Open-source Android keyboard combining Hacker's Keyboard power-user features with modern SwiftKey-inspired UX, AI prediction, and command-aware autocorrect",
+    "description": "Open-source Android keyboard combining power-user features with modern UX, AI prediction, and command-aware autocorrect",
     "base_fork": "https://github.com/klausw/hackerskeyboard",
     "package_name": "dev.devkey.keyboard",
     "license": "Apache-2.0"
@@ -16,10 +16,10 @@
     "compile_sdk": 34
   },
   "current_phase": {
-    "name": "Session 5 Implemented — v1 Feature-Complete",
-    "status": "implemented",
-    "progress_percent": 100,
-    "details": "All 5 implementation sessions complete. Code review + cleanup done. Build passing, 28 tests passing."
+    "name": "Testing & Bug Fixing — Emulator Audit Complete",
+    "status": "in_progress",
+    "progress_percent": 60,
+    "details": "Keyboard layout fix implemented. Full emulator audit completed: 8 bugs found. 7-phase fix plan created with adversarial review. 243 tests passing."
   },
   "phases": [
     {"name": "Research & Brainstorming", "status": "complete", "progress_percent": 100},
@@ -28,14 +28,18 @@
     {"name": "Session 2: Keyboard Layout & Rendering", "status": "complete", "progress_percent": 100},
     {"name": "Session 3: Macros, Ctrl Mode & Clipboard", "status": "complete", "progress_percent": 100},
     {"name": "Session 4: Voice-to-Text, Command Mode & Autocorrect", "status": "complete", "progress_percent": 100},
-    {"name": "Session 5: Settings, Export/Import, Polish & Testing", "status": "complete", "progress_percent": 100}
+    {"name": "Session 5: Settings, Export/Import, Polish & Testing", "status": "complete", "progress_percent": 100},
+    {"name": "Testing & Bug Fixing", "status": "in_progress", "progress_percent": 60}
   ],
   "active_blockers": [
-    "Whisper model files (whisper-tiny.en.tflite + filters_vocab_en.bin) need to be downloaded from GitHub repos"
+    "Whisper model files (whisper-tiny.en.tflite + filters_vocab_en.bin) need to be downloaded",
+    "Emulator requires show_ime_with_hard_keyboard=1",
+    "BUG-02 (123 button) needs logcat diagnosis before fix — wiring looks correct on paper",
+    "Sessions 13, 15, 16 changes still uncommitted"
   ],
   "metadata": {
-    "session_count": 12,
-    "last_updated": "2026-02-24",
-    "session_notes": "Session 12: Implemented Session 5 (all 9 phases). Ran 3-agent code review + fixers + Round 2 review + manual fixes. Deleted dead files, updated branding to DevKey, wrote ProGuard rules, enabled resource shrinking and lint. Build passing, 28 unit tests passing. v1 feature-complete."
+    "session_count": 16,
+    "last_updated": "2026-03-01",
+    "session_notes": "Session 16: Implemented keyboard layout fix plan. Set up VS Code F5 build/deploy. Full emulator audit (8 bugs). Created 7-phase fix plan with adversarial review (11 corrections). All HK references to be removed."
   }
 }

@@ -20,7 +20,7 @@ import java.util.Locale;
 
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.Editor;
-import android.preference.PreferenceManager;
+import androidx.preference.PreferenceManager;
 import android.text.TextUtils;
 import android.util.Log;
 
@@ -30,7 +30,7 @@ import android.util.Log;
  */
 public class LanguageSwitcher {
 
-    private static final String TAG = "HK/LanguageSwitcher";
+    private static final String TAG = "DevKey/LanguageSwitcher";
     private Locale[] mLocales;
     private LatinIME mIme;
     private String[] mSelectedLanguageArray;

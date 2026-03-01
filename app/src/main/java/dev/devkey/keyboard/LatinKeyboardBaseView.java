@@ -31,7 +31,6 @@ import android.graphics.PorterDuffColorFilter;
 import android.graphics.Paint.Align;
 import android.graphics.PorterDuff;
 import android.graphics.Rect;
-import android.graphics.Region.Op;
 import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.StateListDrawable;
@@ -52,6 +51,8 @@ import android.view.View;
 import android.view.ViewGroup.LayoutParams;
 import android.widget.PopupWindow;
 import android.widget.TextView;
+
+import androidx.core.content.ContextCompat;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -80,7 +81,7 @@ import java.util.WeakHashMap;
  * @attr ref R.styleable#LatinKeyboardBaseView_popupLayout
  */
 public class LatinKeyboardBaseView extends View implements PointerTracker.UIProxy {
-    private static final String TAG = "HK/LatinKbdBaseView";
+    private static final String TAG = "DevKey/LatinKbdBaseView";
     private static final boolean DEBUG = false;
 
     public static final int NOT_A_TOUCH_COORDINATE = -1;
@@ -1240,7 +1241,7 @@ public class LatinKeyboardBaseView extends View implements PointerTracker.UIProx
         // Retrieve and cache the popup keyboard if any.
         boolean hasPopup = (getLongPressKeyboard(key) != null);
         // Set background manually, the StateListDrawable doesn't work.
-        mPreviewText.setBackgroundDrawable(getResources().getDrawable(hasPopup ? R.drawable.keyboard_key_feedback_more_background : R.drawable.keyboard_key_feedback_background));
+        mPreviewText.setBackground(ContextCompat.getDrawable(getContext(), hasPopup ? R.drawable.keyboard_key_feedback_more_background : R.drawable.keyboard_key_feedback_background));
         popupPreviewX += mOffsetInWindow[0];
         popupPreviewY += mOffsetInWindow[1];
 
@@ -1790,7 +1791,7 @@ public class LatinKeyboardBaseView extends View implements PointerTracker.UIProx
                 mMiniKeyboardPopup.dismiss();
             }
             mMiniKeyboardVisible = false;
-            mPointerQueue.releaseAllPointersExcept(null, 0); // https://github.com/klausw/hackerskeyboard/issues/477
+            mPointerQueue.releaseAllPointersExcept(null, 0); // Fix for multi-pointer release issue
             invalidateAllKeys();
         }
     }

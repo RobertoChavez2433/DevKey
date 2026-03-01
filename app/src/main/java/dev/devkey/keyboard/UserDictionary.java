@@ -35,7 +35,7 @@ public class UserDictionary extends ExpandableDictionary {
     private static final int INDEX_WORD = 1;
     private static final int INDEX_FREQUENCY = 2;
 
-    private static final String TAG = "HK/UserDictionary";
+    private static final String TAG = "DevKey/UserDictionary";
     
     private ContentObserver mObserver;
     private String mLocale;

@@ -34,7 +34,7 @@ interface ComposeSequencing {
 }
 
 public class ComposeSequence {
-    private static final String TAG = "HK/ComposeSequence";
+    private static final String TAG = "DevKey/ComposeSequence";
     
     protected static final Map<String, String> mMap =
     	new HashMap<String, String>();

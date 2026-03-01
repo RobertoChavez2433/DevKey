@@ -19,9 +19,9 @@
 -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <!-- Title for Latin keyboard  -->
-    <string name="english_ime_name">Hacker\'s Keyboard</string>
+    <string name="english_ime_name">DevKey</string>
     <!-- Title for Latin keyboard settings activity / dialog -->
-    <string name="english_ime_settings">Настройки Hacker\'s Keyboard</string>
+    <string name="english_ime_settings">Настройки DevKey</string>
     <!-- Title for Latin keyboard input options dialog -->
     <string name="english_ime_input_options">Параметры ввода</string>
 
@@ -289,10 +289,6 @@
     <!-- Inform the user that a particular language has an available dictionary -->
     <string name="has_dictionary">Доступен словарь</string>
 
-    <!-- Preferences item for enabling to send user statistics to Google -->
-    <string name="prefs_enable_log">Отправлять статистику</string>
-    <!-- Description for enabling to send user statistics to Google -->
-    <string name="prefs_description_log">Помогите улучшить клавиатуру, отправляя статистику использования и отчеты о сбоях в Google.</string>
     <!-- Preferences item for enabling to correct suggestions by touching words you have typed -->
     <string name="prefs_enable_recorrection">Нажмите для исправления</string>
     <!-- The summary for the preferences item for enabling to correct suggestions by touching words you have typed -->
@@ -306,14 +302,10 @@
 
     <!-- Description for keyboard theme switcher -->
     <string name="keyboard_layout">Тема клавиатуры</string>
-    <string name="layout_basic" translatable="false">Простая</string>
-    <string name="layout_high_contrast" translatable="false">Простая (Высокий контраст)</string>
     <string name="layout_stone_bold"  translatable="false">Кость (жирный)</string>
-    <string name="layout_stone_normal"  translatable="false">Кость (нормальный)</string>
     <string name="layout_gingerbread"  translatable="false">Имбирный пряник</string>
     <string name="layout_ics"  translatable="false">Сэндвич с мороженым (светлые подсказки)</string>
     <string name="layout_ics_darker"  translatable="false">Сэндвич с мороженым (тёмн. подсказки)</string>
-    <string name="layout_trans"  translatable="false">Прозрачная</string>
     <string name="layout_trans_neon"  translatable="false">Прозрачная (эксперимент)</string>
     <string name="layout_material_dark" translatable="false">Материал (тёмная)</string>
     <string name="layout_material_light" translatable="false">Материал (светлая)</string>
@@ -486,14 +478,14 @@
     <string name="main_setup_settings">Настройки</string>
     <string name="main_body"><Data>
       <![CDATA["
-        <h2>Включение Hacker\'s Keyboard</h2>
+        <h2>Включение DevKey</h2>
 
-        <p><i>Hacker\'s Keyboard</i> предоставляет новый метод ввода Android. По умолчанию <b>отключен</b> по соображениям безопасности Android и не позволяет программам изменять настройки метода ввода. Для его активации выполните следующие действия.<p>
+        <p><i>DevKey</i> предоставляет новый метод ввода Android. По умолчанию <b>отключен</b> по соображениям безопасности Android и не позволяет программам изменять настройки метода ввода. Для его активации выполните следующие действия.<p>
 
         <h3>Добавьте клавиатуру в список методов ввода системы:</h3>
         <blockquote>
           <p>&#8226; Откройте в настройках системы Язык и ввод, и выберите <b>Включить клавиатуру</b></p>
-          <p>&#8226; Найдите <i>Hacker\'s Keyboard</i> в списке методов ввода и нажмите галочку, чтобы включить.</p>
+          <p>&#8226; Найдите <i>DevKey</i> в списке методов ввода и нажмите галочку, чтобы включить.</p>
           <p>&#8226; Подтвердите предупреждение, отображаемое системой. Система всегда показывает это сообщение при использовании сторонней клавиатуры.</p>
           <p>&#8226; Нажмите кнопку <i>Назад</i>, чтобы вернуться на эту страницу..</p>
         </blockquote>
@@ -501,7 +493,7 @@
         <h3>Выберите клавиатуру:</h3>
         <blockquote>
           <p>&#8226; Выберете <b>Клавиатуру и метод ввода</b></p>
-          <p>&#8226; Выберете <i>Hacker\'s Keyboard</i> в списке.</p>
+          <p>&#8226; Выберете <i>DevKey</i> в списке.</p>
         </blockquote>
 
         <h3>Дополнительно: выберите языки ввода:</h3>
@@ -511,13 +503,8 @@
           <p>&#8226; При наборе текста проведите вправо или влево по пробелу для переключаться между выбранными языками.
         </blockquote>
 
-        <h3>Необязательно: установите словари:</h3>
-        <blockquote>
-          <p>&#8226; Вверху, нажмите кнопку <b>Дополнительно</b>, чтобы сделать поиск в Play Store по имени разработчика клавиатуры. Это покажет бесплатные пакеты словарей.</p>
-        </blockquote>
-
         <h2>Дополнительная информация</h2>
-        <p>Пожалуйста, посетите <a href='https://github.com/klausw/hackerskeyboard'>страницу проекта</a> для получения дополнительной информации, включая руководство пользователя, отслеживание проблем и дискуссионную группу.</p>
+        <p>Посетите страницу проекта DevKey для получения дополнительной информации и поддержки.</p>
       "]]>
     </Data></string>
     <string name="text_test">Тест</string>

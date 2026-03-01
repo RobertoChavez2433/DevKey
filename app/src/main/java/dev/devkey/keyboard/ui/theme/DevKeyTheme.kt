@@ -40,7 +40,6 @@ object DevKeyTheme {
     // ── Dimensions ──
     val keyCornerRadius: Dp = 6.dp
     val keyGap: Dp = 4.dp
-    val rowHeight: Dp = 48.dp
     val suggestionBarHeight: Dp = 40.dp
     val toolbarHeight: Dp = 36.dp
 

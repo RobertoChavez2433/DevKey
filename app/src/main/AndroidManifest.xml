@@ -29,7 +29,13 @@
             <meta-data android:name="android.view.im" android:resource="@xml/method" />
         </service>
 
-        <activity android:name="Main" android:label="DevKey" android:exported="true">
+        <!-- Legacy — kept for backward compat, no longer launchable -->
+        <activity android:name="Main" android:label="DevKey" android:exported="false" />
+
+        <activity
+            android:name=".ui.welcome.DevKeyWelcomeActivity"
+            android:label="DevKey"
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
@@ -58,7 +64,7 @@
         </activity>
             
         <activity android:name="PrefScreenView"
-                android:label="@string/pref_screen_actions_title"
+                android:label="@string/pref_screen_view_title"
                 android:exported="false">
         </activity>
 

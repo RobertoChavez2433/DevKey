@@ -4,6 +4,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -29,8 +30,20 @@ import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
-private enum class SettingsNav {
-    MAIN, MACRO_MANAGER, COMMAND_APPS
+enum class SettingsNav {
+    MAIN,
+    KEYBOARD_VIEW,
+    KEY_BEHAVIOR,
+    ACTIONS,
+    FEEDBACK,
+    PREDICTION,
+    MACROS,
+    VOICE_INPUT,
+    COMMAND_MODE,
+    BACKUP,
+    ABOUT,
+    MACRO_MANAGER,
+    COMMAND_APPS
 }
 
 class DevKeySettingsActivity : ComponentActivity() {
@@ -44,6 +57,7 @@ class DevKeySettingsActivity : ComponentActivity() {
     private var pendingBackup: DevKeyBackup? by mutableStateOf(null)
     private var showConflictDialog by mutableStateOf(false)
     private var currentNav by mutableStateOf(SettingsNav.MAIN)
+    private var versionName: String = "unknown"
 
     private val createDocumentLauncher = registerForActivityResult(
         ActivityResultContracts.CreateDocument("application/json")
@@ -69,11 +83,22 @@ class DevKeySettingsActivity : ComponentActivity() {
         macroRepository = MacroRepository(database.macroDao())
         commandModeRepository = CommandModeRepository(database.commandAppDao())
 
-        val versionName = try {
+        versionName = try {
             packageManager.getPackageInfo(packageName, 0).versionName ?: "unknown"
         } catch (e: Exception) {
             "unknown"
         }
+
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                when (currentNav) {
+                    SettingsNav.MAIN -> finish()
+                    SettingsNav.MACRO_MANAGER -> currentNav = SettingsNav.MACROS
+                    SettingsNav.COMMAND_APPS -> currentNav = SettingsNav.COMMAND_MODE
+                    else -> currentNav = SettingsNav.MAIN
+                }
+            }
+        })
 
         setContent {
             MaterialTheme(
@@ -86,17 +111,74 @@ class DevKeySettingsActivity : ComponentActivity() {
                 ) {
                     when (currentNav) {
                         SettingsNav.MAIN -> {
-                            SettingsScreen(
+                            SettingsCategoryScreen(
+                                onNavigate = { currentNav = it }
+                            )
+                        }
+
+                        SettingsNav.KEYBOARD_VIEW -> {
+                            KeyboardViewSettingsScreen(
                                 settingsRepository = settingsRepository,
-                                versionName = versionName,
-                                onNavigateToMacroManager = {
-                                    currentNav = SettingsNav.MACRO_MANAGER
-                                },
-                                onNavigateToCommandApps = {
-                                    currentNav = SettingsNav.COMMAND_APPS
-                                },
+                                onBack = { currentNav = SettingsNav.MAIN }
+                            )
+                        }
+
+                        SettingsNav.KEY_BEHAVIOR -> {
+                            KeyBehaviorSettingsScreen(
+                                settingsRepository = settingsRepository,
+                                onBack = { currentNav = SettingsNav.MAIN }
+                            )
+                        }
+
+                        SettingsNav.ACTIONS -> {
+                            ActionsSettingsScreen(
+                                settingsRepository = settingsRepository,
+                                onBack = { currentNav = SettingsNav.MAIN }
+                            )
+                        }
+
+                        SettingsNav.FEEDBACK -> {
+                            FeedbackSettingsScreen(
+                                settingsRepository = settingsRepository,
+                                onBack = { currentNav = SettingsNav.MAIN }
+                            )
+                        }
+
+                        SettingsNav.PREDICTION -> {
+                            PredictionSettingsScreen(
+                                settingsRepository = settingsRepository,
+                                onBack = { currentNav = SettingsNav.MAIN }
+                            )
+                        }
+
+                        SettingsNav.MACROS -> {
+                            MacrosSettingsScreen(
+                                settingsRepository = settingsRepository,
+                                onNavigateToMacroManager = { currentNav = SettingsNav.MACRO_MANAGER },
+                                onBack = { currentNav = SettingsNav.MAIN }
+                            )
+                        }
+
+                        SettingsNav.VOICE_INPUT -> {
+                            VoiceInputSettingsScreen(
+                                settingsRepository = settingsRepository,
+                                onBack = { currentNav = SettingsNav.MAIN }
+                            )
+                        }
+
+                        SettingsNav.COMMAND_MODE -> {
+                            CommandModeSettingsScreen(
+                                settingsRepository = settingsRepository,
+                                onNavigateToCommandApps = { currentNav = SettingsNav.COMMAND_APPS },
+                                onBack = { currentNav = SettingsNav.MAIN }
+                            )
+                        }
+
+                        SettingsNav.BACKUP -> {
+                            BackupSettingsScreen(
                                 onExport = { startExport() },
-                                onImport = { startImport() }
+                                onImport = { startImport() },
+                                onBack = { currentNav = SettingsNav.MAIN }
                             )
 
                             if (showConflictDialog) {
@@ -116,32 +198,29 @@ class DevKeySettingsActivity : ComponentActivity() {
                             }
                         }
 
+                        SettingsNav.ABOUT -> {
+                            AboutSettingsScreen(
+                                versionName = versionName,
+                                onBack = { currentNav = SettingsNav.MAIN }
+                            )
+                        }
+
                         SettingsNav.MACRO_MANAGER -> {
                             MacroManagerScreen(
                                 macroRepository = macroRepository,
-                                onBack = { currentNav = SettingsNav.MAIN }
+                                onBack = { currentNav = SettingsNav.MACROS }
                             )
                         }
 
                         SettingsNav.COMMAND_APPS -> {
                             CommandAppManagerScreen(
                                 repository = commandModeRepository,
-                                onBack = { currentNav = SettingsNav.MAIN }
+                                onBack = { currentNav = SettingsNav.COMMAND_MODE }
                             )
                         }
                     }
                 }
             }
-        }
-    }
-
-    @Deprecated("Deprecated in Java")
-    override fun onBackPressed() {
-        if (currentNav != SettingsNav.MAIN) {
-            currentNav = SettingsNav.MAIN
-        } else {
-            @Suppress("DEPRECATION")
-            super.onBackPressed()
         }
     }
 
@@ -163,11 +242,6 @@ class DevKeySettingsActivity : ComponentActivity() {
     }
 
     private fun exportToUri(uri: Uri) {
-        val versionName = try {
-            packageManager.getPackageInfo(packageName, 0).versionName ?: "unknown"
-        } catch (e: Exception) {
-            "unknown"
-        }
         lifecycleScope.launch {
             try {
                 exportManager.exportToUri(this@DevKeySettingsActivity, uri, versionName)

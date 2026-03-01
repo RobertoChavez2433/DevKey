@@ -33,7 +33,7 @@ import androidx.compose.ui.unit.sp
 import dev.devkey.keyboard.ui.theme.DevKeyTheme
 
 @Composable
-fun SettingsCategory(title: String) {
+fun SettingsCategory(title: String, subtitle: String? = null) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -45,6 +45,14 @@ fun SettingsCategory(title: String) {
             style = MaterialTheme.typography.titleSmall,
             fontSize = 14.sp
         )
+        if (subtitle != null) {
+            Text(
+                text = subtitle,
+                fontSize = 11.sp,
+                color = DevKeyTheme.keyHint,
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
         Spacer(modifier = Modifier.height(4.dp))
         HorizontalDivider(color = DevKeyTheme.settingsDividerColor, thickness = 1.dp)
     }

@@ -9,7 +9,7 @@ import android.view.inputmethod.InputMethodManager;
 import dev.devkey.keyboard.ui.settings.DevKeySettingsActivity;
 
 public class NotificationReceiver extends BroadcastReceiver {
-    static final String TAG = "PCKeyboard/Notification";
+    static final String TAG = "DevKey/Notification";
     static public final String ACTION_SHOW = "dev.devkey.keyboard.SHOW";
     static public final String ACTION_SETTINGS = "dev.devkey.keyboard.SETTINGS";
 

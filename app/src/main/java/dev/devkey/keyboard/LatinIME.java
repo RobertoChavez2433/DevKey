@@ -42,9 +42,10 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
 import android.os.SystemClock;
+import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.app.Activity;
-import android.preference.PreferenceManager;
+import androidx.preference.PreferenceManager;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 import android.text.TextUtils;
@@ -96,8 +97,8 @@ public class LatinIME extends InputMethodService implements
         ComposeSequencing,
         LatinKeyboardBaseView.OnKeyboardActionListener,
         SharedPreferences.OnSharedPreferenceChangeListener {
-    private static final String TAG = "PCKeyboardIME";
-    private static final String NOTIFICATION_CHANNEL_ID = "PCKeyboard";
+    private static final String TAG = "DevKeyIME";
+    private static final String NOTIFICATION_CHANNEL_ID = "DevKey";
     private static final int NOTIFICATION_ONGOING_ID = 1001;
     static Map<Integer, String> ESC_SEQUENCES;
     static Map<Integer, Integer> CTRL_SEQUENCES;
@@ -367,7 +368,7 @@ public class LatinIME extends InputMethodService implements
 
     @Override
     public void onCreate() {
-        Log.i("PCKeyboard", "onCreate(), os.version=" + System.getProperty("os.version"));
+        Log.i(TAG, "onCreate(), os.version=" + System.getProperty("os.version"));
         KeyboardSwitcher.init(this);
         super.onCreate();
         sInstance = this;
@@ -439,7 +440,7 @@ public class LatinIME extends InputMethodService implements
         pFilter.addAction("android.intent.action.PACKAGE_ADDED");
         pFilter.addAction("android.intent.action.PACKAGE_REPLACED");
         pFilter.addAction("android.intent.action.PACKAGE_REMOVED");
-        registerReceiver(mPluginManager, pFilter);
+        registerReceiver(mPluginManager, pFilter, Context.RECEIVER_NOT_EXPORTED);
 
         LatinIMEUtil.GCUtils.getInstance().reset();
         boolean tryGC = true;
@@ -458,7 +459,7 @@ public class LatinIME extends InputMethodService implements
         // register to receive ringer mode changes for silent mode
         IntentFilter filter = new IntentFilter(
                 AudioManager.RINGER_MODE_CHANGED_ACTION);
-        registerReceiver(mReceiver, filter);
+        registerReceiver(mReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
         prefs.registerOnSharedPreferenceChangeListener(this);
         setNotification(mKeyboardNotification);
     }
@@ -516,15 +517,15 @@ public class LatinIME extends InputMethodService implements
             mNotificationReceiver = new NotificationReceiver(this);
             final IntentFilter pFilter = new IntentFilter(NotificationReceiver.ACTION_SHOW);
             pFilter.addAction(NotificationReceiver.ACTION_SETTINGS);
-            registerReceiver(mNotificationReceiver, pFilter);
-            
+            registerReceiver(mNotificationReceiver, pFilter, Context.RECEIVER_NOT_EXPORTED);
+
             Intent notificationIntent = new Intent(NotificationReceiver.ACTION_SHOW);
-            PendingIntent contentIntent = PendingIntent.getBroadcast(getApplicationContext(), 1, notificationIntent, 0);
+            PendingIntent contentIntent = PendingIntent.getBroadcast(getApplicationContext(), 1, notificationIntent, PendingIntent.FLAG_IMMUTABLE);
             //PendingIntent contentIntent = PendingIntent.getActivity(this, 0, notificationIntent, 0);
 
             Intent configIntent = new Intent(NotificationReceiver.ACTION_SETTINGS);
             PendingIntent configPendingIntent =
-                    PendingIntent.getBroadcast(getApplicationContext(), 2, configIntent, 0);
+                    PendingIntent.getBroadcast(getApplicationContext(), 2, configIntent, PendingIntent.FLAG_IMMUTABLE);
 
             String title = "Show DevKey";
             String body = "Select this to open the keyboard. Disable in settings.";
@@ -688,12 +689,13 @@ public class LatinIME extends InputMethodService implements
         	unregisterReceiver(mNotificationReceiver);
             mNotificationReceiver = null;
         }
+        sInstance = null;
         super.onDestroy();
     }
 
     @Override
     public void onConfigurationChanged(Configuration conf) {
-        Log.i("PCKeyboard", "onConfigurationChanged()");
+        Log.i(TAG, "onConfigurationChanged()");
         // If the system locale changes and is different from the saved
         // locale (mSystemLocale), then reload the input locale list from the
         // latin ime settings (shared prefs) and reset the input locale
@@ -728,6 +730,12 @@ public class LatinIME extends InputMethodService implements
     @Override
     public View onCreateInputView() {
         setCandidatesViewShown(false);  // Workaround for "already has a parent" when reconfiguring
+
+        // On API 36+, InputMethodService.setInputView() requires ViewTreeLifecycleOwner
+        // on the IME window's decor view. Set it before returning the Compose view.
+        View decor = getWindow().getWindow().getDecorView();
+        ComposeKeyboardViewFactory.installLifecycleOwner(decor);
+
         return ComposeKeyboardViewFactory.create(this, this);
     }
 
@@ -794,11 +802,7 @@ public class LatinIME extends InputMethodService implements
 
         //Log.i("PCKeyboard", "onStartInputView " + attribute + ", inputType= " + Integer.toHexString(attribute.inputType) + ", restarting=" + restarting);
         LatinKeyboardView inputView = mKeyboardSwitcher.getInputView();
-        // In landscape mode, this method gets called without the input view
-        // being created.
-        if (inputView == null) {
-            return;
-        }
+        // inputView may be null when using Compose keyboard or in landscape mode.
 
         if (mRefreshKeyboardRequired) {
             mRefreshKeyboardRequired = false;
@@ -930,7 +934,7 @@ public class LatinIME extends InputMethodService implements
             mKeyboardSwitcher.setKeyboardMode(KeyboardSwitcher.MODE_TEXT,
                     attribute.imeOptions, enableVoiceButton);
         }
-        inputView.closing();
+        if (inputView != null) inputView.closing();
         resetPrediction();
         loadSettings();
         updateShiftKeyState(attribute);
@@ -945,8 +949,10 @@ public class LatinIME extends InputMethodService implements
 
         updateCorrectionMode();
 
-        inputView.setPreviewEnabled(mPopupOn);
-        inputView.setProximityCorrectionEnabled(true);
+        if (inputView != null) {
+            inputView.setPreviewEnabled(mPopupOn);
+            inputView.setProximityCorrectionEnabled(true);
+        }
         // If we just entered a text field, maybe it has some old text that
         // requires correction
         checkReCorrectionOnStart();
@@ -2540,7 +2546,9 @@ public class LatinIME extends InputMethodService implements
 
     private void updateSuggestions() {
         LatinKeyboardView inputView = mKeyboardSwitcher.getInputView();
-        ((LatinKeyboard) inputView.getKeyboard()).setPreferredLetters(null);
+        if (inputView != null) {
+            ((LatinKeyboard) inputView.getKeyboard()).setPreferredLetters(null);
+        }
 
         // Check if we have a suggestion engine attached.
         if ((mSuggest == null || !isPredictionOn())) {
@@ -2562,8 +2570,10 @@ public class LatinIME extends InputMethodService implements
 
     private void showCorrections(WordAlternatives alternatives) {
         List<CharSequence> stringList = alternatives.getAlternatives();
-        ((LatinKeyboard) mKeyboardSwitcher.getInputView().getKeyboard())
-                .setPreferredLetters(null);
+        LatinKeyboardView corrView = mKeyboardSwitcher.getInputView();
+        if (corrView != null) {
+            ((LatinKeyboard) corrView.getKeyboard()).setPreferredLetters(null);
+        }
         showSuggestions(stringList, alternatives.getOriginalWord(), false,
                 false);
     }
@@ -2580,8 +2590,11 @@ public class LatinIME extends InputMethodService implements
 
         int[] nextLettersFrequencies = mSuggest.getNextLettersFrequencies();
 
-        ((LatinKeyboard) mKeyboardSwitcher.getInputView().getKeyboard())
-                .setPreferredLetters(nextLettersFrequencies);
+        LatinKeyboardView sugView = mKeyboardSwitcher.getInputView();
+        if (sugView != null) {
+            ((LatinKeyboard) sugView.getKeyboard())
+                    .setPreferredLetters(nextLettersFrequencies);
+        }
 
         boolean correctionAvailable = !mInputTypeNoAutoCorrect
                 && mSuggest.hasMinimalCorrection();
@@ -2744,7 +2757,9 @@ public class LatinIME extends InputMethodService implements
         saveWordInHistory(suggestion);
         mPredicting = false;
         mCommittedLength = suggestion.length();
-        ((LatinKeyboard) inputView.getKeyboard()).setPreferredLetters(null);
+        if (inputView != null) {
+            ((LatinKeyboard) inputView.getKeyboard()).setPreferredLetters(null);
+        }
         // If we just corrected a word, then don't show punctuations
         if (!correcting) {
             setNextSuggestions();
@@ -2969,7 +2984,7 @@ public class LatinIME extends InputMethodService implements
 
     public void onSharedPreferenceChanged(SharedPreferences sharedPreferences,
             String key) {
-        Log.i("PCKeyboard", "onSharedPreferenceChanged()");
+        Log.i(TAG, "onSharedPreferenceChanged()");
         boolean needReload = false;
         Resources res = getResources();
         
@@ -3206,8 +3221,10 @@ public class LatinIME extends InputMethodService implements
 
     public void onRelease(int primaryCode) {
         // Reset any drag flags in the keyboard
-        ((LatinKeyboard) mKeyboardSwitcher.getInputView().getKeyboard())
-                .keyReleased();
+        LatinKeyboardView relView = mKeyboardSwitcher.getInputView();
+        if (relView != null) {
+            ((LatinKeyboard) relView.getKeyboard()).keyReleased();
+        }
         // vibrate();
         final boolean distinctMultiTouch = mKeyboardSwitcher
                 .hasDistinctMultitouch();
@@ -3351,7 +3368,7 @@ public class LatinIME extends InputMethodService implements
     void vibrate(int len) {
         Vibrator v = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
         if (v != null) {
-            v.vibrate(len);
+            v.vibrate(VibrationEffect.createOneShot(len, VibrationEffect.DEFAULT_AMPLITUDE));
             return;
         }
 
@@ -3506,7 +3523,10 @@ public class LatinIME extends InputMethodService implements
         mOptionsDialog = builder.create();
         Window window = mOptionsDialog.getWindow();
         WindowManager.LayoutParams lp = window.getAttributes();
-        lp.token = mKeyboardSwitcher.getInputView().getWindowToken();
+        LatinKeyboardView optView = mKeyboardSwitcher.getInputView();
+        if (optView != null) {
+            lp.token = optView.getWindowToken();
+        }
         lp.type = WindowManager.LayoutParams.TYPE_APPLICATION_ATTACHED_DIALOG;
         window.setAttributes(lp);
         window.addFlags(WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM);

@@ -1,7 +1,5 @@
 package dev.devkey.keyboard.ui.keyboard
 
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
 
 /**
  * Type classification for keyboard keys. Determines visual styling and behavior.
@@ -41,11 +39,9 @@ data class KeyData(
  * Data class representing a row of keys.
  *
  * @param keys The list of keys in this row.
- * @param rowHeight The height of this row (default 48.dp).
  */
 data class KeyRowData(
-    val keys: List<KeyData>,
-    val rowHeight: Dp = 48.dp
+    val keys: List<KeyData>
 )
 
 /**
@@ -56,3 +52,14 @@ data class KeyRowData(
 data class KeyboardLayoutData(
     val rows: List<KeyRowData>
 )
+
+/**
+ * Shared keycode constants for special keys used across keyboard components.
+ */
+object KeyCodes {
+    const val CTRL_LEFT = -113
+    const val ALT_LEFT = -57
+    const val ESCAPE = -111
+    const val TAB = 9      // ASCII HT, matches LatinIME.onKey() switch case
+    const val ENTER = 10
+}

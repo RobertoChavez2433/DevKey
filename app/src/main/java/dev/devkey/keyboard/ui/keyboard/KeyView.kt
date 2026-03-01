@@ -35,10 +35,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
-// Keycodes matching LatinKeyboardView (package-private in Java)
-private const val KEYCODE_CTRL_LEFT = -113
-private const val KEYCODE_ALT_LEFT = -57
-
 /**
  * Composable for a single keyboard key.
  *
@@ -52,6 +48,8 @@ fun KeyView(
     onKeyPress: (Int) -> Unit,
     onKeyRelease: (Int) -> Unit,
     ctrlHeld: Boolean = false,
+    showHints: Boolean = false,
+    hintBright: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val view = LocalView.current
@@ -72,9 +70,9 @@ fun KeyView(
     val isModifierActive = when {
         key.type == KeyType.MODIFIER && key.primaryCode == Keyboard.KEYCODE_SHIFT ->
             shiftState != ModifierKeyState.OFF
-        key.type == KeyType.MODIFIER && key.primaryCode == KEYCODE_CTRL_LEFT ->
+        key.type == KeyType.MODIFIER && key.primaryCode == KeyCodes.CTRL_LEFT ->
             ctrlState != ModifierKeyState.OFF
-        key.type == KeyType.MODIFIER && key.primaryCode == KEYCODE_ALT_LEFT ->
+        key.type == KeyType.MODIFIER && key.primaryCode == KeyCodes.ALT_LEFT ->
             altState != ModifierKeyState.OFF
         else -> false
     }
@@ -82,9 +80,9 @@ fun KeyView(
     val isModifierLocked = when {
         key.type == KeyType.MODIFIER && key.primaryCode == Keyboard.KEYCODE_SHIFT ->
             shiftState == ModifierKeyState.LOCKED
-        key.type == KeyType.MODIFIER && key.primaryCode == KEYCODE_CTRL_LEFT ->
+        key.type == KeyType.MODIFIER && key.primaryCode == KeyCodes.CTRL_LEFT ->
             ctrlState == ModifierKeyState.LOCKED
-        key.type == KeyType.MODIFIER && key.primaryCode == KEYCODE_ALT_LEFT ->
+        key.type == KeyType.MODIFIER && key.primaryCode == KeyCodes.ALT_LEFT ->
             altState == ModifierKeyState.LOCKED
         else -> false
     }
@@ -132,7 +130,7 @@ fun KeyView(
         modifier = modifier
             .clip(RoundedCornerShape(DevKeyTheme.keyCornerRadius))
             .background(backgroundColor)
-            .pointerInput(key.primaryCode, key.type) {
+            .pointerInput(key.primaryCode, key.type, key.longPressCode, key.isRepeatable) {
                 if (key.type == KeyType.MODIFIER) {
                     // Modifier keys use simple tap detection
                     detectTapGestures(
@@ -216,11 +214,11 @@ fun KeyView(
             )
         }
 
-        // Top-right hint for long-press (hidden in Ctrl Mode for letter/number keys)
-        if (key.longPressLabel != null && !(ctrlHeld && (key.type == KeyType.LETTER || key.type == KeyType.NUMBER))) {
+        // Top-right hint for long-press (respects hint mode preference, hidden in Ctrl Mode for letter/number keys)
+        if (showHints && key.longPressLabel != null && !(ctrlHeld && (key.type == KeyType.LETTER || key.type == KeyType.NUMBER))) {
             Text(
                 text = key.longPressLabel,
-                color = DevKeyTheme.keyHint,
+                color = if (hintBright) DevKeyTheme.keyText.copy(alpha = 0.7f) else DevKeyTheme.keyHint,
                 fontSize = DevKeyTheme.keyHintSize,
                 modifier = Modifier
                     .align(Alignment.TopEnd)
@@ -243,29 +241,21 @@ fun KeyView(
 }
 
 /**
- * Get the background color for a key based on its type.
+ * Get the background color for a key based on its type and keycode.
  */
-private fun getKeyColor(key: KeyData): Color = when (key.type) {
-    KeyType.LETTER -> DevKeyTheme.keyFill
-    KeyType.NUMBER -> DevKeyTheme.keyFill
-    KeyType.MODIFIER -> when (key.primaryCode) {
-        Keyboard.KEYCODE_SHIFT -> DevKeyTheme.keyFill
-        KEYCODE_CTRL_LEFT -> DevKeyTheme.ctrlKeyFill
-        KEYCODE_ALT_LEFT -> DevKeyTheme.altKeyFill
+private fun getKeyColor(key: KeyData): Color {
+    return when {
+        key.type == KeyType.MODIFIER && key.primaryCode == KeyCodes.CTRL_LEFT -> DevKeyTheme.ctrlKeyFill
+        key.type == KeyType.MODIFIER && key.primaryCode == KeyCodes.ALT_LEFT -> DevKeyTheme.altKeyFill
+        key.type == KeyType.MODIFIER -> DevKeyTheme.keyFill
+        key.type == KeyType.ACTION && key.primaryCode == Keyboard.KEYCODE_DELETE -> DevKeyTheme.backspaceKeyFill
+        key.type == KeyType.ACTION && key.primaryCode == KeyCodes.ENTER -> DevKeyTheme.enterKeyFill
+        key.type == KeyType.SPECIAL && key.primaryCode == KeyCodes.ESCAPE -> DevKeyTheme.escKeyFill
+        key.type == KeyType.SPECIAL && key.primaryCode == KeyCodes.TAB -> DevKeyTheme.tabKeyFill
+        key.type == KeyType.ARROW -> DevKeyTheme.arrowKeyFill
+        key.type == KeyType.SPACEBAR -> DevKeyTheme.spaceKeyFill
         else -> DevKeyTheme.keyFill
     }
-    KeyType.ACTION -> when {
-        key.primaryLabel == "Del" -> DevKeyTheme.backspaceKeyFill
-        key.primaryLabel == "Enter" -> DevKeyTheme.enterKeyFill
-        else -> DevKeyTheme.keyFill
-    }
-    KeyType.ARROW -> DevKeyTheme.arrowKeyFill
-    KeyType.SPECIAL -> when {
-        key.primaryLabel == "Esc" -> DevKeyTheme.escKeyFill
-        key.primaryLabel == "Tab" -> DevKeyTheme.tabKeyFill
-        else -> DevKeyTheme.keyFill
-    }
-    KeyType.SPACEBAR -> DevKeyTheme.spaceKeyFill
 }
 
 /**
@@ -273,8 +263,8 @@ private fun getKeyColor(key: KeyData): Color = when (key.type) {
  */
 private fun getActiveKeyColor(key: KeyData): Color = when (key.primaryCode) {
     Keyboard.KEYCODE_SHIFT -> DevKeyTheme.shiftActiveKeyFill
-    KEYCODE_CTRL_LEFT -> DevKeyTheme.ctrlActiveKeyFill
-    KEYCODE_ALT_LEFT -> DevKeyTheme.altActiveKeyFill
+    KeyCodes.CTRL_LEFT -> DevKeyTheme.ctrlActiveKeyFill
+    KeyCodes.ALT_LEFT -> DevKeyTheme.altActiveKeyFill
     else -> DevKeyTheme.keyFill
 }
 
@@ -283,7 +273,7 @@ private fun getActiveKeyColor(key: KeyData): Color = when (key.primaryCode) {
  */
 private fun getModifierType(code: Int): ModifierType? = when (code) {
     Keyboard.KEYCODE_SHIFT -> ModifierType.SHIFT
-    KEYCODE_CTRL_LEFT -> ModifierType.CTRL
-    KEYCODE_ALT_LEFT -> ModifierType.ALT
+    KeyCodes.CTRL_LEFT -> ModifierType.CTRL
+    KeyCodes.ALT_LEFT -> ModifierType.ALT
     else -> null
 }

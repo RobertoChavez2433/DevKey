@@ -74,6 +74,10 @@ class SettingsRepository(
             .onStart { emit(getFloat(key, default)) }
 
     companion object {
+        // Default height percentages (single source of truth)
+        const val DEFAULT_HEIGHT_PORTRAIT = 40   // percent
+        const val DEFAULT_HEIGHT_LANDSCAPE = 55  // percent
+
         // Legacy keys (match existing SharedPreferences keys)
         const val KEY_HEIGHT_PORTRAIT = "settings_height_portrait"
         const val KEY_HEIGHT_LANDSCAPE = "settings_height_landscape"

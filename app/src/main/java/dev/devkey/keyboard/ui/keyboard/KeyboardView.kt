@@ -4,9 +4,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import dev.devkey.keyboard.core.ModifierStateManager
 import dev.devkey.keyboard.ui.theme.DevKeyTheme
@@ -14,7 +16,8 @@ import dev.devkey.keyboard.ui.theme.DevKeyTheme
 /**
  * Composable that renders the full keyboard grid.
  *
- * Lays out all key rows vertically with consistent spacing and padding.
+ * Uses dynamic height based on screen size (40% of screen height minus toolbar).
+ * Each row is equally weighted to fill the available space.
  *
  * @param layout The keyboard layout data containing all rows.
  * @param modifierState The modifier state manager.
@@ -29,11 +32,19 @@ fun KeyboardView(
     onKeyAction: (Int) -> Unit,
     onKeyPress: (Int) -> Unit,
     onKeyRelease: (Int) -> Unit,
-    ctrlHeld: Boolean = false
+    ctrlHeld: Boolean = false,
+    heightPercent: Float = 0.40f,
+    showHints: Boolean = false,
+    hintBright: Boolean = false
 ) {
+    val screenHeightDp = LocalConfiguration.current.screenHeightDp
+    val rawHeight = (screenHeightDp * heightPercent).dp - DevKeyTheme.toolbarHeight
+    val keyAreaHeight = rawHeight.coerceAtLeast(48.dp)
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .height(keyAreaHeight)
             .background(DevKeyTheme.keyboardBackground)
             .padding(horizontal = 4.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -45,7 +56,10 @@ fun KeyboardView(
                 onKeyAction = onKeyAction,
                 onKeyPress = onKeyPress,
                 onKeyRelease = onKeyRelease,
-                ctrlHeld = ctrlHeld
+                ctrlHeld = ctrlHeld,
+                showHints = showHints,
+                hintBright = hintBright,
+                modifier = Modifier.weight(1f)
             )
         }
     }

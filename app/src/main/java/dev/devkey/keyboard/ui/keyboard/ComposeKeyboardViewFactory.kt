@@ -24,6 +24,22 @@ import dev.devkey.keyboard.LatinKeyboardBaseView
  */
 object ComposeKeyboardViewFactory {
 
+    private var lifecycleOwner: IMELifecycleOwner? = null
+
+    /**
+     * Install lifecycle/savedstate/viewmodel owners on a view (typically the IME decor view).
+     * On API 36+, InputMethodService requires ViewTreeLifecycleOwner on the window decor.
+     */
+    @JvmStatic
+    fun installLifecycleOwner(view: View) {
+        val owner = createFreshOwner()
+        lifecycleOwner = owner
+
+        view.setViewTreeLifecycleOwner(owner)
+        view.setViewTreeSavedStateRegistryOwner(owner)
+        view.setViewTreeViewModelStoreOwner(owner)
+    }
+
     /**
      * Create a ComposeView that renders the DevKeyKeyboard composable.
      *
@@ -36,22 +52,35 @@ object ComposeKeyboardViewFactory {
         context: Context,
         actionListener: LatinKeyboardBaseView.OnKeyboardActionListener
     ): View {
-        val lifecycleOwner = IMELifecycleOwner()
-        lifecycleOwner.performRestore(null)
-        lifecycleOwner.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
-        lifecycleOwner.handleLifecycleEvent(Lifecycle.Event.ON_START)
-        lifecycleOwner.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
+        // Always create a fresh lifecycle owner to prevent stale Compose state
+        // across onCreateInputView() recreations (fixes BUG-02: 123 button)
+        lifecycleOwner?.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)
+        lifecycleOwner?.viewModelStore?.clear()
+        val owner = createFreshOwner()
+        lifecycleOwner = owner
 
         val composeView = ComposeView(context).apply {
-            setViewTreeLifecycleOwner(lifecycleOwner)
-            setViewTreeSavedStateRegistryOwner(lifecycleOwner)
-            setViewTreeViewModelStoreOwner(lifecycleOwner)
+            setViewTreeLifecycleOwner(owner)
+            setViewTreeSavedStateRegistryOwner(owner)
+            setViewTreeViewModelStoreOwner(owner)
             setContent {
                 DevKeyKeyboard(actionListener)
             }
         }
 
         return composeView
+    }
+
+    /**
+     * Creates a new [IMELifecycleOwner] fully initialized through ON_RESUME.
+     */
+    private fun createFreshOwner(): IMELifecycleOwner {
+        val owner = IMELifecycleOwner()
+        owner.performRestore(null)
+        owner.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
+        owner.handleLifecycleEvent(Lifecycle.Event.ON_START)
+        owner.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
+        return owner
     }
 
     /**

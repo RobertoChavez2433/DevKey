@@ -5,10 +5,11 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import android.content.SharedPreferences
+import android.content.res.Configuration
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -16,10 +17,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.preference.PreferenceManager
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import dev.devkey.keyboard.LatinKeyboardBaseView
 import dev.devkey.keyboard.core.KeyboardActionBridge
 import dev.devkey.keyboard.core.ModifierKeyState
@@ -33,11 +33,6 @@ import dev.devkey.keyboard.feature.macro.MacroEngine
 import dev.devkey.keyboard.feature.macro.MacroRepository
 import dev.devkey.keyboard.feature.macro.MacroSerializer
 import dev.devkey.keyboard.feature.macro.MacroStep
-import dev.devkey.keyboard.feature.prediction.AutocorrectEngine
-import dev.devkey.keyboard.feature.prediction.DictionaryProvider
-import dev.devkey.keyboard.feature.prediction.LearningEngine
-import dev.devkey.keyboard.feature.prediction.PredictionEngine
-import dev.devkey.keyboard.feature.prediction.PredictionResult
 import dev.devkey.keyboard.data.repository.SettingsRepository
 import dev.devkey.keyboard.feature.voice.VoiceInputEngine
 import dev.devkey.keyboard.ui.clipboard.ClipboardPanel
@@ -45,7 +40,6 @@ import dev.devkey.keyboard.ui.macro.MacroChipStrip
 import dev.devkey.keyboard.ui.macro.MacroGridPanel
 import dev.devkey.keyboard.ui.macro.MacroNameDialog
 import dev.devkey.keyboard.ui.macro.MacroRecordingBar
-import dev.devkey.keyboard.ui.suggestion.SuggestionBar
 import dev.devkey.keyboard.ui.toolbar.ToolbarRow
 import dev.devkey.keyboard.ui.voice.VoiceInputPanel
 import kotlinx.coroutines.launch
@@ -53,7 +47,7 @@ import kotlinx.coroutines.launch
 /**
  * Root composable for the DevKey keyboard.
  *
- * Assembles the toolbar, suggestion bar / dynamic middle area, and keyboard view
+ * Assembles the toolbar, dynamic middle area, and keyboard view
  * into a single keyboard UI, wired to the legacy IME action listener.
  * Supports multiple modes: Normal, MacroChips, MacroGrid, MacroRecording,
  * Clipboard, Symbols, and Voice.
@@ -73,16 +67,9 @@ fun DevKeyKeyboard(actionListener: LatinKeyboardBaseView.OnKeyboardActionListene
     val clipboardRepo = remember { ClipboardRepository(database.clipboardHistoryDao()) }
     val macroEngine = remember { MacroEngine() }
 
-    // Session 4: Prediction & command mode dependencies
+    // Command mode dependencies
     val commandModeRepo = remember { CommandModeRepository(database.commandAppDao()) }
     val commandModeDetector = remember { CommandModeDetector(commandModeRepo) }
-    val learningEngine = remember { LearningEngine(database.learnedWordDao()) }
-    val dictionaryProvider = remember {
-        val deps = SessionDependencies
-        DictionaryProvider(deps.suggest)
-    }
-    val autocorrectEngine = remember { AutocorrectEngine(dictionaryProvider) }
-    val predictionEngine = remember { PredictionEngine(dictionaryProvider, autocorrectEngine, learningEngine) }
     val voiceInputEngine = remember { VoiceInputEngine(context) }
 
     // Release voice engine resources when composable leaves composition
@@ -92,17 +79,20 @@ fun DevKeyKeyboard(actionListener: LatinKeyboardBaseView.OnKeyboardActionListene
 
     // Compact mode preference
     val prefs = remember { PreferenceManager.getDefaultSharedPreferences(context) }
-    val compactMode = remember { mutableStateOf(prefs.getBoolean(SettingsRepository.KEY_COMPACT_MODE, false)) }
-    // Listen for compact mode preference changes
-    DisposableEffect(prefs) {
-        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-            if (key == SettingsRepository.KEY_COMPACT_MODE) {
-                compactMode.value = prefs.getBoolean(SettingsRepository.KEY_COMPACT_MODE, false)
-            }
-        }
-        prefs.registerOnSharedPreferenceChangeListener(listener)
-        onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
-    }
+    val compactMode = rememberPreference(prefs, SettingsRepository.KEY_COMPACT_MODE, false) { p, k, d -> p.getBoolean(k, d) }
+
+    // Dynamic keyboard height from user preference
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val heightKey = if (isLandscape) SettingsRepository.KEY_HEIGHT_LANDSCAPE else SettingsRepository.KEY_HEIGHT_PORTRAIT
+    val heightDefault = if (isLandscape) SettingsRepository.DEFAULT_HEIGHT_LANDSCAPE else SettingsRepository.DEFAULT_HEIGHT_PORTRAIT
+
+    val keyboardHeightPercent = rememberPreference(prefs, heightKey, heightDefault) { p, k, d -> p.getInt(k, d) }
+
+    // Hint mode preference: "0" = Hidden, "1" = Visible (dim), "2" = Visible (bright)
+    val hintModeValue = rememberPreference(prefs, SettingsRepository.KEY_HINT_MODE, "0") { p, k, d -> p.getString(k, d) ?: d }
+    val showHints = hintModeValue.value != "0"
+    val hintBright = hintModeValue.value == "2"
 
     // State
     var keyboardMode by remember { mutableStateOf<KeyboardMode>(KeyboardMode.Normal) }
@@ -115,22 +105,6 @@ fun DevKeyKeyboard(actionListener: LatinKeyboardBaseView.OnKeyboardActionListene
     val voiceState by voiceInputEngine.state.collectAsState()
     val voiceAmplitude by voiceInputEngine.amplitude.collectAsState()
 
-    var isSuggestionCollapsed by remember { mutableStateOf(false) }
-
-    // Session 4: Track current typed word for predictions
-    var currentWord by remember { mutableStateOf("") }
-    var predictions by remember { mutableStateOf<List<PredictionResult>>(emptyList()) }
-    SideEffect { predictionEngine.inputMode = inputMode }
-    LaunchedEffect(currentWord, inputMode) {
-        predictions = if (currentWord.isNotEmpty()) {
-            withContext(Dispatchers.IO) {
-                predictionEngine.predict(currentWord, inputMode == InputMode.COMMAND)
-            }
-        } else {
-            emptyList()
-        }
-    }
-    val suggestionStrings = predictions.map { it.word }
 
     // Macro recording state
     var macroNameDialogVisible by remember { mutableStateOf(false) }
@@ -176,12 +150,7 @@ fun DevKeyKeyboard(actionListener: LatinKeyboardBaseView.OnKeyboardActionListene
         // 2. Dynamic middle area
         when (keyboardMode) {
             KeyboardMode.Normal -> {
-                SuggestionBar(
-                    suggestions = suggestionStrings,
-                    onSuggestionClick = { suggestion -> bridge.onText(suggestion + " ") },
-                    onCollapseToggle = { isSuggestionCollapsed = !isSuggestionCollapsed },
-                    isCollapsed = isSuggestionCollapsed
-                )
+                // SuggestionBar removed — predictions handled externally
             }
             KeyboardMode.MacroChips -> {
                 MacroChipStrip(
@@ -195,12 +164,6 @@ fun DevKeyKeyboard(actionListener: LatinKeyboardBaseView.OnKeyboardActionListene
                 )
             }
             KeyboardMode.MacroGrid -> {
-                SuggestionBar(
-                    suggestions = suggestionStrings,
-                    onSuggestionClick = { suggestion -> bridge.onText(suggestion + " ") },
-                    onCollapseToggle = { isSuggestionCollapsed = !isSuggestionCollapsed },
-                    isCollapsed = isSuggestionCollapsed
-                )
                 MacroGridPanel(
                     macros = macros,
                     onMacroClick = { macro -> onMacroClick(macro) },
@@ -230,12 +193,6 @@ fun DevKeyKeyboard(actionListener: LatinKeyboardBaseView.OnKeyboardActionListene
                 )
             }
             KeyboardMode.Clipboard -> {
-                SuggestionBar(
-                    suggestions = suggestionStrings,
-                    onSuggestionClick = { suggestion -> bridge.onText(suggestion + " ") },
-                    onCollapseToggle = { isSuggestionCollapsed = !isSuggestionCollapsed },
-                    isCollapsed = isSuggestionCollapsed
-                )
                 ClipboardPanel(
                     entries = clipboardEntries,
                     onPaste = { entry ->
@@ -283,10 +240,18 @@ fun DevKeyKeyboard(actionListener: LatinKeyboardBaseView.OnKeyboardActionListene
 
         // 4. Keyboard (hidden during voice input)
         if (keyboardMode !is KeyboardMode.Voice) {
+            // Extract layout to local val so Compose reliably tracks keyboardMode reads
+            val activeLayout = when (keyboardMode) {
+                is KeyboardMode.Symbols -> SymbolsLayout.layout
+                else -> QwertyLayout.getLayout(compactMode.value)
+            }
             KeyboardView(
-                layout = if (keyboardMode is KeyboardMode.Symbols) SymbolsLayout.layout else QwertyLayout.getLayout(compactMode.value),
+                layout = activeLayout,
                 modifierState = modifierState,
                 ctrlHeld = ctrlState == ModifierKeyState.HELD,
+                heightPercent = keyboardHeightPercent.value / 100f,
+                showHints = showHints,
+                hintBright = hintBright,
                 onKeyAction = { code ->
                     // Capture for macro recording
                     if (macroEngine.isRecording) {
@@ -305,25 +270,6 @@ fun DevKeyKeyboard(actionListener: LatinKeyboardBaseView.OnKeyboardActionListene
                         keyboardMode = KeyboardMode.Normal
                     } else {
                         bridge.onKey(code, modifierState)
-                    }
-
-                    // Track current word for predictions
-                    if (code == ' '.code || code == '.'.code || code == '\n'.code) {
-                        // Word committed — learn it
-                        if (currentWord.isNotEmpty()) {
-                            coroutineScope.launch {
-                                learningEngine.onWordCommitted(
-                                    currentWord,
-                                    isCommand = inputMode == InputMode.COMMAND,
-                                    contextApp = SessionDependencies.currentPackageName
-                                )
-                            }
-                            currentWord = ""
-                        }
-                    } else if (code == -5) { // KEYCODE_DELETE
-                        currentWord = currentWord.dropLast(1)
-                    } else if (code in 32..126) {
-                        currentWord += code.toChar()
                     }
                 },
                 onKeyPress = { code -> bridge.onKeyPress(code) },
@@ -348,4 +294,33 @@ fun DevKeyKeyboard(actionListener: LatinKeyboardBaseView.OnKeyboardActionListene
             }
         )
     }
+}
+
+/**
+ * Helper composable that reads a SharedPreferences value and returns a [State] that
+ * automatically updates whenever the preference changes.
+ *
+ * @param prefs The SharedPreferences instance to read from.
+ * @param key The preference key to observe.
+ * @param defaultValue The default value to use when the key is absent.
+ * @param reader A function that reads the typed value from prefs.
+ */
+@Composable
+private fun <T> rememberPreference(
+    prefs: SharedPreferences,
+    key: String,
+    defaultValue: T,
+    reader: (SharedPreferences, String, T) -> T
+): State<T> {
+    val state = remember { mutableStateOf(reader(prefs, key, defaultValue)) }
+    DisposableEffect(prefs, key) {
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, changedKey ->
+            if (changedKey == key) {
+                state.value = reader(prefs, key, defaultValue)
+            }
+        }
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }
+    return state
 }

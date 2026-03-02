@@ -4,6 +4,23 @@ Archived/resolved defect patterns from `_defects.md` rotation.
 
 ---
 
+## Archived 2026-03-02 (Session 21 — rotated during Kotlin migration planning)
+
+### [IME] 2026-03-01: hasDistinctMultitouch() always false with Compose keyboard
+**Pattern**: `KeyboardSwitcher.hasDistinctMultitouch()` returns `mInputView != null && mInputView.hasDistinctMultitouch()`. With Compose keyboard, `mInputView` is always null, so `distinctMultiTouch` is always false.
+**Archived reason**: Superseded by broader defect "Dual modifier state machines cause potential double-toggle". Will be fully resolved in Kotlin migration Phase 7 (modifier unification).
+
+### [IME] 2026-02-24: Legacy LatinIME assumes LatinKeyboardView exists — NPE with Compose
+**Pattern**: LatinIME.java has ~30 calls to `mKeyboardSwitcher.getInputView()` expecting a `LatinKeyboardView`. With Compose keyboard, this is always null.
+**Archived reason**: Will be fully resolved in Kotlin migration Phase 1 (legacy View deletion removes all getInputView() call sites).
+
+### [BUILD] 2026-02-23: /implement agents need broad Bash/Edit/Write permissions
+**Pattern**: Background agents dispatched by /implement cannot prompt for tool permissions.
+**Prevention**: Before running /implement, add Edit, Write, and Bash(*) to `.claude/settings.local.json` permissions.
+**Archived reason**: Well-established pattern, unlikely to forget.
+
+---
+
 ## Resolved 2026-03-01 (Session 17 — emulator audit fixes implemented)
 
 ### [UI] 2026-03-01: Main Activity is old Hacker's Keyboard setup wizard — BLOCKER

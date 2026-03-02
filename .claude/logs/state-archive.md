@@ -65,3 +65,30 @@ Archived session entries from `_state.md` rotation.
 **Work**: Implemented Session 5 via /implement (all 9 phases). Ran 3-agent code review + 3 fixer agents + Round 2 review + manual fixes. 3-agent doc audit + cross-reference agent updated all documentation. Deleted 15+ dead files. Updated branding to "DevKey". Wrote ProGuard rules. 5 logical commits. Build passing, 28 unit tests passing.
 **Decisions**: Drop Room settings table (SharedPreferences only). Destructive migration stays for now. Archived stale defects. Moved 4 completed plans to plans/completed/.
 **Next**: Procure Whisper model files, test on device, write proper Room migrations.
+
+## March 2026
+
+### Session 13 (2026-02-24)
+**Work**: Built APK, set up emulator ADB testing pipeline, debugged keyboard not showing. Fixed 3 critical bugs: API 36 ViewTreeLifecycleOwner crash, onStartInputView early return, NPE cascade from unguarded getInputView() calls. Keyboard now renders on emulator.
+**Decisions**: Use emulator (not physical device) for ADB-driven testing. Fix null guards in legacy code rather than rewriting IME.
+**Next**: Commit fixes, test keyboard input on emulator, debug remaining issues.
+
+### Session 14 (2026-02-24)
+**Work**: Reviewed emulator screenshot showing cramped keys. Brainstormed keyboard layout fix. Identified root causes: fixed 48dp rows, unused suggestion bar, 9-key bottom row with duplicate Shift. Designed fix: remove SuggestionBar, remove duplicate Shift, dynamic 40%-of-screen height with weight-based rows. Wrote design doc and 4-phase implementation plan. Committed both.
+**Decisions**: Kill suggestion bar (user never uses predictions). Drop bottom-row duplicate Shift. Dynamic keyboard height = 40% of screen. Keep Ctrl/Alt/Space/arrows/Enter in bottom row.
+**Next**: Commit Session 13 bug fixes, implement layout fix plan, test on emulator.
+
+### Session 15 (2026-02-26)
+**Work**: Implemented complete unit test coverage plan. Fixed 2 silent-pass tests (SilenceDetector reset), strengthened 3 weak assertions (MacroSerializer), added 73 new tests across 10 files. Total: 243 tests, 0 failures.
+**Decisions**: Used deserialization-based assertions instead of String.contains(). Used Thread.sleep for timer-dependent tests. Verified compact/full layout parity in tests.
+**Next**: Commit all uncommitted work, implement keyboard layout fix, test on emulator.
+
+### Session 16 (2026-03-01)
+**Work**: Implemented keyboard layout fix plan (4 phases). Set up VS Code F5 build/deploy pipeline. Full emulator audit: 8 bugs found across P0-P3. Created 7-phase fix plan with adversarial review (11 corrections incorporated). Removed ALL Hacker's Keyboard references requirement added to plan.
+**Decisions**: BUG-07 (missing 0) is NOT a bug (Tab long-press). BUG-01 relabeled P1 (not P0) to match implementation order. Phase 6 (settings nav) may be deferred. All HK references must be removed — attribution in separate doc only.
+**Next**: Implement emulator-audit-fix-plan.md, test on emulator, commit all work.
+
+### Session 17 (2026-03-01)
+**Work**: Implemented all 7 emulator audit fix phases + 2 waves of code review. Fixed 3 CRITICALs (PendingIntent FLAG_IMMUTABLE, registerReceiver RECEIVER_NOT_EXPORTED). Caught Tab keycode regression (61→9). Deleted 751-line dead SettingsScreen.kt. Replaced flat settings with hierarchical nav (10 categories). Added DevKey welcome activity. Rebranded all log tags. Fixed 8 deprecated APIs. 7 logical commits.
+**Decisions**: Phase 6 (hierarchical settings) implemented despite "defer" option. KeyCodes.TAB=9 (ASCII HT, not Android KeyEvent 61). SettingsScreen.kt deleted (fully replaced). onBackPressed→OnBackPressedCallback.
+**Next**: Test all fixes on emulator, procure Whisper model files, address deferred per-key StateFlow tech debt.

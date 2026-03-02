@@ -4,14 +4,15 @@
 - Android keyboard (IME) forked from Hacker's Keyboard, modernized with Kotlin + Jetpack Compose
 - Goal: power-user features (terminal keys, macros, command awareness) + modern typing UX (Material You, voice, autocorrect)
 - All AI/ML runs on-device (no cloud). Data stays local with JSON export/import.
+- User's key use cases: Moonlight, Chrome Remote Desktop, Termux, VS Code (streaming to PC from phone)
 
 ## Architecture
-- **IME entry point**: `LatinIME.java` (3566 lines) — remains Java, orchestrates everything
-- **Java-Compose bridge**: `SessionDependencies` singleton injects Room DAOs/repos into Compose UI at IME startup
-- **JNI bridge**: C++ dictionary at old package path `org.pocketworkstation.pckeyboard.BinaryDictionary` — DO NOT rename
-- **Dual rendering**: Legacy Java `LatinKeyboardBaseView` (Canvas) coexists with new Compose keyboard UI via `ComposeKeyboardViewFactory`
-- **Settings**: SharedPreferences only (no Room for settings), wrapped by `SettingsRepository` with Flow observation
+- **IME entry point**: `LatinIME.java` (3627 lines) — remains Java, being migrated to Kotlin
+- **Key synthesis**: `sendModifiableKeyChar()`/`sendModifiedKeyDownUp()` in LatinIME — sends Ctrl+V, Alt+Tab, F-keys via `InputConnection.sendKeyEvent()`. Being extracted to `KeyEventSender.kt`.
+- **JNI bridge**: C++ dictionary at old package path `org.pocketworkstation.pckeyboard.BinaryDictionary` — DO NOT rename (42 lines, stays Java forever)
+- **Settings**: SharedPreferences only, wrapped by `SettingsRepository` with Flow observation. `GlobalKeyboardSettings` being unified into `SettingsRepository`.
 - **Database**: Room with 4 tables (macros, learned_words, clipboard_history, command_apps), version 2
+- **Compose bridge**: `KeyboardActionBridge` → `OnKeyboardActionListener` → `LatinIME.onKey()`. Being simplified during migration.
 
 ## Tech Stack
 | Component | Version |
@@ -32,30 +33,36 @@
 ## Build
 ```bash
 ./gradlew assembleDebug    # Build debug APK
-./gradlew test             # Run unit tests (28 tests)
+./gradlew test             # Run unit tests (265 tests)
 ./gradlew installDebug     # Install on device
 ```
-- ProGuard/R8 enabled for release builds with resource shrinking
-- Lint enabled on release builds
-- Version catalogs in `gradle/libs.versions.toml`
 
 ## Critical Pitfalls
-- **JNI bridge**: Old package path is hardcoded in C++ — never rename `org.pocketworkstation.pckeyboard.BinaryDictionary`
-- **Kotlin final-by-default**: Add `open` to classes/methods that Java code extends/overrides
-- **Kotlin constants**: Use `const val` (not `@JvmField val`) for primitives used in Java switch/case
-- **AGP 8.x R fields**: `R.styleable.*` non-constant — use if/else if, not switch/case
-- **Destructive migration**: `DevKeyDatabase` uses `fallbackToDestructiveMigration()` — any schema change wipes all user data. Must write proper migrations before changing entities.
+- **JNI bridge**: Old package path hardcoded in C++ — never rename `org.pocketworkstation.pckeyboard.BinaryDictionary`
+- **Destructive migration**: `DevKeyDatabase` uses `fallbackToDestructiveMigration()` — schema change wipes data
 - **Agent permissions**: Add Edit, Write, Bash(*) to `.claude/settings.local.json` BEFORE running `/implement`
+- **asciiToKeyCode table**: Maps ASCII chars to Android KEYCODE_* values. Critical for Ctrl+letter synthesis.
+- **Dual modifier state**: 3 parallel systems until unified in migration Phase 7
 
-## Conventions
-- **DI**: Manual constructor injection (no Dagger/Hilt)
-- **State**: StateFlow + collectAsState() in Compose
-- **Async**: Kotlin Coroutines with structured concurrency (no GlobalScope)
-- **UI**: Jetpack Compose with Material You theming
-- **Serialization**: kotlinx.serialization for JSON export/import
-- **40 Java files** remain from original fork — progressive migration to Kotlin
+## Java→Kotlin Migration (Active)
+- **Plan**: `.claude/plans/kotlin-migration-plan.md` (7 phases, bottom-up incremental)
+- **Design**: `docs/plans/2026-03-02-kotlin-migration-design.md`
+- **40 Java files** total (~12,500 lines). 1 stays Java (JNI bridge).
+- **Phase 1**: Delete legacy Views + old pref screens (~4,070 lines)
+- **Phase 7**: Convert LatinIME, extract KeyEventSender.kt, unify ModifierStateManager
+- **Key constraint**: `sendModifiableKeyChar()`/`sendModifiedKeyDownUp()` must produce identical `KeyEvent` sequences for Ctrl+V, F-keys, etc.
+
+## Layout Architecture
+- `LayoutMode` enum (COMPACT, COMPACT_DEV, FULL) — separate from `KeyboardMode` (Normal, Symbols, etc.)
+- `QwertyLayout.getLayout(mode: LayoutMode)` returns layout for any mode
+- Row heights use weight ratios within user's percentage-based height preference
+- Theme tokens in `ui/theme/DevKeyTheme.kt` (NOT ui/keyboard/)
+- `KeyMapGenerator.kt` is in `debug/` package (NOT ui/keyboard/)
+- 123 key uses `KeyCodes.SYMBOLS = -2` (alias for Keyboard.KEYCODE_MODE_CHANGE)
 
 ## Current State
-- All 5 implementation sessions complete (v1 feature-complete)
-- Code review + cleanup done. Build passing, 28 unit tests passing.
-- Blocker: Whisper model files needed for voice input (graceful degradation without them)
+- All 5 implementation sessions + layout redesign complete
+- 3 keyboard modes: Compact (SwiftKey), Compact Dev (long-press numbers), Full (6-row + utility)
+- Theme: teal monochrome design token system
+- Build passing, 265 unit tests passing
+- Kotlin migration plan approved, ready for Phase 1 execution

@@ -16,10 +16,10 @@
     "compile_sdk": 34
   },
   "current_phase": {
-    "name": "Testing & Bug Fixing — Emulator Audit Fixes Implemented",
+    "name": "Full Kotlin Migration — Plan Hardened, Ready for Implementation",
     "status": "in_progress",
-    "progress_percent": 80,
-    "details": "All 7 emulator audit bugs fixed. 2 waves of code review completed. 3 CRITICALs fixed (PendingIntent, registerReceiver). Hierarchical settings nav, welcome activity, full rebranding. 7 commits. Ready for emulator verification."
+    "progress_percent": 8,
+    "details": "9-phase migration plan (0-7d) hardened by 2-wave Opus adversarial review (42 issues addressed). Phase 0 migrates constants before deletions. Phase 1 includes KeyboardSwitcher shim. Phases 5/6 swapped. Phase 7 split into 4 sub-phases."
   },
   "phases": [
     {"name": "Research & Brainstorming", "status": "complete", "progress_percent": 100},
@@ -29,16 +29,17 @@
     {"name": "Session 3: Macros, Ctrl Mode & Clipboard", "status": "complete", "progress_percent": 100},
     {"name": "Session 4: Voice-to-Text, Command Mode & Autocorrect", "status": "complete", "progress_percent": 100},
     {"name": "Session 5: Settings, Export/Import, Polish & Testing", "status": "complete", "progress_percent": 100},
-    {"name": "Testing & Bug Fixing", "status": "in_progress", "progress_percent": 80}
+    {"name": "Testing & Bug Fixing", "status": "complete", "progress_percent": 100},
+    {"name": "Layout Redesign", "status": "complete", "progress_percent": 100},
+    {"name": "Kotlin Migration", "status": "in_progress", "progress_percent": 8}
   ],
   "active_blockers": [
     "Whisper model files (whisper-tiny.en.tflite + filters_vocab_en.bin) need to be downloaded",
-    "Emulator requires show_ime_with_hard_keyboard=1",
-    "Need emulator verification of all 7 bug fixes"
+    "Debug logging system (DevKeyPress/DevKeyMap) not producing output on emulator"
   ],
   "metadata": {
-    "session_count": 17,
-    "last_updated": "2026-03-01",
-    "session_notes": "Session 17: Implemented all 7 emulator audit fix phases + 2 waves code review. Fixed 3 CRITICALs, caught Tab keycode regression. Deleted dead SettingsScreen.kt. Added hierarchical settings nav + welcome activity. Rebranded all log tags. Fixed 8 deprecated APIs. 7 logical commits."
+    "session_count": 22,
+    "last_updated": "2026-03-02",
+    "session_notes": "Session 22: 2-wave Opus adversarial review of Kotlin migration plan. 42 issues found (6 CRITICAL, 15 HIGH). Added Phase 0, KeyboardSwitcher shim, CoroutineScope strategy, swapped Phases 5/6, split Phase 7 into 4 sub-phases. Plan + design doc updated."
   }
 }

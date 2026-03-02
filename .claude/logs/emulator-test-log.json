@@ -1,0 +1,82 @@
+{
+  "session": 20,
+  "date": "2026-03-01",
+  "purpose": "Emulator testing: key press logging, ADB coordinate validation, modifier double-toggle investigation",
+  "environment": {
+    "device": "emulator-5554",
+    "model": "sdk_gphone64_x86_64",
+    "api_level": 36,
+    "screen_size": "1080x2400",
+    "show_ime_with_hard_keyboard": true,
+    "ime_id": "dev.devkey.keyboard/.LatinIME",
+    "build": "debug",
+    "build_status": "SUCCESS"
+  },
+  "observations": [
+    {
+      "id": 1,
+      "timestamp": "2026-03-01T00:00:00",
+      "phase": "setup",
+      "action": "Deploy debug build to emulator",
+      "result": "SUCCESS",
+      "details": "APK installed, DevKey IME set as active input method. API 36 emulator, 1080x2400 screen."
+    },
+    {
+      "id": 2,
+      "timestamp": "2026-03-01T00:10:00",
+      "phase": "key_logging",
+      "action": "Test DevKeyPress and DevKeyMap logcat tags",
+      "result": "FAILURE",
+      "details": "Zero output from DevKeyPress or DevKeyMap tags. Keyboard renders and accepts input (confirmed via UI dump — EditText fields found, keyboard visible). IME service is running. But logging code is not being reached. Tried: clearing logcat and retrying, dismissing/reshowing keyboard, checking all log tags. No DevKey-related logs found at all.",
+      "root_cause_hypothesis": "LaunchedEffect(Unit) for key map dump only fires once on first composition. If composable was already alive when APK was installed, it won't re-trigger. Key press logging may also not be wired into the actual code path being executed.",
+      "screenshot": "none (adb screencap -p fails on API 36)"
+    },
+    {
+      "id": 3,
+      "timestamp": "2026-03-01T00:10:00",
+      "phase": "coordinate_validation",
+      "action": "Validate ADB tap coordinates",
+      "result": "BLOCKED",
+      "details": "Cannot validate coordinates — no DevKeyMap dump available. Blocked by observation #2 (logging not working)."
+    },
+    {
+      "id": 4,
+      "timestamp": "2026-03-01T00:10:00",
+      "phase": "modifier_test",
+      "action": "Investigate modifier double-toggle",
+      "result": "BLOCKED",
+      "details": "Cannot investigate modifier behavior — no DevKeyPress logging available. Blocked by observation #2 (logging not working)."
+    },
+    {
+      "id": 5,
+      "timestamp": "2026-03-01T00:10:00",
+      "phase": "layout_audit",
+      "action": "Audit number row layout — missing dedicated 0 key",
+      "result": "CONFIRMED_ISSUE",
+      "details": "Number row has 11 keys: [Esc][1][2][3][4][5][6][7][8][9][Tab]. The '0' digit is only accessible via long-press on Tab (full layout) or long-press on P (compact layout). User confirms this is a real UX problem — needs a dedicated visible 0 key.",
+      "user_direction": "User says layout needs reimagining. Also wants Backspace/Escape to be a smart dual-purpose key."
+    }
+  ],
+  "blockers": [
+    {
+      "id": "BLOCKER-1",
+      "issue": "Debug logging system produces zero output",
+      "impact": "Blocks all 3 test tasks (key logging, coordinate validation, modifier investigation)",
+      "next_step": "Debug why KeyPressLogger and KeyMapGenerator code is not being reached"
+    }
+  ],
+  "layout_issues": [
+    {
+      "id": "LAYOUT-1",
+      "issue": "No dedicated 0 key — hidden behind Tab long-press",
+      "severity": "HIGH",
+      "status": "needs_redesign"
+    },
+    {
+      "id": "LAYOUT-2",
+      "issue": "User wants smart Backspace/Escape dual key",
+      "severity": "MEDIUM",
+      "status": "needs_brainstorming"
+    }
+  ]
+}

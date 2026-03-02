@@ -1,6 +1,10 @@
 package dev.devkey.keyboard.core
 
+import android.view.inputmethod.ExtractedTextRequest
+import android.view.inputmethod.InputConnection
 import dev.devkey.keyboard.LatinKeyboardBaseView
+import dev.devkey.keyboard.core.KeyPressLogger
+import dev.devkey.keyboard.ui.keyboard.KeyCodes
 
 /**
  * Bridge between the Compose keyboard UI and the legacy [LatinKeyboardBaseView.OnKeyboardActionListener].
@@ -48,6 +52,8 @@ class KeyboardActionBridge(
             code
         }
 
+        KeyPressLogger.logBridgeOnKey(code, effectiveCode, modifierState.isShiftActive(), modifierState.isCtrlActive(), modifierState.isAltActive())
+
         listener.onKey(
             effectiveCode,
             intArrayOf(effectiveCode),
@@ -63,6 +69,24 @@ class KeyboardActionBridge(
      */
     fun onText(text: CharSequence) {
         listener.onText(text)
+    }
+
+    /**
+     * Resolve smart backspace/esc: returns DELETE if cursor has text to delete
+     * or a selection exists, otherwise returns ESCAPE.
+     *
+     * Defaults to DELETE when InputConnection is unavailable.
+     */
+    fun resolveSmartBackEsc(inputConnection: InputConnection?): Int {
+        if (inputConnection == null) return KeyCodes.DELETE
+        return try {
+            val extracted = inputConnection.getExtractedText(ExtractedTextRequest(), 0)
+            val cursor = extracted?.selectionStart ?: 0
+            val selLength = (extracted?.selectionEnd ?: 0) - cursor
+            if (cursor > 0 || selLength > 0) KeyCodes.DELETE else KeyCodes.ESCAPE
+        } catch (_: Exception) {
+            KeyCodes.DELETE
+        }
     }
 
     private fun isLetter(code: Int): Boolean {

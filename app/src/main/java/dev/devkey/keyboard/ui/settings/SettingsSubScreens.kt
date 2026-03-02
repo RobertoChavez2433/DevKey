@@ -104,9 +104,9 @@ fun KeyboardViewSettingsScreen(
         SettingsRepository.KEY_KEYBOARD_MODE_LANDSCAPE, "0"
     ).collectAsState(initial = settingsRepository.getString(SettingsRepository.KEY_KEYBOARD_MODE_LANDSCAPE, "0"))
 
-    val compactMode by settingsRepository.observeBoolean(
-        SettingsRepository.KEY_COMPACT_MODE, false
-    ).collectAsState(initial = settingsRepository.getBoolean(SettingsRepository.KEY_COMPACT_MODE, false))
+    val layoutModeValue by settingsRepository.observeString(
+        SettingsRepository.KEY_LAYOUT_MODE, "full"
+    ).collectAsState(initial = settingsRepository.getString(SettingsRepository.KEY_LAYOUT_MODE, "full"))
 
     val suggestionsInLandscape by settingsRepository.observeBoolean(
         SettingsRepository.KEY_SUGGESTIONS_IN_LANDSCAPE, true
@@ -136,6 +136,7 @@ fun KeyboardViewSettingsScreen(
         SettingsRepository.KEY_RENDER_MODE, "0"
     ).collectAsState(initial = settingsRepository.getString(SettingsRepository.KEY_RENDER_MODE, "0"))
 
+    val layoutModeOptions = listOf("full" to "Full (6-row)", "compact" to "Compact (4-row)", "compact_dev" to "Compact Dev (4-row + long-press)")
     val keyboardModeOptions = listOf("0" to "Full 5-row", "1" to "Compact 4-row", "2" to "Phone-style")
     val hintModeOptions = listOf("0" to "Hidden", "1" to "Visible (dim)", "2" to "Visible (bright)")
     val keyboardLayoutOptions = listOf("0" to "QWERTY", "1" to "AZERTY", "2" to "QWERTZ", "3" to "Dvorak", "4" to "Colemak")
@@ -146,7 +147,7 @@ fun KeyboardViewSettingsScreen(
         item(key = "height_landscape") { SliderSetting("Height (Landscape)", heightLandscape.toFloat(), 15f, 75f, 1f, { "${it.toInt()}%" }) { settingsRepository.setInt(SettingsRepository.KEY_HEIGHT_LANDSCAPE, it.toInt()) } }
         item(key = "keyboard_mode_portrait") { DropdownSetting("Keyboard Mode (Portrait)", keyboardModePortrait, keyboardModeOptions) { settingsRepository.setString(SettingsRepository.KEY_KEYBOARD_MODE_PORTRAIT, it) } }
         item(key = "keyboard_mode_landscape") { DropdownSetting("Keyboard Mode (Landscape)", keyboardModeLandscape, keyboardModeOptions) { settingsRepository.setString(SettingsRepository.KEY_KEYBOARD_MODE_LANDSCAPE, it) } }
-        item(key = "compact_mode") { ToggleSetting("Compact Mode", "Hide number row, remap long-press to digits", compactMode) { settingsRepository.setBoolean(SettingsRepository.KEY_COMPACT_MODE, it) } }
+        item(key = "layout_mode") { DropdownSetting("Layout Mode", layoutModeValue, layoutModeOptions) { settingsRepository.setString(SettingsRepository.KEY_LAYOUT_MODE, it) } }
         item(key = "suggestions_in_landscape") { ToggleSetting("Suggestions in Landscape", checked = suggestionsInLandscape) { settingsRepository.setBoolean(SettingsRepository.KEY_SUGGESTIONS_IN_LANDSCAPE, it) } }
         item(key = "hint_mode") { DropdownSetting("Hint Mode", hintMode, hintModeOptions) { settingsRepository.setString(SettingsRepository.KEY_HINT_MODE, it) } }
         item(key = "label_scale") { SliderSetting("Label Scale", labelScale, 0.5f, 2.0f, 0.1f, { "%.1fx".format(it) }) { settingsRepository.setFloat(SettingsRepository.KEY_LABEL_SCALE, it) } }

@@ -76,28 +76,34 @@ object SymbolsLayout {
             )
         )
 
-        // Row 5: Bottom row with ABC, comma, space, period, enter
+        // Row 5: Bottom row with ABC, emoji, comma, space, period, enter
         val bottomRow = KeyRowData(
             keys = listOf(
                 KeyData(
                     primaryLabel = "ABC",
                     primaryCode = KEYCODE_ALPHA,
                     type = KeyType.ACTION,
-                    weight = 1.5f
+                    weight = 1.0f
                 ),
-                KeyData(",", ','.code, type = KeyType.SPECIAL),
+                KeyData(
+                    primaryLabel = "\u263A",  // smiley face (emoji key)
+                    primaryCode = KeyCodes.EMOJI,
+                    type = KeyType.TOGGLE,
+                    weight = 0.8f
+                ),
+                KeyData(",", ','.code, type = KeyType.SPECIAL, weight = 0.8f),
                 KeyData(
                     primaryLabel = " ",
                     primaryCode = ' '.code,
                     type = KeyType.SPACEBAR,
-                    weight = 5.0f
+                    weight = 4.0f
                 ),
-                KeyData(".", '.'.code, type = KeyType.SPECIAL),
+                KeyData(".", '.'.code, type = KeyType.SPECIAL, weight = 0.8f),
                 KeyData(
                     primaryLabel = "Enter",
-                    primaryCode = 10,
+                    primaryCode = KeyCodes.ENTER,
                     type = KeyType.ACTION,
-                    weight = 1.5f
+                    weight = 1.6f
                 )
             )
         )

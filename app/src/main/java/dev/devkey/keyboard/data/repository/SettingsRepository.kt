@@ -1,6 +1,7 @@
 package dev.devkey.keyboard.data.repository
 
 import android.content.SharedPreferences
+import dev.devkey.keyboard.ui.keyboard.LayoutMode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.filter
@@ -15,6 +16,20 @@ class SettingsRepository(
 
     init {
         prefs.registerOnSharedPreferenceChangeListener(this)
+        migrateCompactModeToLayoutMode()
+    }
+
+    /**
+     * One-time migration: reads old KEY_COMPACT_MODE boolean and writes
+     * KEY_LAYOUT_MODE string if it doesn't already exist.
+     * true -> "compact_dev", false -> "full"
+     */
+    private fun migrateCompactModeToLayoutMode() {
+        if (!prefs.contains(KEY_LAYOUT_MODE) && prefs.contains(KEY_COMPACT_MODE)) {
+            val wasCompact = prefs.getBoolean(KEY_COMPACT_MODE, false)
+            val newMode = if (wasCompact) "compact_dev" else "full"
+            prefs.edit().putString(KEY_LAYOUT_MODE, newMode).apply()
+        }
     }
 
     fun close() {
@@ -73,6 +88,18 @@ class SettingsRepository(
             .map { getFloat(key, default) }
             .onStart { emit(getFloat(key, default)) }
 
+    /**
+     * Observe the current layout mode as a [Flow] of [LayoutMode].
+     */
+    fun getLayoutMode(): Flow<LayoutMode> =
+        observeString(KEY_LAYOUT_MODE, "full").map { value ->
+            when (value) {
+                "compact" -> LayoutMode.COMPACT
+                "compact_dev" -> LayoutMode.COMPACT_DEV
+                else -> LayoutMode.FULL
+            }
+        }
+
     companion object {
         // Default height percentages (single source of truth)
         const val DEFAULT_HEIGHT_PORTRAIT = 40   // percent
@@ -119,7 +146,8 @@ class SettingsRepository(
         const val KEY_SETTINGS_KEY = "settings_key"
 
         // New DevKey keys
-        const val KEY_COMPACT_MODE = "devkey_compact_mode"
+        const val KEY_COMPACT_MODE = "devkey_compact_mode"  // deprecated, migrated to KEY_LAYOUT_MODE
+        const val KEY_LAYOUT_MODE = "devkey_layout_mode"    // values: "full", "compact", "compact_dev"
         const val KEY_AUTOCORRECT_LEVEL = "devkey_autocorrect_level"
         const val KEY_MACRO_DISPLAY_MODE = "devkey_macro_display_mode"
         const val KEY_VOICE_MODEL = "devkey_voice_model"

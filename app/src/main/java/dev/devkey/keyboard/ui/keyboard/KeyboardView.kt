@@ -7,8 +7,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.devkey.keyboard.core.ModifierStateManager
 import dev.devkey.keyboard.ui.theme.DevKeyTheme
@@ -16,10 +19,11 @@ import dev.devkey.keyboard.ui.theme.DevKeyTheme
 /**
  * Composable that renders the full keyboard grid.
  *
- * Uses dynamic height based on screen size (40% of screen height minus toolbar).
- * Each row is equally weighted to fill the available space.
+ * Uses dynamic height based on screen size (percentage of screen height minus toolbar).
+ * Each row is sized according to weight ratios from DevKeyTheme tokens.
  *
  * @param layout The keyboard layout data containing all rows.
+ * @param layoutMode The active layout mode (used for row weight calculation).
  * @param modifierState The modifier state manager.
  * @param onKeyAction Callback when a key action fires.
  * @param onKeyPress Callback when a key is pressed.
@@ -28,6 +32,7 @@ import dev.devkey.keyboard.ui.theme.DevKeyTheme
 @Composable
 fun KeyboardView(
     layout: KeyboardLayoutData,
+    layoutMode: LayoutMode = LayoutMode.FULL,
     modifierState: ModifierStateManager,
     onKeyAction: (Int) -> Unit,
     onKeyPress: (Int) -> Unit,
@@ -41,15 +46,21 @@ fun KeyboardView(
     val rawHeight = (screenHeightDp * heightPercent).dp - DevKeyTheme.toolbarHeight
     val keyAreaHeight = rawHeight.coerceAtLeast(48.dp)
 
+    // Compute per-row heights based on weight ratios
+    val rowHeights = remember(layout, layoutMode, keyAreaHeight) {
+        computeRowHeights(layout, layoutMode, keyAreaHeight)
+    }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .height(keyAreaHeight)
-            .background(DevKeyTheme.keyboardBackground)
-            .padding(horizontal = 4.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+            .background(DevKeyTheme.kbBg)
+            .padding(horizontal = DevKeyTheme.kbPadH),
+        verticalArrangement = Arrangement.spacedBy(DevKeyTheme.keyGap)
     ) {
-        for (row in layout.rows) {
+        for ((index, row) in layout.rows.withIndex()) {
+            val rowHeight = rowHeights.getOrElse(index) { 40.dp }
             KeyRow(
                 row = row,
                 modifierState = modifierState,
@@ -59,8 +70,47 @@ fun KeyboardView(
                 ctrlHeld = ctrlHeld,
                 showHints = showHints,
                 hintBright = hintBright,
-                modifier = Modifier.weight(1f)
+                rowHeight = rowHeight,
+                modifier = Modifier
             )
         }
+    }
+}
+
+/**
+ * Compute row heights using theme weight tokens.
+ *
+ * For FULL mode (6 rows): number, letter, letter, letter, space, utility
+ * For COMPACT/COMPACT_DEV (4 rows): equal weight rows
+ */
+private fun computeRowHeights(
+    layout: KeyboardLayoutData,
+    layoutMode: LayoutMode,
+    totalHeight: Dp
+): List<Dp> {
+    val rowCount = layout.rows.size
+    if (rowCount == 0) return emptyList()
+
+    val totalGap = DevKeyTheme.keyGap * (rowCount - 1)
+    val availableHeight = totalHeight - totalGap
+
+    val weights = when (layoutMode) {
+        LayoutMode.FULL -> listOf(
+            DevKeyTheme.rowNumberWeight,   // row 0: number
+            DevKeyTheme.rowLetterWeight,   // row 1: qwerty
+            DevKeyTheme.rowLetterWeight,   // row 2: home
+            DevKeyTheme.rowLetterWeight,   // row 3: z
+            DevKeyTheme.rowSpaceWeight,    // row 4: space
+            DevKeyTheme.rowUtilityWeight   // row 5: utility
+        )
+        LayoutMode.COMPACT, LayoutMode.COMPACT_DEV -> List(rowCount) {
+            DevKeyTheme.rowCompactWeight
+        }
+    }
+
+    val totalWeight = weights.sum()
+
+    return weights.map { weight ->
+        availableHeight * (weight / totalWeight)
     }
 }

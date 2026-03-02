@@ -11,7 +11,22 @@ enum class KeyType {
     ACTION,
     ARROW,
     SPECIAL,
-    SPACEBAR
+    SPACEBAR,
+    UTILITY,
+    TOGGLE
+}
+
+/**
+ * Layout mode for the keyboard. Determines row structure and key arrangement.
+ *
+ * - COMPACT: 4-row clean SwiftKey layout, no long-press on letter keys
+ * - COMPACT_DEV: 4-row layout with numbers/symbols on long-press
+ * - FULL: 6-row layout with number row and utility row
+ */
+enum class LayoutMode {
+    COMPACT,
+    COMPACT_DEV,
+    FULL
 }
 
 /**
@@ -62,4 +77,8 @@ object KeyCodes {
     const val ESCAPE = -111
     const val TAB = 9      // ASCII HT, matches LatinIME.onKey() switch case
     const val ENTER = 10
+    const val DELETE = -5          // matches Keyboard.KEYCODE_DELETE
+    const val SYMBOLS = -2         // alias for Keyboard.KEYCODE_MODE_CHANGE, handled by LatinIME
+    const val EMOJI = -300         // new, handled in DevKeyKeyboard.kt
+    const val SMART_BACK_ESC = -301 // sent by smart backspace/esc key, resolved in DevKeyKeyboard.kt
 }

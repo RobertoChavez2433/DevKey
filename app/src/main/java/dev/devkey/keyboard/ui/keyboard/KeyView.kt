@@ -2,6 +2,7 @@ package dev.devkey.keyboard.ui.keyboard
 
 import android.view.HapticFeedbackConstants
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -22,11 +23,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import dev.devkey.keyboard.Keyboard
+import dev.devkey.keyboard.core.KeyPressLogger
 import dev.devkey.keyboard.core.ModifierKeyState
 import dev.devkey.keyboard.core.ModifierStateManager
 import dev.devkey.keyboard.core.ModifierType
@@ -38,7 +41,8 @@ import kotlinx.coroutines.launch
 /**
  * Composable for a single keyboard key.
  *
- * Handles rendering, press animation, long-press, key repeat, and modifier behavior.
+ * Handles rendering, press animation, long-press, key repeat, modifier behavior,
+ * and theme-based coloring per KeyType.
  */
 @Composable
 fun KeyView(
@@ -62,8 +66,7 @@ fun KeyView(
     val altState by modifierState.altState.collectAsState()
 
     // Determine base and active colors for this key
-    val normalColor = getKeyColor(key)
-    val pressedColor = DevKeyTheme.keyPressed
+    val (normalBg, normalText) = getKeyColors(key)
     val activeColor = getActiveKeyColor(key)
 
     // Determine if this modifier key is active
@@ -73,6 +76,11 @@ fun KeyView(
         key.type == KeyType.MODIFIER && key.primaryCode == KeyCodes.CTRL_LEFT ->
             ctrlState != ModifierKeyState.OFF
         key.type == KeyType.MODIFIER && key.primaryCode == KeyCodes.ALT_LEFT ->
+            altState != ModifierKeyState.OFF
+        // UTILITY type Ctrl/Alt also need active state
+        key.type == KeyType.UTILITY && key.primaryCode == KeyCodes.CTRL_LEFT ->
+            ctrlState != ModifierKeyState.OFF
+        key.type == KeyType.UTILITY && key.primaryCode == KeyCodes.ALT_LEFT ->
             altState != ModifierKeyState.OFF
         else -> false
     }
@@ -84,6 +92,10 @@ fun KeyView(
             ctrlState == ModifierKeyState.LOCKED
         key.type == KeyType.MODIFIER && key.primaryCode == KeyCodes.ALT_LEFT ->
             altState == ModifierKeyState.LOCKED
+        key.type == KeyType.UTILITY && key.primaryCode == KeyCodes.CTRL_LEFT ->
+            ctrlState == ModifierKeyState.LOCKED
+        key.type == KeyType.UTILITY && key.primaryCode == KeyCodes.ALT_LEFT ->
+            altState == ModifierKeyState.LOCKED
         else -> false
     }
 
@@ -94,7 +106,7 @@ fun KeyView(
 
     // Background color with animation
     val targetColor = when {
-        isPressed -> pressedColor
+        isPressed -> DevKeyTheme.keyPressed
         isModifierActive -> activeColor
         ctrlHeld && key.type == KeyType.LETTER && ctrlShortcut != null -> {
             when (ctrlShortcut.highlight) {
@@ -102,12 +114,23 @@ fun KeyView(
                 HighlightType.NORMAL -> DevKeyTheme.ctrlModeShortcutBg
             }
         }
-        else -> normalColor
+        else -> normalBg
     }
     val backgroundColor by animateColorAsState(
         targetValue = targetColor,
-        animationSpec = tween(durationMillis = 100),
+        animationSpec = tween(
+            durationMillis = if (isPressed) DevKeyTheme.pressDownMs else DevKeyTheme.pressUpMs
+        ),
         label = "keyBgColor"
+    )
+
+    // Press scale animation
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) DevKeyTheme.pressScale else 1f,
+        animationSpec = tween(
+            durationMillis = if (isPressed) DevKeyTheme.pressDownMs else DevKeyTheme.pressUpMs
+        ),
+        label = "keyScale"
     )
 
     // Ctrl Mode text color overrides
@@ -126,25 +149,46 @@ fun KeyView(
         else -> key.primaryLabel
     }
 
+    // Determine text size based on key type
+    val textSize = when (key.type) {
+        KeyType.UTILITY -> DevKeyTheme.fontKeyUtility
+        KeyType.SPECIAL -> DevKeyTheme.fontKeySpecial
+        KeyType.TOGGLE -> DevKeyTheme.fontKeySpecial
+        else -> DevKeyTheme.fontKey
+    }
+
+    // Determine if this key is a modifier-like key (needs tap-only handling)
+    val isModifierKey = key.type == KeyType.MODIFIER ||
+            (key.type == KeyType.UTILITY && (key.primaryCode == KeyCodes.CTRL_LEFT || key.primaryCode == KeyCodes.ALT_LEFT))
+
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(DevKeyTheme.keyCornerRadius))
+            .scale(scale)
+            .clip(RoundedCornerShape(DevKeyTheme.keyRadius))
             .background(backgroundColor)
             .pointerInput(key.primaryCode, key.type, key.longPressCode, key.isRepeatable) {
-                if (key.type == KeyType.MODIFIER) {
+                if (isModifierKey) {
                     // Modifier keys use simple tap detection
                     detectTapGestures(
                         onPress = {
                             val modType = getModifierType(key.primaryCode)
                             isPressed = true
+                            KeyPressLogger.logKeyDown(key.primaryLabel, key.primaryCode, "MODIFIER")
                             if (modType != null) {
                                 modifierState.onModifierDown(modType, 0)
                             }
                             tryAwaitRelease()
                             isPressed = false
+                            KeyPressLogger.logKeyUp(key.primaryLabel, key.primaryCode)
                             if (modType != null) {
                                 modifierState.onModifierUp(modType, 0)
                                 modifierState.onModifierTap(modType)
+                                val currentState = when (modType) {
+                                    ModifierType.SHIFT -> modifierState.shiftState.value
+                                    ModifierType.CTRL -> modifierState.ctrlState.value
+                                    ModifierType.ALT -> modifierState.altState.value
+                                }
+                                KeyPressLogger.logModifierTransition(modType.name, "tap", currentState.name)
                             }
                         }
                     )
@@ -154,6 +198,7 @@ fun KeyView(
                         onPress = {
                             isPressed = true
                             onKeyPress(key.primaryCode)
+                            KeyPressLogger.logKeyDown(key.primaryLabel, key.primaryCode, key.type.name)
 
                             // Start long-press / repeat timer
                             val job = coroutineScope.launch {
@@ -162,11 +207,17 @@ fun KeyView(
                                 view.performHapticFeedback(
                                     HapticFeedbackConstants.LONG_PRESS
                                 )
+                                KeyPressLogger.logLongPress(key.primaryLabel, key.primaryCode, key.longPressCode)
                                 if (key.longPressCode != null) {
                                     onKeyAction(key.longPressCode)
                                 } else if (key.isRepeatable) {
+                                    var repeatCount = 0
                                     while (isActive) {
+                                        repeatCount++
                                         onKeyAction(key.primaryCode)
+                                        if (repeatCount % 10 == 0) {
+                                            KeyPressLogger.logRepeat(key.primaryLabel, key.primaryCode, repeatCount)
+                                        }
                                         delay(50L)
                                     }
                                 }
@@ -177,10 +228,12 @@ fun KeyView(
                             isPressed = false
 
                             if (released && !job.isCompleted) {
-                                // Short tap — job didn't complete (no long press)
+                                // Short tap - job didn't complete (no long press)
+                                KeyPressLogger.logKeyTap(key.primaryLabel, key.primaryCode)
                                 onKeyAction(key.primaryCode)
                             }
                             onKeyRelease(key.primaryCode)
+                            KeyPressLogger.logKeyUp(key.primaryLabel, key.primaryCode)
                         }
                     )
                 }
@@ -194,8 +247,8 @@ fun KeyView(
             ) {
                 Text(
                     text = displayLabel,
-                    color = ctrlTextColor ?: DevKeyTheme.keyText,
-                    fontSize = DevKeyTheme.keyLabelSize
+                    color = ctrlTextColor ?: normalText,
+                    fontSize = textSize
                 )
                 Text(
                     text = ctrlShortcut.label,
@@ -205,12 +258,11 @@ fun KeyView(
             }
         } else {
             // Normal rendering: center label
-            val effectiveTextColor = ctrlTextColor
-                ?: if (key.type == KeyType.SPACEBAR) DevKeyTheme.spaceKeyText else DevKeyTheme.keyText
+            val effectiveTextColor = ctrlTextColor ?: normalText
             Text(
                 text = displayLabel,
                 color = effectiveTextColor,
-                fontSize = DevKeyTheme.keyLabelSize
+                fontSize = textSize
             )
         }
 
@@ -219,7 +271,7 @@ fun KeyView(
             Text(
                 text = key.longPressLabel,
                 color = if (hintBright) DevKeyTheme.keyText.copy(alpha = 0.7f) else DevKeyTheme.keyHint,
-                fontSize = DevKeyTheme.keyHintSize,
+                fontSize = DevKeyTheme.fontKeyHint,
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(end = 3.dp, top = 2.dp)
@@ -241,20 +293,32 @@ fun KeyView(
 }
 
 /**
- * Get the background color for a key based on its type and keycode.
+ * Get the background and text colors for a key based on its type and keycode.
  */
-private fun getKeyColor(key: KeyData): Color {
-    return when {
-        key.type == KeyType.MODIFIER && key.primaryCode == KeyCodes.CTRL_LEFT -> DevKeyTheme.ctrlKeyFill
-        key.type == KeyType.MODIFIER && key.primaryCode == KeyCodes.ALT_LEFT -> DevKeyTheme.altKeyFill
-        key.type == KeyType.MODIFIER -> DevKeyTheme.keyFill
-        key.type == KeyType.ACTION && key.primaryCode == Keyboard.KEYCODE_DELETE -> DevKeyTheme.backspaceKeyFill
-        key.type == KeyType.ACTION && key.primaryCode == KeyCodes.ENTER -> DevKeyTheme.enterKeyFill
-        key.type == KeyType.SPECIAL && key.primaryCode == KeyCodes.ESCAPE -> DevKeyTheme.escKeyFill
-        key.type == KeyType.SPECIAL && key.primaryCode == KeyCodes.TAB -> DevKeyTheme.tabKeyFill
-        key.type == KeyType.ARROW -> DevKeyTheme.arrowKeyFill
-        key.type == KeyType.SPACEBAR -> DevKeyTheme.spaceKeyFill
-        else -> DevKeyTheme.keyFill
+private fun getKeyColors(key: KeyData): Pair<Color, Color> {
+    return when (key.type) {
+        KeyType.LETTER -> DevKeyTheme.keyBg to DevKeyTheme.keyText
+        KeyType.NUMBER -> DevKeyTheme.keyBg to DevKeyTheme.keyText
+        KeyType.SPACEBAR -> DevKeyTheme.keyBg to DevKeyTheme.keyText
+        KeyType.SPECIAL -> DevKeyTheme.keyBgSpecial to DevKeyTheme.keyTextSpecial
+        KeyType.MODIFIER -> DevKeyTheme.modBgShift to DevKeyTheme.modTextShift
+        KeyType.ACTION -> {
+            if (key.primaryCode == KeyCodes.ENTER) {
+                DevKeyTheme.modBgEnter to DevKeyTheme.modTextEnter
+            } else {
+                DevKeyTheme.modBgAction to DevKeyTheme.modTextAction
+            }
+        }
+        KeyType.TOGGLE -> DevKeyTheme.modBgToggle to DevKeyTheme.modTextToggle
+        KeyType.UTILITY -> {
+            // Navigation arrows use nav colors, system modifiers use sysmod
+            when (key.primaryCode) {
+                KeyCodes.CTRL_LEFT, KeyCodes.ALT_LEFT, KeyCodes.TAB ->
+                    DevKeyTheme.modBgSysmod to DevKeyTheme.modTextSysmod
+                else -> DevKeyTheme.modBgNav to DevKeyTheme.modTextNav
+            }
+        }
+        KeyType.ARROW -> DevKeyTheme.modBgNav to DevKeyTheme.modTextNav
     }
 }
 
@@ -262,10 +326,10 @@ private fun getKeyColor(key: KeyData): Color {
  * Get the active (modifier engaged) background color.
  */
 private fun getActiveKeyColor(key: KeyData): Color = when (key.primaryCode) {
-    Keyboard.KEYCODE_SHIFT -> DevKeyTheme.shiftActiveKeyFill
-    KeyCodes.CTRL_LEFT -> DevKeyTheme.ctrlActiveKeyFill
-    KeyCodes.ALT_LEFT -> DevKeyTheme.altActiveKeyFill
-    else -> DevKeyTheme.keyFill
+    Keyboard.KEYCODE_SHIFT -> DevKeyTheme.modBgShiftActive
+    KeyCodes.CTRL_LEFT -> DevKeyTheme.modBgCtrlActive
+    KeyCodes.ALT_LEFT -> DevKeyTheme.modBgAltActive
+    else -> DevKeyTheme.keyBg
 }
 
 /**

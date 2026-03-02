@@ -1982,6 +1982,7 @@ public class LatinIME extends InputMethodService implements
 
     public void onKey(int primaryCode, int[] keyCodes, int x, int y) {
         long when = SystemClock.uptimeMillis();
+        Log.d("DevKeyPress", "IME   code=" + primaryCode + " x=" + x + " y=" + y);
         if (primaryCode != Keyboard.KEYCODE_DELETE
                 || when > mLastKeyTime + QUICK_PRESS) {
             mDeleteCount = 0;

@@ -9,6 +9,7 @@ import android.content.SharedPreferences
 import android.content.res.Configuration
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -19,6 +20,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.preference.PreferenceManager
 import dev.devkey.keyboard.LatinKeyboardBaseView
 import dev.devkey.keyboard.core.KeyboardActionBridge
@@ -34,6 +36,7 @@ import dev.devkey.keyboard.feature.macro.MacroRepository
 import dev.devkey.keyboard.feature.macro.MacroSerializer
 import dev.devkey.keyboard.feature.macro.MacroStep
 import dev.devkey.keyboard.data.repository.SettingsRepository
+import dev.devkey.keyboard.debug.KeyMapGenerator
 import dev.devkey.keyboard.feature.voice.VoiceInputEngine
 import dev.devkey.keyboard.ui.clipboard.ClipboardPanel
 import dev.devkey.keyboard.ui.macro.MacroChipStrip
@@ -53,9 +56,13 @@ import kotlinx.coroutines.launch
  * Clipboard, Symbols, and Voice.
  *
  * @param actionListener The IME action listener to bridge key events to.
+ * @param currentInputConnection Provider for the current InputConnection (for smart backspace/esc).
  */
 @Composable
-fun DevKeyKeyboard(actionListener: LatinKeyboardBaseView.OnKeyboardActionListener) {
+fun DevKeyKeyboard(
+    actionListener: LatinKeyboardBaseView.OnKeyboardActionListener,
+    currentInputConnection: (() -> android.view.inputmethod.InputConnection?)? = null
+) {
     val context = LocalContext.current
     val modifierState = remember { ModifierStateManager() }
     val bridge = remember { KeyboardActionBridge(actionListener) }
@@ -77,9 +84,25 @@ fun DevKeyKeyboard(actionListener: LatinKeyboardBaseView.OnKeyboardActionListene
         onDispose { voiceInputEngine.release() }
     }
 
-    // Compact mode preference
+    // Layout mode preference (replaces old compact mode boolean)
     val prefs = remember { PreferenceManager.getDefaultSharedPreferences(context) }
-    val compactMode = rememberPreference(prefs, SettingsRepository.KEY_COMPACT_MODE, false) { p, k, d -> p.getBoolean(k, d) }
+    val layoutModeStr = rememberPreference(prefs, SettingsRepository.KEY_LAYOUT_MODE, "full") { p, k, d -> p.getString(k, d) ?: d }
+    val layoutMode = remember(layoutModeStr.value) {
+        when (layoutModeStr.value) {
+            "compact" -> LayoutMode.COMPACT
+            "compact_dev" -> LayoutMode.COMPACT_DEV
+            else -> LayoutMode.FULL
+        }
+    }
+
+    // Debug: dump key coordinate map on startup
+    val currentView = LocalView.current
+    LaunchedEffect(Unit) {
+        if (KeyMapGenerator.isDebugBuild(context)) {
+            kotlinx.coroutines.delay(500L)  // wait for layout
+            KeyMapGenerator.dumpToLogcat(context, currentView, layoutMode)
+        }
+    }
 
     // Dynamic keyboard height from user preference
     val configuration = LocalConfiguration.current
@@ -240,13 +263,20 @@ fun DevKeyKeyboard(actionListener: LatinKeyboardBaseView.OnKeyboardActionListene
 
         // 4. Keyboard (hidden during voice input)
         if (keyboardMode !is KeyboardMode.Voice) {
+            // Determine which layout mode to use for KeyboardView
+            val activeLayoutMode = when (keyboardMode) {
+                is KeyboardMode.Symbols -> LayoutMode.FULL  // Symbols uses its own layout data
+                else -> layoutMode
+            }
+
             // Extract layout to local val so Compose reliably tracks keyboardMode reads
             val activeLayout = when (keyboardMode) {
                 is KeyboardMode.Symbols -> SymbolsLayout.layout
-                else -> QwertyLayout.getLayout(compactMode.value)
+                else -> QwertyLayout.getLayout(layoutMode)
             }
             KeyboardView(
                 layout = activeLayout,
+                layoutMode = activeLayoutMode,
                 modifierState = modifierState,
                 ctrlHeld = ctrlState == ModifierKeyState.HELD,
                 heightPercent = keyboardHeightPercent.value / 100f,
@@ -265,11 +295,30 @@ fun DevKeyKeyboard(actionListener: LatinKeyboardBaseView.OnKeyboardActionListene
                             macroEngine.captureKey(key, code, modifiers)
                         }
                     }
-                    // Handle ABC key from symbols layout
-                    if (code == SymbolsLayout.KEYCODE_ALPHA) {
-                        keyboardMode = KeyboardMode.Normal
-                    } else {
-                        bridge.onKey(code, modifierState)
+                    // Handle special keycodes
+                    when (code) {
+                        SymbolsLayout.KEYCODE_ALPHA -> {
+                            // ABC key from symbols layout
+                            keyboardMode = KeyboardMode.Normal
+                        }
+                        KeyCodes.SYMBOLS -> {
+                            // 123 key — toggle symbols mode
+                            toggleMode(KeyboardMode.Symbols)
+                        }
+                        KeyCodes.EMOJI -> {
+                            // Emoji key — show system emoji picker
+                            // TODO: implement InputMethodService.switchToNextInputMethod()
+                            // For now, no-op (emoji picker requires IME service access)
+                        }
+                        KeyCodes.SMART_BACK_ESC -> {
+                            // Smart backspace/esc — resolve using InputConnection
+                            val ic = currentInputConnection?.invoke()
+                            val resolvedCode = bridge.resolveSmartBackEsc(ic)
+                            bridge.onKey(resolvedCode, modifierState)
+                        }
+                        else -> {
+                            bridge.onKey(code, modifierState)
+                        }
                     }
                 },
                 onKeyPress = { code -> bridge.onKeyPress(code) },

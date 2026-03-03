@@ -44,6 +44,9 @@
 - **Agent permissions**: Add Edit, Write, Bash(*) to `.claude/settings.local.json` BEFORE running `/implement`
 - **asciiToKeyCode table**: Maps ASCII chars to Android KEYCODE_* values (IntArray(128)). Critical for Ctrl+letter synthesis.
 - **Debug logging intentional**: KeyPressLogger + Log.d calls were added in Session 19 for debugging — do NOT remove or gate behind BuildConfig.DEBUG
+- **Init order in LatinIME.onCreate()**: `sKeyboardSettings` MUST be initialized BEFORE `KeyboardSwitcher.init()` — the switcher reads settings during init (Session 25 crash fix)
+- **Background agents can't run ADB**: Bash permissions denied for background Task agents — use foreground or direct commands for emulator testing
+- **Keyboard Y coordinate offset**: Calculated key positions from `key-coordinates.md` need **-153px Y offset** on the emulator. The keyboard renders higher than the 40% height calculation predicts.
 
 ## Java→Kotlin Migration (COMPLETE)
 - **All phases executed**: Sessions 21-24 (brainstorm → plan → review → implement → deferred items → code review)
@@ -62,7 +65,10 @@
 
 ## Current State
 - All implementation sessions + layout redesign + Kotlin migration + code review complete
+- Migration COMMITTED: 4 commits on main (migration, tests, plans, crash fix)
 - 3 keyboard modes: Compact (SwiftKey), Compact Dev (long-press numbers), Full (6-row + utility)
 - Theme: teal monochrome design token system
 - Build passing, 355 unit tests passing
-- Needs: emulator regression test, commit, PluginManager security hardening
+- Keyboard RUNNING on emulator — "hello" test PASSES, DevKeyPress logcat WORKING
+- E2E testing IN PROGRESS: key coordinate map ready, full matrix pending
+- Needs: complete key matrix test, modifier/mode testing, PluginManager security

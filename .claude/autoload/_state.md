@@ -1,42 +1,67 @@
 # Session State
 
-**Last Updated**: 2026-03-02 | **Session**: 24
+**Last Updated**: 2026-03-02 | **Session**: 25
 
 ## Current Phase
-- **Phase**: Kotlin Migration — COMPLETE + Deferred Items + Code Review
-- **Status**: All migration deferred items implemented (ComposeSequence→Kotlin, Settings Unification, Handler→coroutines, Bridge simplification, ComposeSequencing removal). Multi-wave code review completed with all P0/P1/P2/P3 fixes applied. 355 tests pass. Build clean. Only JNI bridge remains as Java.
+- **Phase**: E2E Testing — IN PROGRESS
+- **Status**: Migration committed (4 commits), crash fix applied, keyboard running on emulator. Initial key testing calibrated and "hello" test PASSES. Full key matrix testing pending.
 
 ## HOT CONTEXT - Resume Here
 
 ### EXACTLY WHERE WE LEFT OFF
 
-**Implemented 5 deferred migration items + comprehensive code review with fixes.**
+**Committed migration, fixed startup crash, began E2E keyboard testing on emulator.**
 
 This session accomplished:
-1. Reviewed migration plan for deferred items, identified 5 pending tasks
-2. Executed Phase D1: Converted ComposeSequence.java→Kotlin (1,137 lines)
-3. Executed Phase D2: Unified GlobalKeyboardSettings into SettingsRepository with StateFlow
-4. Executed Phase D3: Replaced Handler/Message with coroutine-based delayed execution
-5. Executed Phase D4: Evaluated KeyboardActionBridge — stays (provides real value), slimmed interface from 9→4 methods
-6. Executed Phase D5: Removed ComposeSequencing interface, replaced with lambda callbacks
-7. Wave 1 code review: 4 parallel Opus agents found 120 findings (10 P0, 19 P1, 47 P2, 27 P3)
-8. Fix Pass 1: Fixed all P0+P1 issues (18 fixes), build+tests pass
-9. Wave 2 review: Verified 15/15 fixes PASS, found 3 more P1 issues
-10. Fix Pass 2: 3 parallel agents fixed all remaining P1+P2+P3 (~63 fixes), build+tests pass
+1. Broke migration into 3 logical commits + 1 crash fix commit (4 total)
+2. Found & fixed P0 crash: `sKeyboardSettings` initialization order in `LatinIME.onCreate()`
+3. Built and installed APK on emulator-5554 (1080x2400)
+4. Got keyboard visible in FULL mode on contact form "First name" field
+5. Calibrated key coordinates: **Y offset = -153px** from calculated positions
+6. Verified "hello" typing test — all 5 keys correct via DevKeyPress logcat
+7. Created key coordinate map: `.claude/logs/key-coordinates.md` (all COMPACT + FULL mode keys)
+8. Created test observations: `.claude/logs/e2e-test-observations.md`
 
 ### What Needs to Happen Next
 
-1. **Commit all changes** — Very large diff (migration + deferred items + code review fixes). Review and commit.
-2. **Emulator regression test** — Verify typing, Ctrl shortcuts, modifier keys, mode switching, language switching on device
-3. **Address remaining architectural debt** — PluginManager untrusted package loading, dual modifier state (ChordeTracker vs ModifierStateManager)
+1. **Complete full key matrix test** — Test all 26 alpha keys, 10 numbers, special keys using corrected coordinates (see e2e-test-observations.md for Y offset table)
+2. **Test modifier combos** — Shift+letter (uppercase), Ctrl+A/C/V/X/Z, Alt combos
+3. **Test mode switching** — 123→symbols→ABC, long-press Shift for caps lock
+4. **Test utility row** — Ctrl, Alt, Tab, arrow keys (FULL mode bottom row)
+5. **Test COMPACT and COMPACT_DEV modes** — Switch layout modes and verify
+6. **Performance profiling** — Key latency is ~7ms (good), check for ANRs under sustained typing
+7. **Address architectural debt** — PluginManager security, ChordeTracker unification
+
+### Key Testing Resumption Guide
+
+The keyboard is ON and visible on `emulator-5554` in the Contacts "First name" field. To resume testing:
+```bash
+# If keyboard not visible, reopen:
+adb -s emulator-5554 shell "am start -a android.intent.action.INSERT -t vnd.android.cursor.dir/contact"
+# Tap First name field: bounds [126,1279][954,1433]
+adb -s emulator-5554 shell input tap 540 1356
+# Clear logcat before testing:
+adb -s emulator-5554 logcat -c
+# Example key tap (use corrected Y = calculated - 153):
+adb -s emulator-5554 shell input tap 659 1746  # h key
+# Check results:
+adb -s emulator-5554 logcat -d -s DevKeyPress:*
+```
+
+**CRITICAL**: All Y coordinates from `.claude/logs/key-coordinates.md` need -153px offset applied.
 
 ## Blockers
 
 - **Whisper model files**: Need `whisper-tiny.en.tflite` and `filters_vocab_en.bin` -> `app/src/main/assets/`
-- **Debug logging not working**: DevKeyPress/DevKeyMap logcat tags produce zero output despite code being in place
-- **Emulator quirk**: `show_ime_with_hard_keyboard` must be set to `1` on emulator
+- **Debug logging**: NOW WORKING — DevKeyPress tags confirmed working in logcat (was not working before migration)
+- **Background agents can't run ADB**: Bash permission denied for background agents — must test via foreground or direct commands
 
 ## Recent Sessions
+
+### Session 25 (2026-03-02)
+**Work**: Committed Java→Kotlin migration as 3 logical commits + 1 crash fix. Found P0 crash (sKeyboardSettings init order) and fixed immediately. Built, installed, and began E2E testing on emulator. Calibrated key coordinates (Y offset -153px). Verified "hello" typing test passes. Created key coordinate map and test observations docs.
+**Decisions**: Migration is atomic (can't split Java deletion from Kotlin addition). Y offset -153px for all calculated coordinates. FULL mode is the default layout on emulator.
+**Next**: Complete full key matrix test, test modifiers/modes, address architectural debt.
 
 ### Session 24 (2026-03-02)
 **Work**: Implemented all 5 deferred Kotlin migration items via /implement (ComposeSequence→Kotlin, Settings Unification, Handler→coroutines, Bridge simplification, ComposeSequencing removal). Then ran multi-wave code review: Wave 1 (4 parallel Opus reviewers, 120 findings), Fix Pass 1 (18 P0+P1 fixes), Wave 2 (verification + 3 new P1s), Fix Pass 2 (3 parallel agents, ~63 P2+P3 fixes). All 355 tests pass.
@@ -58,25 +83,18 @@ This session accomplished:
 **Decisions**: Bottom-up incremental (Approach A). Delete legacy Views (not migrate). Delete 8 old pref screens. Coroutines during migration. Unify GlobalKeyboardSettings→SettingsRepository. Unify 3 modifier state machines→1. Extract KeyEventSender.kt. JNI bridge stays Java. Remove all HK branding.
 **Next**: Execute Phase 1 (dead code purge), Phase 2 (simple leaves), continue through all 7 phases.
 
-### Session 20 (2026-03-01)
-**Work**: Full layout redesign session. Tested debug logging on emulator (FAILED — zero output). Identified missing 0 key as real problem. Brainstormed 10 layouts via HTML MCP mockups, selected #8 Hybrid. Designed 3-mode system (Compact/CompactDev/Full) + teal monochrome theme with design tokens. 2-pass adversarial review (15 issues). Implemented all 7 phases via /implement. 265 tests pass, build passes.
-**Decisions**: Layout #8 Hybrid. Teal monochrome (Option A). SwiftKey-style spacebar row. Smart ⌫/Esc via SMART_BACK_ESC=-301. Keep percentage-based height. Smart app detection for Termux/CRD/Moonlight/VSCode.
-**Next**: Deploy to emulator and test new layout, debug logging system, investigate modifier double-toggle.
-
 ## Active Plans
 
-- **Kotlin Migration** — `.claude/plans/kotlin-migration-plan.md` — FULLY COMPLETE (Sessions 23-24, all phases + deferred items)
-- **Layout Redesign** — `.claude/plans/layout-redesign-implementation-plan.md` — IMPLEMENTED (Session 20, all 7 phases)
-- **Key Testing & Debug** — `.claude/plans/key-testing-debug-plan.md` — IMPLEMENTED (Session 19, all 8 steps)
-- **Emulator Audit Fix** — `.claude/plans/emulator-audit-fix-plan.md` — IMPLEMENTED (Session 17, all 7 phases)
-- **Completed plans** — `.claude/plans/completed/` (Sessions 1-5 plans archived)
+- **Kotlin Migration** — FULLY COMPLETE + COMMITTED (Session 25, 4 commits)
+- **E2E Testing** — IN PROGRESS (Session 25, key coordinate map ready, "hello" test passes)
+- **Layout Redesign** — IMPLEMENTED (Session 20, all 7 phases)
+- **Completed plans** — `.claude/plans/completed/`
 
 ## Reference
+- **E2E test observations**: `.claude/logs/e2e-test-observations.md`
+- **Key coordinate map**: `.claude/logs/key-coordinates.md`
 - **Kotlin migration design**: `docs/plans/2026-03-02-kotlin-migration-design.md`
 - **Layout design doc**: `docs/plans/2026-03-01-layout-redesign-design.md`
-- **Bug report**: `.claude/logs/emulator-audit-wave1.md`
-- **Emulator test log**: `.claude/logs/emulator-test-log.json`
-- **Screenshots**: `.claude/screenshots/screen_*.png`
+- **Screenshots**: `.claude/screenshots/` (keyboard_ready.png, hello_typed.png)
 - **Design doc (main)**: `docs/plans/2026-02-23-devkey-design.md`
 - **Architecture**: `docs/ARCHITECTURE.md`
-- **Research**: `docs/research/`

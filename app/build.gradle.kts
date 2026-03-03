@@ -60,6 +60,12 @@ android {
         noCompress += "tflite"
     }
 
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+        }
+    }
+
     lint {
         checkReleaseBuilds = true
         abortOnError = false
@@ -107,4 +113,5 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
     testImplementation("org.json:json:20231013")
+    testImplementation("org.robolectric:robolectric:4.12.1")
 }

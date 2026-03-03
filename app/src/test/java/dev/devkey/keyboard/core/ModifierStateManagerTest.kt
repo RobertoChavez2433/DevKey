@@ -18,7 +18,7 @@ class ModifierStateManagerTest {
 
     @Before
     fun setUp() {
-        manager = ModifierStateManager()
+        manager = ModifierStateManager(timeProvider = { System.currentTimeMillis() })
     }
 
     // --- Initial state ---
@@ -278,5 +278,178 @@ class ModifierStateManagerTest {
         manager.onModifierTap(ModifierType.ALT) // -> ONE_SHOT
         manager.onModifierUp(ModifierType.ALT, pointerId = 0) // not HELD, should be ignored
         assertEquals(ModifierKeyState.ONE_SHOT, manager.altState.value)
+    }
+
+    // --- CHORDING state ---
+
+    @Test
+    fun `onOtherKeyPressed transitions HELD Shift to CHORDING`() {
+        manager.onModifierDown(ModifierType.SHIFT, pointerId = 0) // -> HELD
+        manager.onOtherKeyPressed()
+        assertEquals(ModifierKeyState.CHORDING, manager.shiftState.value)
+    }
+
+    @Test
+    fun `onOtherKeyPressed transitions HELD Ctrl to CHORDING`() {
+        manager.onModifierDown(ModifierType.CTRL, pointerId = 0) // -> HELD
+        manager.onOtherKeyPressed()
+        assertEquals(ModifierKeyState.CHORDING, manager.ctrlState.value)
+    }
+
+    @Test
+    fun `onOtherKeyPressed transitions HELD Alt to CHORDING`() {
+        manager.onModifierDown(ModifierType.ALT, pointerId = 0) // -> HELD
+        manager.onOtherKeyPressed()
+        assertEquals(ModifierKeyState.CHORDING, manager.altState.value)
+    }
+
+    @Test
+    fun `onOtherKeyPressed transitions HELD Meta to CHORDING`() {
+        manager.onModifierDown(ModifierType.META, pointerId = 0) // -> HELD
+        manager.onOtherKeyPressed()
+        assertEquals(ModifierKeyState.CHORDING, manager.metaState.value)
+    }
+
+    @Test
+    fun `onOtherKeyPressed does not affect OFF modifier`() {
+        manager.onOtherKeyPressed()
+        assertEquals(ModifierKeyState.OFF, manager.shiftState.value)
+    }
+
+    @Test
+    fun `onOtherKeyPressed does not affect LOCKED modifier`() {
+        manager.onModifierTap(ModifierType.SHIFT)
+        manager.onModifierTap(ModifierType.SHIFT) // -> LOCKED
+        manager.onOtherKeyPressed()
+        assertEquals(ModifierKeyState.LOCKED, manager.shiftState.value)
+    }
+
+    @Test
+    fun `onOtherKeyPressed does not affect ONE_SHOT modifier`() {
+        manager.onModifierTap(ModifierType.SHIFT) // -> ONE_SHOT
+        manager.onOtherKeyPressed()
+        assertEquals(ModifierKeyState.ONE_SHOT, manager.shiftState.value)
+    }
+
+    @Test
+    fun `isChording returns true when modifier is CHORDING`() {
+        manager.onModifierDown(ModifierType.CTRL, pointerId = 0)
+        manager.onOtherKeyPressed()
+        assertTrue(manager.isChording(ModifierType.CTRL))
+    }
+
+    @Test
+    fun `isChording returns false when modifier is not CHORDING`() {
+        assertFalse(manager.isChording(ModifierType.CTRL))
+    }
+
+    @Test
+    fun `onModifierUp from CHORDING transitions to OFF`() {
+        manager.onModifierDown(ModifierType.SHIFT, pointerId = 0) // -> HELD
+        manager.onOtherKeyPressed() // -> CHORDING
+        manager.onModifierUp(ModifierType.SHIFT, pointerId = 0) // -> OFF
+        assertEquals(ModifierKeyState.OFF, manager.shiftState.value)
+    }
+
+    @Test
+    fun `tap when CHORDING is ignored`() {
+        manager.onModifierDown(ModifierType.SHIFT, pointerId = 0)
+        manager.onOtherKeyPressed() // -> CHORDING
+        manager.onModifierTap(ModifierType.SHIFT) // should be ignored
+        assertEquals(ModifierKeyState.CHORDING, manager.shiftState.value)
+    }
+
+    @Test
+    fun `multiple modifiers can be CHORDING simultaneously`() {
+        manager.onModifierDown(ModifierType.SHIFT, pointerId = 0)
+        manager.onModifierDown(ModifierType.CTRL, pointerId = 1)
+        manager.onOtherKeyPressed()
+        assertEquals(ModifierKeyState.CHORDING, manager.shiftState.value)
+        assertEquals(ModifierKeyState.CHORDING, manager.ctrlState.value)
+    }
+
+    // --- META modifier ---
+
+    @Test
+    fun `initial meta state is OFF`() {
+        assertEquals(ModifierKeyState.OFF, manager.metaState.value)
+    }
+
+    @Test
+    fun `single tap transitions Meta from OFF to ONE_SHOT`() {
+        manager.onModifierTap(ModifierType.META)
+        assertEquals(ModifierKeyState.ONE_SHOT, manager.metaState.value)
+    }
+
+    @Test
+    fun `isMetaActive returns true when Meta is ONE_SHOT`() {
+        manager.onModifierTap(ModifierType.META)
+        assertTrue(manager.isMetaActive())
+    }
+
+    @Test
+    fun `isMetaActive returns false when Meta is OFF`() {
+        assertFalse(manager.isMetaActive())
+    }
+
+    @Test
+    fun `consumeOneShot resets ONE_SHOT Meta to OFF`() {
+        manager.onModifierTap(ModifierType.META)
+        manager.consumeOneShot()
+        assertEquals(ModifierKeyState.OFF, manager.metaState.value)
+    }
+
+    // --- getKeyEventMetaState ---
+
+    @Test
+    fun `getKeyEventMetaState returns zero when no modifiers active`() {
+        assertEquals(0, manager.getKeyEventMetaState(false))
+    }
+
+    @Test
+    fun `getKeyEventMetaState includes SHIFT flags when shifted`() {
+        val meta = manager.getKeyEventMetaState(true)
+        assertTrue(meta and android.view.KeyEvent.META_SHIFT_ON != 0)
+    }
+
+    @Test
+    fun `getKeyEventMetaState includes CTRL flags when Ctrl active`() {
+        manager.onModifierTap(ModifierType.CTRL) // -> ONE_SHOT (active)
+        val meta = manager.getKeyEventMetaState(false)
+        assertTrue(meta and android.view.KeyEvent.META_CTRL_ON != 0)
+    }
+
+    @Test
+    fun `getKeyEventMetaState includes ALT flags when Alt active`() {
+        manager.onModifierTap(ModifierType.ALT)
+        val meta = manager.getKeyEventMetaState(false)
+        assertTrue(meta and android.view.KeyEvent.META_ALT_ON != 0)
+    }
+
+    @Test
+    fun `getKeyEventMetaState includes META flags when Meta active`() {
+        manager.onModifierTap(ModifierType.META)
+        val meta = manager.getKeyEventMetaState(false)
+        assertTrue(meta and android.view.KeyEvent.META_META_ON != 0)
+    }
+
+    // --- isActive helper ---
+
+    @Test
+    fun `isActive returns true for ONE_SHOT modifier`() {
+        manager.onModifierTap(ModifierType.SHIFT)
+        assertTrue(manager.isActive(ModifierType.SHIFT))
+    }
+
+    @Test
+    fun `isActive returns false for OFF modifier`() {
+        assertFalse(manager.isActive(ModifierType.ALT))
+    }
+
+    @Test
+    fun `isActive returns true for CHORDING modifier`() {
+        manager.onModifierDown(ModifierType.CTRL, pointerId = 0)
+        manager.onOtherKeyPressed()
+        assertTrue(manager.isActive(ModifierType.CTRL))
     }
 }

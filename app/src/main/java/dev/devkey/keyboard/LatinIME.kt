@@ -262,14 +262,15 @@ class LatinIME : InputMethodService(),
 
     override fun onCreate() {
         Log.i(TAG, "onCreate(), os.version=${System.getProperty("os.version")}")
-        KeyboardSwitcher.init(this)
         super.onCreate()
         sInstance = this
         mVibrator = getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
 
-        // Initialize unified settings
+        // Initialize unified settings BEFORE KeyboardSwitcher (it reads sKeyboardSettings)
         val settingsPrefs = PreferenceManager.getDefaultSharedPreferences(this)
         sKeyboardSettings = SettingsRepository(settingsPrefs)
+
+        KeyboardSwitcher.init(this)
 
         // Initialize clipboard listener
         val clipboardRepo = ClipboardRepository(

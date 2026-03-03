@@ -7,12 +7,13 @@
 - User's key use cases: Moonlight, Chrome Remote Desktop, Termux, VS Code (streaming to PC from phone)
 
 ## Architecture
-- **IME entry point**: `LatinIME.java` (3627 lines) — remains Java, being migrated to Kotlin
-- **Key synthesis**: `sendModifiableKeyChar()`/`sendModifiedKeyDownUp()` in LatinIME — sends Ctrl+V, Alt+Tab, F-keys via `InputConnection.sendKeyEvent()`. Being extracted to `KeyEventSender.kt`.
+- **IME entry point**: `LatinIME.kt` (~2,500 lines) — fully Kotlin, uses serviceScope coroutines
+- **Key synthesis**: `KeyEventSender.kt` (~330 lines) — extracted, testable, sends Ctrl+V, Alt+Tab, F-keys via `InputConnection.sendKeyEvent()`
 - **JNI bridge**: C++ dictionary at old package path `org.pocketworkstation.pckeyboard.BinaryDictionary` — DO NOT rename (42 lines, stays Java forever)
-- **Settings**: SharedPreferences only, wrapped by `SettingsRepository` with Flow observation. `GlobalKeyboardSettings` being unified into `SettingsRepository`.
+- **Settings**: `SettingsRepository` — single source of truth, absorbed GlobalKeyboardSettings (Session 24)
 - **Database**: Room with 4 tables (macros, learned_words, clipboard_history, command_apps), version 2
-- **Compose bridge**: `KeyboardActionBridge` → `OnKeyboardActionListener` → `LatinIME.onKey()`. Being simplified during migration.
+- **Compose bridge**: `KeyboardActionBridge` → `KeyboardActionListener` → `LatinIME.onKey()`. Bridge provides shift-uppercase, smart backspace, modifier consumption. Evaluated in Session 24 — stays permanently.
+- **Modifier state**: `ModifierStateManager` (Shift/Ctrl/Alt/Meta) + `ChordeTracker` (Symbol/Fn) — dual system, to be unified
 
 ## Tech Stack
 | Component | Version |
@@ -33,7 +34,7 @@
 ## Build
 ```bash
 ./gradlew assembleDebug    # Build debug APK
-./gradlew test             # Run unit tests (265 tests)
+./gradlew test             # Run unit tests (355 tests)
 ./gradlew installDebug     # Install on device
 ```
 
@@ -41,16 +42,15 @@
 - **JNI bridge**: Old package path hardcoded in C++ — never rename `org.pocketworkstation.pckeyboard.BinaryDictionary`
 - **Destructive migration**: `DevKeyDatabase` uses `fallbackToDestructiveMigration()` — schema change wipes data
 - **Agent permissions**: Add Edit, Write, Bash(*) to `.claude/settings.local.json` BEFORE running `/implement`
-- **asciiToKeyCode table**: Maps ASCII chars to Android KEYCODE_* values. Critical for Ctrl+letter synthesis.
-- **Dual modifier state**: 3 parallel systems until unified in migration Phase 7
+- **asciiToKeyCode table**: Maps ASCII chars to Android KEYCODE_* values (IntArray(128)). Critical for Ctrl+letter synthesis.
+- **Debug logging intentional**: KeyPressLogger + Log.d calls were added in Session 19 for debugging — do NOT remove or gate behind BuildConfig.DEBUG
 
-## Java→Kotlin Migration (Active)
-- **Plan**: `.claude/plans/kotlin-migration-plan.md` (7 phases, bottom-up incremental)
-- **Design**: `docs/plans/2026-03-02-kotlin-migration-design.md`
-- **40 Java files** total (~12,500 lines). 1 stays Java (JNI bridge).
-- **Phase 1**: Delete legacy Views + old pref screens (~4,070 lines)
-- **Phase 7**: Convert LatinIME, extract KeyEventSender.kt, unify ModifierStateManager
-- **Key constraint**: `sendModifiableKeyChar()`/`sendModifiedKeyDownUp()` must produce identical `KeyEvent` sequences for Ctrl+V, F-keys, etc.
+## Java→Kotlin Migration (COMPLETE)
+- **All phases executed**: Sessions 21-24 (brainstorm → plan → review → implement → deferred items → code review)
+- **Only Java file remaining**: JNI bridge (`org.pocketworkstation.pckeyboard.BinaryDictionary`)
+- **Key extractions**: KeyEventSender.kt (key synthesis), KeyboardActionListener.kt (interface), ModifierStateManager (unified Shift/Ctrl/Alt/Meta)
+- **Settings unified**: GlobalKeyboardSettings folded into SettingsRepository (Session 24)
+- **Handler replaced**: serviceScope with coroutine delay() replaces Handler/Message (Session 24)
 
 ## Layout Architecture
 - `LayoutMode` enum (COMPACT, COMPACT_DEV, FULL) — separate from `KeyboardMode` (Normal, Symbols, etc.)
@@ -61,8 +61,8 @@
 - 123 key uses `KeyCodes.SYMBOLS = -2` (alias for Keyboard.KEYCODE_MODE_CHANGE)
 
 ## Current State
-- All 5 implementation sessions + layout redesign complete
+- All implementation sessions + layout redesign + Kotlin migration + code review complete
 - 3 keyboard modes: Compact (SwiftKey), Compact Dev (long-press numbers), Full (6-row + utility)
 - Theme: teal monochrome design token system
-- Build passing, 265 unit tests passing
-- Kotlin migration plan approved, ready for Phase 1 execution
+- Build passing, 355 unit tests passing
+- Needs: emulator regression test, commit, PluginManager security hardening

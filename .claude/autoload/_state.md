@@ -1,34 +1,34 @@
 # Session State
 
-**Last Updated**: 2026-03-02 | **Session**: 22
+**Last Updated**: 2026-03-02 | **Session**: 24
 
 ## Current Phase
-- **Phase**: Full Kotlin Migration — Plan Hardened, Ready for Implementation
-- **Status**: Migration plan revised after 2-wave Opus adversarial review (42 issues found, all addressed). Now 9 phases (0-7d) instead of 7. Phase 0 migrates keycode constants before deletions. Phase 1 includes KeyboardSwitcher compatibility shim. Phases 5/6 swapped. Phase 7 split into 4 sub-phases. CoroutineScope strategy and InputConnection thread contract defined.
+- **Phase**: Kotlin Migration — COMPLETE + Deferred Items + Code Review
+- **Status**: All migration deferred items implemented (ComposeSequence→Kotlin, Settings Unification, Handler→coroutines, Bridge simplification, ComposeSequencing removal). Multi-wave code review completed with all P0/P1/P2/P3 fixes applied. 355 tests pass. Build clean. Only JNI bridge remains as Java.
 
 ## HOT CONTEXT - Resume Here
 
 ### EXACTLY WHERE WE LEFT OFF
 
-**2-wave adversarial review of Kotlin migration plan. Both plan and design doc updated with all findings.**
+**Implemented 5 deferred migration items + comprehensive code review with fixes.**
 
 This session accomplished:
-1. Launched Opus-level Wave 1 adversarial review — found 27 issues (5 CRITICAL, 9 HIGH, 10 MEDIUM, 2 LOW)
-2. Launched Opus-level Wave 2 review — validated Wave 1, found 15 new issues (1 CRITICAL, 6 HIGH, 6 MEDIUM, 1 LOW, 1 invalid)
-3. Wave 2 confirmed 19 Wave 1 issues as-is, downgraded 5, invalidated 1
-4. Top finding: Phase 1 deletions break 5+ surviving files because keycode constants referenced across phases
-5. Added Phase 0 (constant migration before deletions) — moves ~45 LatinKeyboardView.KEYCODE_* to KeyCodes + updates 5 files
-6. Added KeyboardSwitcher compatibility shim (Phase 1) — tracks mode/shift/indicators without mInputView
-7. Defined CoroutineScope strategy — ServiceScope pattern, InputConnection thread contract, batch edit safety
-8. Swapped Phases 5/6 — convert Java files to Kotlin BEFORE unifying settings
-9. Split Phase 7 into 4 sub-phases (7a/7b/7c/7d) with correct dependency ordering
-10. Updated both implementation plan and design doc with all 42 issue resolutions
+1. Reviewed migration plan for deferred items, identified 5 pending tasks
+2. Executed Phase D1: Converted ComposeSequence.java→Kotlin (1,137 lines)
+3. Executed Phase D2: Unified GlobalKeyboardSettings into SettingsRepository with StateFlow
+4. Executed Phase D3: Replaced Handler/Message with coroutine-based delayed execution
+5. Executed Phase D4: Evaluated KeyboardActionBridge — stays (provides real value), slimmed interface from 9→4 methods
+6. Executed Phase D5: Removed ComposeSequencing interface, replaced with lambda callbacks
+7. Wave 1 code review: 4 parallel Opus agents found 120 findings (10 P0, 19 P1, 47 P2, 27 P3)
+8. Fix Pass 1: Fixed all P0+P1 issues (18 fixes), build+tests pass
+9. Wave 2 review: Verified 15/15 fixes PASS, found 3 more P1 issues
+10. Fix Pass 2: 3 parallel agents fixed all remaining P1+P2+P3 (~63 fixes), build+tests pass
 
 ### What Needs to Happen Next
 
-1. **Execute Phase 0: Constant Migration** — Move ~45 keycode constants to KeyCodes, update 5 files, zero behavior change
-2. **Execute Phase 1: Dead Code Purge** — KeyboardSwitcher shim, delete legacy Views + prefs + dead code, analyze Keyboard.kt/LatinKeyboard.java survivability
-3. **Execute Phase 2: Simple Leaves** — Convert ModifierKeyState, WordComposer, EditingUtil to Kotlin
+1. **Commit all changes** — Very large diff (migration + deferred items + code review fixes). Review and commit.
+2. **Emulator regression test** — Verify typing, Ctrl shortcuts, modifier keys, mode switching, language switching on device
+3. **Address remaining architectural debt** — PluginManager untrusted package loading, dual modifier state (ChordeTracker vs ModifierStateManager)
 
 ## Blockers
 
@@ -37,6 +37,16 @@ This session accomplished:
 - **Emulator quirk**: `show_ime_with_hard_keyboard` must be set to `1` on emulator
 
 ## Recent Sessions
+
+### Session 24 (2026-03-02)
+**Work**: Implemented all 5 deferred Kotlin migration items via /implement (ComposeSequence→Kotlin, Settings Unification, Handler→coroutines, Bridge simplification, ComposeSequencing removal). Then ran multi-wave code review: Wave 1 (4 parallel Opus reviewers, 120 findings), Fix Pass 1 (18 P0+P1 fixes), Wave 2 (verification + 3 new P1s), Fix Pass 2 (3 parallel agents, ~63 P2+P3 fixes). All 355 tests pass.
+**Decisions**: KeyboardActionBridge stays (shift-uppercase, smart backspace are real value). ComposeSequencing replaced with lambdas. Debug logging kept as-is (intentional). consumeFlag() replaces hasFlag(). uptimeMillis for tap timing. Character.isLetter for Unicode support.
+**Next**: Commit changes, emulator regression test, address PluginManager security.
+
+### Session 23 (2026-03-02)
+**Work**: Full Kotlin migration execution via /implement skill. 6 orchestrator cycles completed all 11 phases (0-7d). Deleted ~30 legacy Java files, converted ~16 Java files to Kotlin, created KeyEventSender.kt + KeyboardActionListener.kt + tests. Only ComposeSequence.java and JNI bridge remain as Java.
+**Decisions**: WordPromotionDelegate breaks circular deps. ComposeSequence.java kept as Java (static data). BinaryDictionary.kt uses JniBridge import alias. GlobalKeyboardSettings keeps @JvmField (full StateFlow deferred). Handler kept in LatinIME.kt (coroutine replacement deferred). ChordeTracker replaces old ModifierKeyState for Symbol/Fn keys.
+**Next**: Commit changes, emulator regression test, convert ComposeSequence.java.
 
 ### Session 22 (2026-03-02)
 **Work**: 2-wave Opus adversarial review of Kotlin migration plan. Wave 1: 27 issues (5 CRITICAL). Wave 2: validated + 15 new issues. Added Phase 0 (constant migration), KeyboardSwitcher shim, CoroutineScope strategy, swapped Phases 5/6, split Phase 7→7a/7b/7c/7d. Updated plan + design doc.
@@ -49,23 +59,13 @@ This session accomplished:
 **Next**: Execute Phase 1 (dead code purge), Phase 2 (simple leaves), continue through all 7 phases.
 
 ### Session 20 (2026-03-01)
-**Work**: Full layout redesign session. Tested debug logging on emulator (FAILED — zero output). Identified missing 0 key as real problem. Brainstormed 10 layouts via HTML MCP mockups, selected #8 Hybrid. Designed 3-mode system (Compact/CompactDev/Full) + teal monochrome theme with design tokens. 2-pass adversarial review (15 issues). Implemented all 7 phases via /implement: KeyData.kt (LayoutMode enum, new KeyTypes/KeyCodes), QwertyLayout.kt (3 modes, 6-row full), DevKeyTheme.kt (teal tokens), KeyView/KeyRow/KeyboardView (rendering), DevKeyKeyboard (mode switching), SettingsSubScreens (3-way selector), 4 test files rewritten. 265 tests pass, build passes.
-**Decisions**: Layout #8 Hybrid. Teal monochrome (Option A). SwiftKey-style spacebar row (123 ☺ , Space . Enter). Smart ⌫/Esc via SMART_BACK_ESC=-301 keycode resolved in bridge. Keep percentage-based height (tokens as ratios). Old theme names as deprecated aliases. Smart app detection for Termux/CRD/Moonlight/VSCode (feature layer, not layout).
+**Work**: Full layout redesign session. Tested debug logging on emulator (FAILED — zero output). Identified missing 0 key as real problem. Brainstormed 10 layouts via HTML MCP mockups, selected #8 Hybrid. Designed 3-mode system (Compact/CompactDev/Full) + teal monochrome theme with design tokens. 2-pass adversarial review (15 issues). Implemented all 7 phases via /implement. 265 tests pass, build passes.
+**Decisions**: Layout #8 Hybrid. Teal monochrome (Option A). SwiftKey-style spacebar row. Smart ⌫/Esc via SMART_BACK_ESC=-301. Keep percentage-based height. Smart app detection for Termux/CRD/Moonlight/VSCode.
 **Next**: Deploy to emulator and test new layout, debug logging system, investigate modifier double-toggle.
-
-### Session 19 (2026-03-01)
-**Work**: Brainstormed and implemented key press testing & debug system. 2 Haiku agents explored codebase (key layout/coordinates + logging/testing infra). Opus agent created plan + adversarial review (8 issues fixed). Implemented all 8 steps via /implement: KeyPressLogger, KeyBoundsCalculator, KeyMapGenerator, KeyBoundsCalculatorTest (11 tests), logging in KeyView/ActionBridge/LatinIME, auto-dump in DevKeyKeyboard. Build passes, 253/254 tests pass.
-**Decisions**: Use Log.d() (R8 strips in release). View.getLocationOnScreen() for precise Y offset. ApplicationInfo.FLAG_DEBUGGABLE instead of BuildConfig. Don't modify ModifierStateManager — log from KeyView call sites. Normalize labels for ADB. Throttle repeat logging every 10th.
-**Next**: Test logging on emulator, validate ADB coordinates, investigate modifier double-toggle with new logging.
-
-### Session 18 (2026-03-01)
-**Work**: Emulator verification session. Investigated "keyboard dismiss on key tap" bug — traced full key press chain, added debug logging, tested on emulator. Confirmed keyboard typing works correctly (characters commit, keyboard stays open). The "dismiss" was Android gesture navigation from edge taps, not a keyboard bug. Discovered `hasDistinctMultitouch()` always false with Compose keyboard — potential modifier double-toggle issue.
-**Decisions**: "Keyboard dismiss" is NOT a bug (gesture nav). ADB input tap uses raw pixels. `distinctMultiTouch=false` needs investigation for modifier handling.
-**Next**: Test modifier keys for double-toggle, procure Whisper model files, address tech debt.
 
 ## Active Plans
 
-- **Kotlin Migration** — `.claude/plans/kotlin-migration-plan.md` — READY (Session 21 design, Session 22 adversarial review, 9 phases)
+- **Kotlin Migration** — `.claude/plans/kotlin-migration-plan.md` — FULLY COMPLETE (Sessions 23-24, all phases + deferred items)
 - **Layout Redesign** — `.claude/plans/layout-redesign-implementation-plan.md` — IMPLEMENTED (Session 20, all 7 phases)
 - **Key Testing & Debug** — `.claude/plans/key-testing-debug-plan.md` — IMPLEMENTED (Session 19, all 8 steps)
 - **Emulator Audit Fix** — `.claude/plans/emulator-audit-fix-plan.md` — IMPLEMENTED (Session 17, all 7 phases)

@@ -4,6 +4,16 @@ Archived/resolved defect patterns from `_defects.md` rotation.
 
 ---
 
+## Resolved — Session 24 (2026-03-02)
+
+### [IME] 2026-03-02: Handler kept in LatinIME.kt — coroutine replacement deferred
+**Pattern**: LatinIME.kt still uses `Handler(Looper.getMainLooper())` with `MSG_UPDATE_SUGGESTIONS`, `MSG_UPDATE_SHIFT_STATE` etc. for delayed execution.
+**Resolution**: Replaced with `CoroutineScope(SupervisorJob() + Dispatchers.Main)` and `launch { delay(ms) }` pattern. Handler inner class and MSG_* constants deleted.
+
+### [IME] 2026-03-02: Dual settings systems with no compile-time link
+**Pattern**: `GlobalKeyboardSettings` and `SettingsRepository` both listened to same SharedPreferences with separate listeners.
+**Resolution**: GlobalKeyboardSettings folded into SettingsRepository. Single settings system with StateFlow properties. Class deleted.
+
 ## Archived 2026-03-02 (Session 21 — rotated during Kotlin migration planning)
 
 ### [IME] 2026-03-01: hasDistinctMultitouch() always false with Compose keyboard

@@ -4,6 +4,13 @@ Archived session entries from `_state.md` rotation.
 
 ---
 
+## March 2026
+
+### Session 19 (2026-03-01)
+**Work**: Brainstormed and implemented key press testing & debug system. 2 Haiku agents explored codebase (key layout/coordinates + logging/testing infra). Opus agent created plan + adversarial review (8 issues fixed). Implemented all 8 steps via /implement: KeyPressLogger, KeyBoundsCalculator, KeyMapGenerator, KeyBoundsCalculatorTest (11 tests), logging in KeyView/ActionBridge/LatinIME, auto-dump in DevKeyKeyboard. Build passes, 253/254 tests pass.
+**Decisions**: Use Log.d() (R8 strips in release). View.getLocationOnScreen() for precise Y offset. ApplicationInfo.FLAG_DEBUGGABLE instead of BuildConfig. Don't modify ModifierStateManager — log from KeyView call sites. Normalize labels for ADB. Throttle repeat logging every 10th.
+**Next**: Test logging on emulator, validate ADB coordinates, investigate modifier double-toggle with new logging.
+
 ## February 2026
 
 ### Session 1 (2026-02-23)
@@ -92,3 +99,8 @@ Archived session entries from `_state.md` rotation.
 **Work**: Implemented all 7 emulator audit fix phases + 2 waves of code review. Fixed 3 CRITICALs (PendingIntent FLAG_IMMUTABLE, registerReceiver RECEIVER_NOT_EXPORTED). Caught Tab keycode regression (61→9). Deleted 751-line dead SettingsScreen.kt. Replaced flat settings with hierarchical nav (10 categories). Added DevKey welcome activity. Rebranded all log tags. Fixed 8 deprecated APIs. 7 logical commits.
 **Decisions**: Phase 6 (hierarchical settings) implemented despite "defer" option. KeyCodes.TAB=9 (ASCII HT, not Android KeyEvent 61). SettingsScreen.kt deleted (fully replaced). onBackPressed→OnBackPressedCallback.
 **Next**: Test all fixes on emulator, procure Whisper model files, address deferred per-key StateFlow tech debt.
+
+### Session 18 (2026-03-01)
+**Work**: Emulator verification session. Investigated "keyboard dismiss on key tap" bug — traced full key press chain, added debug logging, tested on emulator. Confirmed keyboard typing works correctly (characters commit, keyboard stays open). The "dismiss" was Android gesture navigation from edge taps, not a keyboard bug. Discovered `hasDistinctMultitouch()` always false with Compose keyboard — potential modifier double-toggle issue.
+**Decisions**: "Keyboard dismiss" is NOT a bug (gesture nav). ADB input tap uses raw pixels. `distinctMultiTouch=false` needs investigation for modifier handling.
+**Next**: Test modifier keys for double-toggle, procure Whisper model files, address tech debt.

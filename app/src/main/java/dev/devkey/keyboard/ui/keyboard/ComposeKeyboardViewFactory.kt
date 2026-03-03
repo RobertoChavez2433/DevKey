@@ -14,7 +14,7 @@ import androidx.savedstate.SavedStateRegistry
 import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
-import dev.devkey.keyboard.LatinKeyboardBaseView
+import dev.devkey.keyboard.core.KeyboardActionListener
 
 /**
  * Factory that creates a ComposeView properly configured for use inside an InputMethodService.
@@ -50,7 +50,7 @@ object ComposeKeyboardViewFactory {
     @JvmStatic
     fun create(
         context: Context,
-        actionListener: LatinKeyboardBaseView.OnKeyboardActionListener
+        actionListener: KeyboardActionListener
     ): View {
         // Always create a fresh lifecycle owner to prevent stale Compose state
         // across onCreateInputView() recreations (fixes BUG-02: 123 button)

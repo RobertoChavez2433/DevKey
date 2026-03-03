@@ -26,6 +26,8 @@ import android.util.DisplayMetrics
 import android.util.Log
 import android.util.TypedValue
 import android.util.Xml
+import dev.devkey.keyboard.ui.keyboard.KeyCodes
+import kotlin.math.roundToInt
 import org.xmlpull.v1.XmlPullParserException
 import java.io.IOException
 import java.util.HashSet
@@ -87,7 +89,7 @@ open class Keyboard {
         fun getDimensionOrFraction(a: TypedArray, index: Int, base: Int, defValue: Float): Float {
             val value = a.peekValue(index) ?: return defValue
             return when (value.type) {
-                TypedValue.TYPE_DIMENSION -> a.getDimensionPixelOffset(index, Math.round(defValue)).toFloat()
+                TypedValue.TYPE_DIMENSION -> a.getDimensionPixelOffset(index, defValue.roundToInt()).toFloat()
                 TypedValue.TYPE_FRACTION -> a.getFraction(index, base, base, defValue)
                 else -> defValue
             }
@@ -182,9 +184,9 @@ open class Keyboard {
             this.parent = parent
             var a = res.obtainAttributes(Xml.asAttributeSet(parser), R.styleable.Keyboard)
             defaultWidth = getDimensionOrFraction(a, R.styleable.Keyboard_keyWidth, parent.mDisplayWidth, parent.mDefaultWidth)
-            defaultHeight = Math.round(getDimensionOrFraction(a, R.styleable.Keyboard_keyHeight, parent.mDisplayHeight, parent.mDefaultHeight.toFloat()))
+            defaultHeight = getDimensionOrFraction(a, R.styleable.Keyboard_keyHeight, parent.mDisplayHeight, parent.mDefaultHeight.toFloat()).roundToInt()
             defaultHorizontalGap = getDimensionOrFraction(a, R.styleable.Keyboard_horizontalGap, parent.mDisplayWidth, parent.mDefaultHorizontalGap)
-            verticalGap = Math.round(getDimensionOrFraction(a, R.styleable.Keyboard_verticalGap, parent.mDisplayHeight, parent.mDefaultVerticalGap.toFloat()))
+            verticalGap = getDimensionOrFraction(a, R.styleable.Keyboard_verticalGap, parent.mDisplayHeight, parent.mDefaultVerticalGap.toFloat()).roundToInt()
             a.recycle()
             a = res.obtainAttributes(Xml.asAttributeSet(parser), R.styleable.Keyboard_Row)
             mode = a.getResourceId(R.styleable.Keyboard_Row_keyboardMode, 0)
@@ -195,7 +197,7 @@ open class Keyboard {
                 val topScale = LatinIME.sKeyboardSettings.topRowScale
                 val scale = if (isTop) topScale
                 else 1.0f + (1.0f - topScale) / (parent.mLayoutRows - 1)
-                defaultHeight = Math.round(defaultHeight * scale)
+                defaultHeight = (defaultHeight * scale).roundToInt()
             }
             a.recycle()
         }
@@ -230,8 +232,8 @@ open class Keyboard {
         @JvmField var popupCharacters: CharSequence? = null
         @JvmField var popupReversed = false
         @JvmField var isCursor = false
-        @JvmField var hint: String? = null   // Set by LatinKeyboardBaseView
-        @JvmField var altHint: String? = null // Set by LatinKeyboardBaseView
+        @JvmField var hint: String? = null
+        @JvmField var altHint: String? = null
 
         @JvmField var edgeFlags = 0
         @JvmField var modifier = false
@@ -261,9 +263,9 @@ open class Keyboard {
         constructor(parent: Row) {
             keyboard = parent.parent
             height = parent.defaultHeight
-            width = Math.round(parent.defaultWidth)
+            width = parent.defaultWidth.roundToInt()
             realWidth = parent.defaultWidth
-            gap = Math.round(parent.defaultHorizontalGap)
+            gap = parent.defaultHorizontalGap.roundToInt()
             realGap = parent.defaultHorizontalGap
         }
 
@@ -276,18 +278,18 @@ open class Keyboard {
             realWidth = getDimensionOrFraction(a, R.styleable.Keyboard_keyWidth, keyboard.mDisplayWidth, parent.defaultWidth)
             var realHeight = getDimensionOrFraction(a, R.styleable.Keyboard_keyHeight, keyboard.mDisplayHeight, parent.defaultHeight.toFloat())
             realHeight -= parent.parent.mVerticalPad
-            height = Math.round(realHeight)
+            height = realHeight.roundToInt()
             this.y += (parent.parent.mVerticalPad / 2).toInt()
             realGap = getDimensionOrFraction(a, R.styleable.Keyboard_horizontalGap, keyboard.mDisplayWidth, parent.defaultHorizontalGap)
             realGap += parent.parent.mHorizontalPad
             realWidth -= parent.parent.mHorizontalPad
-            width = Math.round(realWidth)
-            gap = Math.round(realGap)
+            width = realWidth.roundToInt()
+            gap = realGap.roundToInt()
             a.recycle()
 
             a = res.obtainAttributes(Xml.asAttributeSet(parser), R.styleable.Keyboard_Key)
             this.realX = this.x + realGap - parent.parent.mHorizontalPad / 2
-            this.x = Math.round(this.realX)
+            this.x = this.realX.roundToInt()
 
             val codesValue = TypedValue()
             a.getValue(R.styleable.Keyboard_Key_codes, codesValue)
@@ -508,12 +510,12 @@ open class Keyboard {
 
         /** Informs the key that it has been pressed. */
         fun onPressed() {
-            pressed = !pressed
+            pressed = true
         }
 
         /** Changes the pressed state of the key. */
         fun onReleased(inside: Boolean) {
-            pressed = !pressed
+            pressed = false
         }
 
         fun parseCSV(value: String): IntArray {
@@ -608,7 +610,7 @@ open class Keyboard {
         mDefaultWidth = mDisplayWidth / 10f
         mDefaultVerticalGap = 0
         mDefaultHeight = defaultHeight
-        mKeyboardHeight = Math.round(mDisplayHeight * kbHeightPercent / 100)
+        mKeyboardHeight = (mDisplayHeight * kbHeightPercent / 100).roundToInt()
         mKeys = ArrayList()
         mModifierKeys = ArrayList()
         mKeyboardMode = modeId
@@ -736,7 +738,7 @@ open class Keyboard {
 
     fun getModifierKeys(): List<Key> = mModifierKeys
 
-    protected fun getHorizontalGap(): Int = Math.round(mDefaultHorizontalGap)
+    protected fun getHorizontalGap(): Int = mDefaultHorizontalGap.roundToInt()
 
     protected fun setHorizontalGap(gap: Int) {
         mDefaultHorizontalGap = gap.toFloat()
@@ -754,7 +756,7 @@ open class Keyboard {
         mDefaultHeight = height
     }
 
-    protected fun getKeyWidth(): Int = Math.round(mDefaultWidth)
+    protected fun getKeyWidth(): Int = mDefaultWidth.roundToInt()
 
     protected fun setKeyWidth(width: Int) {
         mDefaultWidth = width.toFloat()
@@ -825,7 +827,7 @@ open class Keyboard {
                 for (i in mKeys.indices) {
                     val key = mKeys[i]
                     val isSpace = key.codes != null && key.codes!!.isNotEmpty() &&
-                            key.codes!![0] == LatinIME.ASCII_SPACE
+                            key.codes!![0] == KeyCodes.ASCII_SPACE
                     if (key.squaredDistanceFrom(x, y) < mProximityThreshold ||
                             key.squaredDistanceFrom(x + mCellWidth - 1, y) < mProximityThreshold ||
                             key.squaredDistanceFrom(x + mCellWidth - 1, y + mCellHeight - 1) < mProximityThreshold ||
@@ -900,7 +902,7 @@ open class Keyboard {
                         }
                         TAG_KEY == tag -> {
                             inKey = true
-                            key = createKeyFromXml(res, currentRow!!, Math.round(x), y, parser)
+                            key = createKeyFromXml(res, currentRow!!, x.roundToInt(), y, parser)
                             key.realX = x
                             if (key.codes == null) {
                                 if (prevKey != null) {
@@ -918,9 +920,9 @@ open class Keyboard {
                                         mModifierKeys.add(key)
                                     }
                                     key.codes!![0] == KEYCODE_ALT_SYM -> mModifierKeys.add(key)
-                                    key.codes!![0] == LatinKeyboardView.KEYCODE_CTRL_LEFT -> mCtrlKey = key
-                                    key.codes!![0] == LatinKeyboardView.KEYCODE_ALT_LEFT -> mAltKey = key
-                                    key.codes!![0] == LatinKeyboardView.KEYCODE_META_LEFT -> mMetaKey = key
+                                    key.codes!![0] == KeyCodes.CTRL_LEFT -> mCtrlKey = key
+                                    key.codes!![0] == KeyCodes.ALT_LEFT -> mAltKey = key
+                                    key.codes!![0] == KeyCodes.KEYCODE_META_LEFT -> mMetaKey = key
                                 }
                             }
                         }
@@ -932,7 +934,7 @@ open class Keyboard {
                             inKey = false
                             x += key!!.realGap + key.realWidth
                             if (x > mTotalWidth) {
-                                mTotalWidth = Math.round(x)
+                                mTotalWidth = x.roundToInt()
                             }
                         }
                         inRow -> {
@@ -959,7 +961,7 @@ open class Keyboard {
         val scale = newWidth.toFloat() / mDisplayWidth
         Log.i("PCKeyboard", "Rescaling keyboard: $mTotalWidth => $newWidth")
         for (key in mKeys) {
-            key.x = Math.round(key.realX * scale)
+            key.x = (key.realX * scale).roundToInt()
         }
         mTotalWidth = newWidth
     }
@@ -978,9 +980,9 @@ open class Keyboard {
         val a = res.obtainAttributes(Xml.asAttributeSet(parser), R.styleable.Keyboard)
 
         mDefaultWidth = getDimensionOrFraction(a, R.styleable.Keyboard_keyWidth, mDisplayWidth, (mDisplayWidth / 10).toFloat())
-        mDefaultHeight = Math.round(getDimensionOrFraction(a, R.styleable.Keyboard_keyHeight, mDisplayHeight, mDefaultHeight.toFloat()))
+        mDefaultHeight = getDimensionOrFraction(a, R.styleable.Keyboard_keyHeight, mDisplayHeight, mDefaultHeight.toFloat()).roundToInt()
         mDefaultHorizontalGap = getDimensionOrFraction(a, R.styleable.Keyboard_horizontalGap, mDisplayWidth, 0f)
-        mDefaultVerticalGap = Math.round(getDimensionOrFraction(a, R.styleable.Keyboard_verticalGap, mDisplayHeight, 0f))
+        mDefaultVerticalGap = getDimensionOrFraction(a, R.styleable.Keyboard_verticalGap, mDisplayHeight, 0f).roundToInt()
         mHorizontalPad = getDimensionOrFraction(a, R.styleable.Keyboard_horizontalPad, mDisplayWidth, res.getDimension(R.dimen.key_horizontal_pad))
         mVerticalPad = getDimensionOrFraction(a, R.styleable.Keyboard_verticalPad, mDisplayHeight, res.getDimension(R.dimen.key_vertical_pad))
         mLayoutRows = a.getInteger(R.styleable.Keyboard_layoutRows, DEFAULT_LAYOUT_ROWS)

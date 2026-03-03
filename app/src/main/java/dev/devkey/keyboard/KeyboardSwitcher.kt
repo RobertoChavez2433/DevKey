@@ -17,15 +17,12 @@
 package dev.devkey.keyboard
 
 import android.content.SharedPreferences
-import android.content.res.Configuration
-import android.content.res.Resources
 import androidx.preference.PreferenceManager
 import android.util.Log
-import android.view.InflateException
+import dev.devkey.keyboard.ui.keyboard.KeyCodes
 import java.lang.ref.SoftReference
 import java.util.Arrays
 import java.util.HashMap
-import java.util.Locale
 
 class KeyboardSwitcher private constructor() :
         SharedPreferences.OnSharedPreferenceChangeListener {
@@ -33,14 +30,14 @@ class KeyboardSwitcher private constructor() :
     companion object {
         private val TAG = "PCKeyboardKbSw"
 
-        @JvmField val MODE_NONE = 0
-        @JvmField val MODE_TEXT = 1
-        @JvmField val MODE_SYMBOLS = 2
-        @JvmField val MODE_PHONE = 3
-        @JvmField val MODE_URL = 4
-        @JvmField val MODE_EMAIL = 5
-        @JvmField val MODE_IM = 6
-        @JvmField val MODE_WEB = 7
+        const val MODE_NONE = 0
+        const val MODE_TEXT = 1
+        const val MODE_SYMBOLS = 2
+        const val MODE_PHONE = 3
+        const val MODE_URL = 4
+        const val MODE_EMAIL = 5
+        const val MODE_IM = 6
+        const val MODE_WEB = 7
 
         // Main keyboard layouts without the settings key
         @JvmField val KEYBOARDMODE_NORMAL = R.id.mode_normal
@@ -63,17 +60,6 @@ class KeyboardSwitcher private constructor() :
         const val DEFAULT_LAYOUT_ID = "0"
         const val PREF_KEYBOARD_LAYOUT = "pref_keyboard_layout"
         const val PREF_SETTINGS_KEY = "settings_key"
-
-        private val THEMES = intArrayOf(
-            R.layout.input_ics,
-            R.layout.input_gingerbread,
-            R.layout.input_stone_bold,
-            R.layout.input_trans_neon,
-            R.layout.input_material_dark,
-            R.layout.input_material_light,
-            R.layout.input_ics_darker,
-            R.layout.input_material_black
-        )
 
         // Tables which contain resource ids for each character theme color
         private val KBD_PHONE = R.xml.kbd_phone
@@ -120,7 +106,6 @@ class KeyboardSwitcher private constructor() :
             sInstance.mInputMethodService = ims
 
             val prefs = PreferenceManager.getDefaultSharedPreferences(ims)
-            sInstance.mLayoutId = Integer.valueOf(prefs.getString(PREF_KEYBOARD_LAYOUT, DEFAULT_LAYOUT_ID))
 
             sInstance.updateSettingsKeyState(prefs)
             prefs.registerOnSharedPreferenceChangeListener(sInstance)
@@ -130,8 +115,8 @@ class KeyboardSwitcher private constructor() :
         }
     }
 
-    private var mInputView: LatinKeyboardView? = null
     private var mInputMethodService: LatinIME? = null
+    private var mShiftState: Int = Keyboard.SHIFT_OFF
 
     private var mSymbolsId: KeyboardId? = null
     private var mSymbolsShiftedId: KeyboardId? = null
@@ -161,8 +146,6 @@ class KeyboardSwitcher private constructor() :
     private var mLastDisplayWidth = 0
     private var mLanguageSwitcher: LanguageSwitcher? = null
 
-    private var mLayoutId = 0
-
     /**
      * Represents the parameters necessary to construct a new LatinKeyboard,
      * which also serve as a unique identifier for each keyboard type.
@@ -177,7 +160,7 @@ class KeyboardSwitcher private constructor() :
         val mKeyboardHeightPercent: Float = LatinIME.sKeyboardSettings.keyboardHeightPercent
         val mUsingExtension: Boolean = LatinIME.sKeyboardSettings.useExtension
 
-        private val mHashCode: Int = Arrays.hashCode(arrayOf(mXml, mKeyboardMode, mEnableShiftLock, mHasVoice))
+        private val mHashCode: Int = Arrays.hashCode(arrayOf(mXml, mKeyboardMode, mEnableShiftLock, mHasVoice, mKeyboardHeightPercent))
 
         override fun equals(other: Any?): Boolean {
             return other is KeyboardId && equals(other)
@@ -190,6 +173,7 @@ class KeyboardSwitcher private constructor() :
                     && other.mUsingExtension == this.mUsingExtension
                     && other.mEnableShiftLock == this.mEnableShiftLock
                     && other.mHasVoice == this.mHasVoice
+                    && other.mKeyboardHeightPercent == this.mKeyboardHeightPercent
         }
 
         override fun hashCode(): Int = mHashCode
@@ -204,7 +188,8 @@ class KeyboardSwitcher private constructor() :
      */
     fun setLanguageSwitcher(languageSwitcher: LanguageSwitcher) {
         mLanguageSwitcher = languageSwitcher
-        languageSwitcher.getInputLocale() // for side effect
+        // Side effect: initializes input locale
+        languageSwitcher.getInputLocale()
     }
 
     private fun makeSymbolsId(hasVoice: Boolean): KeyboardId {
@@ -259,21 +244,20 @@ class KeyboardSwitcher private constructor() :
     }
 
     fun setKeyboardMode(mode: Int, imeOptions: Int, enableVoice: Boolean) {
-        var mode = mode
+        var effectiveMode = mode
         mAutoModeSwitchState = AUTO_MODE_SWITCH_STATE_ALPHA
-        mPreferSymbols = mode == MODE_SYMBOLS
-        if (mode == MODE_SYMBOLS) {
-            mode = MODE_TEXT
+        mPreferSymbols = effectiveMode == MODE_SYMBOLS
+        if (effectiveMode == MODE_SYMBOLS) {
+            effectiveMode = MODE_TEXT
         }
         try {
-            setKeyboardMode(mode, imeOptions, enableVoice, mPreferSymbols)
+            setKeyboardMode(effectiveMode, imeOptions, enableVoice, mPreferSymbols)
         } catch (e: RuntimeException) {
-            Log.e(TAG, "Got exception: $mode,$imeOptions,$mPreferSymbols msg=${e.message}")
+            Log.e(TAG, "Got exception: $effectiveMode,$imeOptions,$mPreferSymbols msg=${e.message}")
         }
     }
 
     private fun setKeyboardMode(mode: Int, imeOptions: Int, enableVoice: Boolean, isSymbols: Boolean) {
-        val inputView = mInputView ?: return
         mMode = mode
         mImeOptions = imeOptions
         if (enableVoice != mHasVoice) {
@@ -282,20 +266,9 @@ class KeyboardSwitcher private constructor() :
         }
         mIsSymbols = isSymbols
 
-        inputView.setPreviewEnabled(mInputMethodService!!.popupOn)
-
         val id = getKeyboardId(mode, imeOptions, isSymbols)
-        val keyboard = getKeyboard(id)
-
-        if (mode == MODE_PHONE) {
-            inputView.setPhoneKeyboard(keyboard)
-        }
-
         mCurrentId = id
-        inputView.setKeyboard(keyboard)
-        keyboard.setShiftState(Keyboard.SHIFT_OFF)
-        keyboard.setImeOptions(mInputMethodService!!.resources, mMode, imeOptions)
-        keyboard.updateSymbolIcons(mIsAutoCompletionActive)
+        mShiftState = Keyboard.SHIFT_OFF
     }
 
     private fun getKeyboard(id: KeyboardId): LatinKeyboard {
@@ -305,6 +278,7 @@ class KeyboardSwitcher private constructor() :
             val orig = mInputMethodService!!.resources
             val conf = orig.configuration
             val saveLocale = conf.locale
+            // TODO: Replace with createConfigurationContext()
             conf.locale = LatinIME.sKeyboardSettings.inputLocale
             orig.updateConfiguration(conf, null)
             keyboard = LatinKeyboard(mInputMethodService!!, id.mXml,
@@ -395,62 +369,50 @@ class KeyboardSwitcher private constructor() :
     }
 
     fun setShiftState(shiftState: Int) {
-        mInputView?.setShiftState(shiftState)
+        mShiftState = shiftState
+    }
+
+    fun getShiftState(): Int {
+        return mShiftState
     }
 
     fun setFn(useFn: Boolean) {
-        val inputView = mInputView ?: return
-        val oldShiftState = inputView.shiftState
+        val oldShiftState = mShiftState
         if (useFn) {
-            val kbd = getKeyboard(mSymbolsId!!)
-            kbd.enableShiftLock()
             mCurrentId = mSymbolsId
-            inputView.setKeyboard(kbd)
-            inputView.setShiftState(oldShiftState)
         } else {
             // Return to default keyboard state
             setKeyboardMode(mMode, mImeOptions, mHasVoice, false)
-            inputView.setShiftState(oldShiftState)
         }
+        mShiftState = oldShiftState
     }
 
     fun setCtrlIndicator(active: Boolean) {
-        mInputView?.setCtrlIndicator(active)
+        // No-op: Compose ModifierStateManager handles visual indicators
     }
 
     fun setAltIndicator(active: Boolean) {
-        mInputView?.setAltIndicator(active)
+        // No-op: Compose ModifierStateManager handles visual indicators
     }
 
     fun setMetaIndicator(active: Boolean) {
-        mInputView?.setMetaIndicator(active)
+        // No-op: Compose ModifierStateManager handles visual indicators
     }
 
     fun toggleShift() {
-        //Log.i(TAG, "toggleShift isAlphabetMode=" + isAlphabetMode() + " mSettings.fullMode=" + mSettings.fullMode);
         if (isAlphabetMode()) return
-        val inputView = mInputView ?: return
         if (mFullMode > 0) {
-            val shifted = inputView.isShiftAll
-            inputView.setShiftState(if (shifted) Keyboard.SHIFT_OFF else Keyboard.SHIFT_ON)
+            val shifted = mShiftState == Keyboard.SHIFT_ON || mShiftState == Keyboard.SHIFT_LOCKED
+                    || mShiftState == Keyboard.SHIFT_CAPS_LOCKED
+            mShiftState = if (shifted) Keyboard.SHIFT_OFF else Keyboard.SHIFT_ON
             return
         }
-        if (mCurrentId!!.equals(mSymbolsId) || !mCurrentId!!.equals(mSymbolsShiftedId)) {
-            val symbolsShiftedKeyboard = getKeyboard(mSymbolsShiftedId!!)
+        if (mCurrentId == mSymbolsId || mCurrentId != mSymbolsShiftedId) {
             mCurrentId = mSymbolsShiftedId
-            inputView.setKeyboard(symbolsShiftedKeyboard)
-            // Symbol shifted keyboard has a ALT_SYM key that has a caps lock style indicator.
-            // To enable the indicator, we need to set the shift state appropriately.
-            symbolsShiftedKeyboard.enableShiftLock()
-            symbolsShiftedKeyboard.setShiftState(Keyboard.SHIFT_LOCKED)
-            symbolsShiftedKeyboard.setImeOptions(mInputMethodService!!.resources, mMode, mImeOptions)
+            mShiftState = Keyboard.SHIFT_LOCKED
         } else {
-            val symbolsKeyboard = getKeyboard(mSymbolsId!!)
             mCurrentId = mSymbolsId
-            inputView.setKeyboard(symbolsKeyboard)
-            symbolsKeyboard.enableShiftLock()
-            symbolsKeyboard.setShiftState(Keyboard.SHIFT_OFF)
-            symbolsKeyboard.setImeOptions(mInputMethodService!!.resources, mMode, mImeOptions)
+            mShiftState = Keyboard.SHIFT_OFF
         }
     }
 
@@ -471,7 +433,8 @@ class KeyboardSwitcher private constructor() :
     }
 
     fun hasDistinctMultitouch(): Boolean {
-        return mInputView != null && mInputView!!.hasDistinctMultitouch()
+        // Compose keyboard always supports distinct multitouch
+        return true
     }
 
     fun setAutoModeSwitchStateMomentary() {
@@ -487,11 +450,13 @@ class KeyboardSwitcher private constructor() :
     }
 
     fun isVibrateAndSoundFeedbackRequired(): Boolean {
-        return mInputView != null && !mInputView!!.isInSlidingKeyInput
+        // Compose keyboard: always allow vibrate/sound feedback
+        return true
     }
 
     private fun getPointerCount(): Int {
-        return mInputView?.pointerCount ?: 0
+        // Compose keyboard handles multitouch internally; report 1 for mode-switch logic
+        return 1
     }
 
     /**
@@ -530,81 +495,26 @@ class KeyboardSwitcher private constructor() :
                     mAutoModeSwitchState = AUTO_MODE_SWITCH_STATE_CHORDING
                 }
             AUTO_MODE_SWITCH_STATE_SYMBOL_BEGIN ->
-                if (key != LatinIME.ASCII_SPACE && key != LatinIME.ASCII_ENTER && key >= 0) {
+                if (key != KeyCodes.ASCII_SPACE && key != KeyCodes.ENTER && key >= 0) {
                     mAutoModeSwitchState = AUTO_MODE_SWITCH_STATE_SYMBOL
                 }
             AUTO_MODE_SWITCH_STATE_SYMBOL ->
                 // Snap back to alpha keyboard mode if user types one or more
                 // non-space/enter characters followed by a space/enter.
-                if (key == LatinIME.ASCII_ENTER || key == LatinIME.ASCII_SPACE) {
+                if (key == KeyCodes.ENTER || key == KeyCodes.ASCII_SPACE) {
                     mInputMethodService!!.changeKeyboardMode()
                 }
         }
     }
 
-    fun getInputView(): LatinKeyboardView? = mInputView
-
-    fun recreateInputView() {
-        changeLatinKeyboardView(mLayoutId, true)
-    }
-
-    private fun changeLatinKeyboardView(newLayout: Int, forceReset: Boolean) {
-        var newLayout = newLayout
-        if (mLayoutId != newLayout || mInputView == null || forceReset) {
-            mInputView?.closing()
-            if (THEMES.size <= newLayout) {
-                newLayout = Integer.valueOf(DEFAULT_LAYOUT_ID)
-            }
-
-            LatinIMEUtil.GCUtils.getInstance().reset()
-            var tryGC = true
-            var i = 0
-            while (i < LatinIMEUtil.GCUtils.GC_TRY_LOOP_MAX && tryGC) {
-                try {
-                    mInputView = mInputMethodService!!.layoutInflater
-                            .inflate(THEMES[newLayout], null) as LatinKeyboardView
-                    tryGC = false
-                } catch (e: OutOfMemoryError) {
-                    tryGC = LatinIMEUtil.GCUtils.getInstance().tryGCOrWait("$mLayoutId,$newLayout", e)
-                } catch (e: InflateException) {
-                    tryGC = LatinIMEUtil.GCUtils.getInstance().tryGCOrWait("$mLayoutId,$newLayout", e)
-                }
-                i++
-            }
-            // Guard: mInputView may be null if inflate failed or Compose keyboard is active
-            val inputView = mInputView ?: return
-            inputView.setExtensionLayoutResId(THEMES[newLayout])
-            inputView.setOnKeyboardActionListener(mInputMethodService)
-            inputView.setPadding(0, 0, 0, 0)
-            mLayoutId = newLayout
-        }
-        mInputMethodService!!.mHandler.post {
-            mInputView?.let {
-                mInputMethodService!!.setInputView(it)
-            }
-            mInputMethodService!!.updateInputViewShown()
-        }
-    }
-
     override fun onSharedPreferenceChanged(sharedPreferences: SharedPreferences, key: String?) {
-        if (PREF_KEYBOARD_LAYOUT == key) {
-            changeLatinKeyboardView(
-                Integer.valueOf(sharedPreferences.getString(key, DEFAULT_LAYOUT_ID)), true)
-        } else if (PREF_SETTINGS_KEY == key) {
+        if (PREF_SETTINGS_KEY == key) {
             updateSettingsKeyState(sharedPreferences)
-            recreateInputView()
         }
     }
 
     fun onAutoCompletionStateChanged(isAutoCompletion: Boolean) {
-        if (isAutoCompletion != mIsAutoCompletionActive) {
-            val keyboardView = getInputView() ?: return
-            mIsAutoCompletionActive = isAutoCompletion
-            keyboardView.invalidateKey(
-                (keyboardView.keyboard as LatinKeyboard)
-                    .onAutoCompletionStateChanged(isAutoCompletion)
-            )
-        }
+        mIsAutoCompletionActive = isAutoCompletion
     }
 
     private fun updateSettingsKeyState(prefs: SharedPreferences) {

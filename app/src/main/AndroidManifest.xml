@@ -58,20 +58,7 @@
                 android:exported="false">
         </activity>
 
-        <activity android:name="PrefScreenActions"
-                android:label="@string/pref_screen_actions_title"
-                android:exported="false">
-        </activity>
-            
-        <activity android:name="PrefScreenView"
-                android:label="@string/pref_screen_view_title"
-                android:exported="false">
-        </activity>
-
-        <activity android:name="PrefScreenFeedback"
-                android:label="@string/pref_screen_feedback_title"
-                android:exported="false">
-        </activity>
+        <!-- Legacy PrefScreen activities removed (superseded by DevKeySettingsActivity) -->
         <activity
             android:name=".ui.voice.PermissionActivity"
             android:theme="@android:style/Theme.Translucent.NoTitleBar"

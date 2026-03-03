@@ -2,22 +2,28 @@ package dev.devkey.keyboard.core
 
 import android.view.inputmethod.ExtractedTextRequest
 import android.view.inputmethod.InputConnection
-import dev.devkey.keyboard.LatinKeyboardBaseView
 import dev.devkey.keyboard.core.KeyPressLogger
 import dev.devkey.keyboard.ui.keyboard.KeyCodes
 
 /**
- * Bridge between the Compose keyboard UI and the legacy [LatinKeyboardBaseView.OnKeyboardActionListener].
+ * Bridge between the Compose keyboard UI and the IME's [KeyboardActionListener].
  *
- * Translates key actions from the Compose layer into calls to the existing IME listener,
- * handling modifier state (Shift, Ctrl, Alt) for proper key event generation.
+ * This is the intentional boundary between the UI layer and LatinIME.
+ * It handles:
+ * - Shift-to-uppercase transformation before the key reaches the IME
+ * - Smart backspace/escape resolution via InputConnection
+ * - Key press logging for diagnostics
+ *
+ * The bridge does NOT bypass LatinIME to call [KeyEventSender] directly
+ * because LatinIME must handle prediction, composing text, and InputConnection
+ * lifecycle before any key event can be synthesized.
  */
 class KeyboardActionBridge(
-    private val listener: LatinKeyboardBaseView.OnKeyboardActionListener
+    private val listener: KeyboardActionListener
 ) {
 
     companion object {
-        /** Matches LatinKeyboardBaseView's NOT_A_TOUCH_COORDINATE */
+        /** Sentinel value meaning the key event did not come from a touch */
         private const val NOT_A_TOUCH_COORDINATE = -1
     }
 
@@ -47,7 +53,7 @@ class KeyboardActionBridge(
      */
     fun onKey(code: Int, modifierState: ModifierStateManager) {
         val effectiveCode = if (modifierState.isShiftActive() && isLetter(code)) {
-            Character.toUpperCase(code)
+            code.toChar().uppercaseChar().code
         } else {
             code
         }
@@ -90,6 +96,6 @@ class KeyboardActionBridge(
     }
 
     private fun isLetter(code: Int): Boolean {
-        return code in 'a'.code..'z'.code || code in 'A'.code..'Z'.code
+        return Character.isLetter(code)
     }
 }

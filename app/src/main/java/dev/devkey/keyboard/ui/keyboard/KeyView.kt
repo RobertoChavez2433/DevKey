@@ -187,6 +187,7 @@ fun KeyView(
                                     ModifierType.SHIFT -> modifierState.shiftState.value
                                     ModifierType.CTRL -> modifierState.ctrlState.value
                                     ModifierType.ALT -> modifierState.altState.value
+                                    ModifierType.META -> modifierState.metaState.value
                                 }
                                 KeyPressLogger.logModifierTransition(modType.name, "tap", currentState.name)
                             }

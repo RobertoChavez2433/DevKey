@@ -22,8 +22,8 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.preference.PreferenceManager
-import dev.devkey.keyboard.LatinKeyboardBaseView
 import dev.devkey.keyboard.core.KeyboardActionBridge
+import dev.devkey.keyboard.core.KeyboardActionListener
 import dev.devkey.keyboard.core.ModifierKeyState
 import dev.devkey.keyboard.core.ModifierStateManager
 import dev.devkey.keyboard.data.db.DevKeyDatabase
@@ -60,7 +60,7 @@ import kotlinx.coroutines.launch
  */
 @Composable
 fun DevKeyKeyboard(
-    actionListener: LatinKeyboardBaseView.OnKeyboardActionListener,
+    actionListener: KeyboardActionListener,
     currentInputConnection: (() -> android.view.inputmethod.InputConnection?)? = null
 ) {
     val context = LocalContext.current

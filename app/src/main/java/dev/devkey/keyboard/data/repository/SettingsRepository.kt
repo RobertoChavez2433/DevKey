@@ -1,12 +1,16 @@
 package dev.devkey.keyboard.data.repository
 
 import android.content.SharedPreferences
+import android.content.res.Resources
+import android.util.Log
+import dev.devkey.keyboard.R
 import dev.devkey.keyboard.ui.keyboard.LayoutMode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
+import java.util.Locale
 
 class SettingsRepository(
     private val prefs: SharedPreferences
@@ -18,6 +22,224 @@ class SettingsRepository(
         prefs.registerOnSharedPreferenceChangeListener(this)
         migrateCompactModeToLayoutMode()
     }
+
+    // ========================================================================
+    // Cached keyboard settings (absorbed from GlobalKeyboardSettings)
+    // All field reads/writes are main-thread only.
+    // ========================================================================
+
+    // Read by Keyboard
+    @JvmField var popupKeyboardFlags = 0x1
+    @JvmField var topRowScale = 1.0f
+
+    // Read by LatinIME
+    @JvmField var suggestedPunctuation = "!?,."
+    @JvmField var keyboardModePortrait = 0
+    @JvmField var keyboardModeLandscape = 2
+    @JvmField var compactModeEnabled = true // always on
+    @JvmField var ctrlAOverride = 0
+    @JvmField var chordingCtrlKey = 0
+    @JvmField var chordingAltKey = 0
+    @JvmField var chordingMetaKey = 0
+    @JvmField var keyClickVolume = 0.0f
+    @JvmField var keyClickMethod = 0
+    @JvmField var capsLock = true
+    @JvmField var shiftLockModifiers = false
+
+    // Read by CandidateView
+    @JvmField var candidateScalePref = 1.0f
+
+    // Legacy view settings (kept for compatibility)
+    @JvmField var showTouchPos = false
+    @JvmField var labelScalePref = 1.0f
+    @JvmField var sendSlideKeys = 0
+
+    // Updated by LatinIME, read by KeyboardSwitcher
+    @JvmField var keyboardMode = 0
+    @JvmField var useExtension = false
+    @JvmField var keyboardHeightPercent = 40.0f
+
+    // Legacy view settings
+    @JvmField var hintMode = 0
+    @JvmField var renderMode = 1
+    @JvmField var longpressTimeout = 400
+
+    // Cached editor info
+    @JvmField var editorPackageName: String? = null
+    @JvmField var editorFieldName: String? = null
+    @JvmField var editorFieldId = 0
+    @JvmField var editorInputType = 0
+
+    // Updated by LanguageSwitcher
+    @JvmField var inputLocale: Locale = Locale.getDefault()
+
+    // ========================================================================
+    // Pref registration system (absorbed from GlobalKeyboardSettings)
+    // ========================================================================
+
+    private val mBoolPrefs = HashMap<String, BooleanPref>()
+    private val mStringPrefs = HashMap<String, StringPref>()
+    private var mCurrentFlags = 0
+
+    private fun interface BooleanPref {
+        fun set(value: Boolean)
+        fun getDefault(): Boolean = false
+        fun getFlags(): Int = FLAG_PREF_NONE
+    }
+
+    private fun interface StringPref {
+        fun set(value: String)
+        fun getDefault(): String = ""
+        fun getFlags(): Int = FLAG_PREF_NONE
+    }
+
+    fun initPrefs(prefs: SharedPreferences, resources: Resources) {
+        addStringPref("pref_keyboard_mode_portrait", object : StringPref {
+            override fun set(value: String) { keyboardModePortrait = value.toIntOrNull() ?: keyboardModePortrait }
+            override fun getDefault() = resources.getString(R.string.default_keyboard_mode_portrait)
+            override fun getFlags() = FLAG_PREF_RESET_KEYBOARDS or FLAG_PREF_RESET_MODE_OVERRIDE
+        })
+
+        addStringPref("pref_keyboard_mode_landscape", object : StringPref {
+            override fun set(value: String) { keyboardModeLandscape = value.toIntOrNull() ?: keyboardModeLandscape }
+            override fun getDefault() = resources.getString(R.string.default_keyboard_mode_landscape)
+            override fun getFlags() = FLAG_PREF_RESET_KEYBOARDS or FLAG_PREF_RESET_MODE_OVERRIDE
+        })
+
+        addStringPref("pref_slide_keys_int", object : StringPref {
+            override fun set(value: String) { sendSlideKeys = value.toIntOrNull() ?: sendSlideKeys }
+            override fun getDefault() = "0"
+            override fun getFlags() = FLAG_PREF_NONE
+        })
+
+        addBooleanPref("pref_touch_pos", object : BooleanPref {
+            override fun set(value: Boolean) { showTouchPos = value }
+            override fun getDefault() = false
+            override fun getFlags() = FLAG_PREF_NONE
+        })
+
+        addStringPref("pref_popup_content", object : StringPref {
+            override fun set(value: String) { popupKeyboardFlags = value.toIntOrNull() ?: popupKeyboardFlags }
+            override fun getDefault() = resources.getString(R.string.default_popup_content)
+            override fun getFlags() = FLAG_PREF_RESET_KEYBOARDS
+        })
+
+        addStringPref("pref_suggested_punctuation", object : StringPref {
+            override fun set(value: String) { suggestedPunctuation = value }
+            override fun getDefault() = resources.getString(R.string.suggested_punctuations_default)
+            override fun getFlags() = FLAG_PREF_NEW_PUNC_LIST
+        })
+
+        addStringPref("pref_label_scale_v2", object : StringPref {
+            override fun set(value: String) { labelScalePref = value.toFloatOrNull() ?: labelScalePref }
+            override fun getDefault() = "1.0"
+            override fun getFlags() = FLAG_PREF_RECREATE_INPUT_VIEW
+        })
+
+        addStringPref("pref_candidate_scale", object : StringPref {
+            override fun set(value: String) { candidateScalePref = value.toFloatOrNull() ?: candidateScalePref }
+            override fun getDefault() = "1.0"
+            override fun getFlags() = FLAG_PREF_RESET_KEYBOARDS
+        })
+
+        addStringPref("pref_top_row_scale", object : StringPref {
+            override fun set(value: String) { topRowScale = value.toFloatOrNull() ?: topRowScale }
+            override fun getDefault() = "1.0"
+            override fun getFlags() = FLAG_PREF_RESET_KEYBOARDS
+        })
+
+        addStringPref("pref_ctrl_a_override", object : StringPref {
+            override fun set(value: String) { ctrlAOverride = value.toIntOrNull() ?: ctrlAOverride }
+            override fun getDefault() = resources.getString(R.string.default_ctrl_a_override)
+            override fun getFlags() = FLAG_PREF_RESET_KEYBOARDS
+        })
+
+        addStringPref("pref_chording_ctrl_key", object : StringPref {
+            override fun set(value: String) { chordingCtrlKey = value.toIntOrNull() ?: chordingCtrlKey }
+            override fun getDefault() = resources.getString(R.string.default_chording_ctrl_key)
+            override fun getFlags() = FLAG_PREF_RESET_KEYBOARDS
+        })
+
+        addStringPref("pref_chording_alt_key", object : StringPref {
+            override fun set(value: String) { chordingAltKey = value.toIntOrNull() ?: chordingAltKey }
+            override fun getDefault() = resources.getString(R.string.default_chording_alt_key)
+            override fun getFlags() = FLAG_PREF_RESET_KEYBOARDS
+        })
+
+        addStringPref("pref_chording_meta_key", object : StringPref {
+            override fun set(value: String) { chordingMetaKey = value.toIntOrNull() ?: chordingMetaKey }
+            override fun getDefault() = resources.getString(R.string.default_chording_meta_key)
+            override fun getFlags() = FLAG_PREF_RESET_KEYBOARDS
+        })
+
+        addStringPref("pref_click_volume", object : StringPref {
+            override fun set(value: String) { keyClickVolume = value.toFloatOrNull() ?: keyClickVolume }
+            override fun getDefault() = resources.getString(R.string.default_click_volume)
+            override fun getFlags() = FLAG_PREF_NONE
+        })
+
+        addStringPref("pref_click_method", object : StringPref {
+            override fun set(value: String) { keyClickMethod = value.toIntOrNull() ?: keyClickMethod }
+            override fun getDefault() = resources.getString(R.string.default_click_method)
+            override fun getFlags() = FLAG_PREF_NONE
+        })
+
+        addBooleanPref("pref_caps_lock", object : BooleanPref {
+            override fun set(value: Boolean) { capsLock = value }
+            override fun getDefault() = resources.getBoolean(R.bool.default_caps_lock)
+            override fun getFlags() = FLAG_PREF_NONE
+        })
+
+        addBooleanPref("pref_shift_lock_modifiers", object : BooleanPref {
+            override fun set(value: Boolean) { shiftLockModifiers = value }
+            override fun getDefault() = resources.getBoolean(R.bool.default_shift_lock_modifiers)
+            override fun getFlags() = FLAG_PREF_NONE
+        })
+
+        // Set initial values
+        for ((key, pref) in mBoolPrefs) {
+            pref.set(prefs.getBoolean(key, pref.getDefault()))
+        }
+        for ((key, pref) in mStringPrefs) {
+            pref.set(prefs.getString(key, pref.getDefault()) ?: pref.getDefault())
+        }
+    }
+
+    fun handlePreferenceChanged(prefs: SharedPreferences, key: String?) {
+        mCurrentFlags = FLAG_PREF_NONE
+        val bPref = mBoolPrefs[key]
+        if (bPref != null) {
+            bPref.set(prefs.getBoolean(key, bPref.getDefault()))
+            mCurrentFlags = mCurrentFlags or bPref.getFlags()
+        }
+        val sPref = mStringPrefs[key]
+        if (sPref != null) {
+            sPref.set(prefs.getString(key, sPref.getDefault()) ?: sPref.getDefault())
+            mCurrentFlags = mCurrentFlags or sPref.getFlags()
+        }
+    }
+
+    fun consumeFlag(flag: Int): Boolean {
+        if (mCurrentFlags and flag != 0) {
+            mCurrentFlags = mCurrentFlags and flag.inv()
+            return true
+        }
+        return false
+    }
+
+    fun unhandledFlags(): Int = mCurrentFlags
+
+    private fun addBooleanPref(key: String, setter: BooleanPref) {
+        mBoolPrefs[key] = setter
+    }
+
+    private fun addStringPref(key: String, setter: StringPref) {
+        mStringPrefs[key] = setter
+    }
+
+    // ========================================================================
+    // Original SettingsRepository API
+    // ========================================================================
 
     /**
      * One-time migration: reads old KEY_COMPACT_MODE boolean and writes
@@ -101,6 +323,16 @@ class SettingsRepository(
         }
 
     companion object {
+        private const val TAG = "DevKey/Settings"
+
+        // Preference change flags
+        const val FLAG_PREF_NONE = 0
+        const val FLAG_PREF_NEED_RELOAD = 0x1
+        const val FLAG_PREF_NEW_PUNC_LIST = 0x2
+        const val FLAG_PREF_RECREATE_INPUT_VIEW = 0x4
+        const val FLAG_PREF_RESET_KEYBOARDS = 0x8
+        const val FLAG_PREF_RESET_MODE_OVERRIDE = 0x10
+
         // Default height percentages (single source of truth)
         const val DEFAULT_HEIGHT_PORTRAIT = 40   // percent
         const val DEFAULT_HEIGHT_LANDSCAPE = 55  // percent
@@ -153,5 +385,8 @@ class SettingsRepository(
         const val KEY_VOICE_MODEL = "devkey_voice_model"
         const val KEY_VOICE_AUTO_STOP_TIMEOUT = "devkey_voice_auto_stop_timeout"
         const val KEY_COMMAND_AUTO_DETECT = "devkey_command_auto_detect"
+
+        // Popup keyboard content flags (used by Keyboard.kt)
+        const val KEY_POPUP_CONTENT = "pref_popup_content"
     }
 }

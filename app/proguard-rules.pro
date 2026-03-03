@@ -13,12 +13,10 @@
 -keep class dev.devkey.keyboard.feature.voice.PermissionActivity { *; }
 -keep class dev.devkey.keyboard.Main { *; }
 -keep class dev.devkey.keyboard.InputLanguageSelection { *; }
--keep class dev.devkey.keyboard.PrefScreenActions { *; }
--keep class dev.devkey.keyboard.PrefScreenView { *; }
--keep class dev.devkey.keyboard.PrefScreenFeedback { *; }
 -keep class dev.devkey.keyboard.NotificationReceiver { *; }
 
 # Keep custom preference widgets referenced by name in XML
+# TODO: Remove these once prefs.xml and prefs_*.xml files are deleted
 -keep class dev.devkey.keyboard.SeekBarPreferenceString { *; }
 -keep class dev.devkey.keyboard.SeekBarPreference { *; }
 -keep class dev.devkey.keyboard.AutoSummaryListPreference { *; }

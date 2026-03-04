@@ -604,12 +604,8 @@ class LatinIME : InputMethodService(),
     override fun onCreateInputView(): View {
         setCandidatesViewShown(false) // Workaround for "already has a parent" when reconfiguring
 
-        // On API 36+, InputMethodService.setInputView() requires ViewTreeLifecycleOwner
-        // on the IME window's decor view. Set it before returning the Compose view.
         val decor = window.window!!.decorView
-        ComposeKeyboardViewFactory.installLifecycleOwner(decor)
-
-        return ComposeKeyboardViewFactory.create(this, this)
+        return ComposeKeyboardViewFactory.create(this, this, decor)
     }
 
     override fun onCreateCandidatesView(): View? {

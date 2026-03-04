@@ -24,6 +24,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.preference.PreferenceManager
 import dev.devkey.keyboard.core.KeyboardActionBridge
 import dev.devkey.keyboard.core.KeyboardActionListener
+import dev.devkey.keyboard.core.KeyboardModeManager
 import dev.devkey.keyboard.core.ModifierKeyState
 import dev.devkey.keyboard.core.ModifierStateManager
 import dev.devkey.keyboard.data.db.DevKeyDatabase
@@ -117,8 +118,9 @@ fun DevKeyKeyboard(
     val showHints = hintModeValue.value != "0"
     val hintBright = hintModeValue.value == "2"
 
-    // State
-    var keyboardMode by remember { mutableStateOf<KeyboardMode>(KeyboardMode.Normal) }
+    // State — using StateFlow via KeyboardModeManager for reliable recomposition
+    val modeManager = remember { KeyboardModeManager() }
+    val keyboardMode by modeManager.mode.collectAsState()
     val ctrlState by modifierState.ctrlState.collectAsState()
     val macros by macroRepo.getAllMacros().collectAsState(initial = emptyList())
     val clipboardEntries by clipboardRepo.getAll().collectAsState(initial = emptyList())
@@ -133,9 +135,9 @@ fun DevKeyKeyboard(
     var macroNameDialogVisible by remember { mutableStateOf(false) }
     var pendingMacroSteps by remember { mutableStateOf<List<MacroStep>>(emptyList()) }
 
-    // Toggle helper
+    // Toggle helper — delegates to KeyboardModeManager
     fun toggleMode(target: KeyboardMode) {
-        keyboardMode = if (keyboardMode == target) KeyboardMode.Normal else target
+        modeManager.toggleMode(target)
     }
 
     // Macro click handler (shared between chip strip and grid)
@@ -143,7 +145,7 @@ fun DevKeyKeyboard(
         val steps = MacroSerializer.deserialize(macro.keySequence)
         macroEngine.replay(steps, bridge, modifierState)
         coroutineScope.launch { macroRepo.incrementUsage(macro.id) }
-        keyboardMode = KeyboardMode.Normal
+        modeManager.setMode(KeyboardMode.Normal)
     }
 
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -154,9 +156,9 @@ fun DevKeyKeyboard(
                 onVoice = {
                     if (keyboardMode == KeyboardMode.Voice) {
                         voiceInputEngine.cancelListening()
-                        keyboardMode = KeyboardMode.Normal
+                        modeManager.setMode(KeyboardMode.Normal)
                     } else {
-                        keyboardMode = KeyboardMode.Voice
+                        modeManager.setMode(KeyboardMode.Voice)
                         coroutineScope.launch { voiceInputEngine.startListening() }
                     }
                 },
@@ -181,9 +183,9 @@ fun DevKeyKeyboard(
                     onMacroClick = { macro -> onMacroClick(macro) },
                     onAddClick = {
                         macroEngine.startRecording()
-                        keyboardMode = KeyboardMode.MacroRecording
+                        modeManager.setMode(KeyboardMode.MacroRecording)
                     },
-                    onCollapse = { keyboardMode = KeyboardMode.Normal }
+                    onCollapse = { modeManager.setMode(KeyboardMode.Normal) }
                 )
             }
             KeyboardMode.MacroGrid -> {
@@ -192,7 +194,7 @@ fun DevKeyKeyboard(
                     onMacroClick = { macro -> onMacroClick(macro) },
                     onRecordClick = {
                         macroEngine.startRecording()
-                        keyboardMode = KeyboardMode.MacroRecording
+                        modeManager.setMode(KeyboardMode.MacroRecording)
                     },
                     onEditMacro = { macro ->
                         coroutineScope.launch { macroRepo.updateMacroName(macro.id, macro.name) }
@@ -207,7 +209,7 @@ fun DevKeyKeyboard(
                     capturedSteps = macroEngine.getCapturedSteps(),
                     onCancel = {
                         macroEngine.cancelRecording()
-                        keyboardMode = KeyboardMode.Normal
+                        modeManager.setMode(KeyboardMode.Normal)
                     },
                     onStop = {
                         pendingMacroSteps = macroEngine.stopRecording()
@@ -220,7 +222,7 @@ fun DevKeyKeyboard(
                     entries = clipboardEntries,
                     onPaste = { entry ->
                         bridge.onText(entry.content)
-                        keyboardMode = KeyboardMode.Normal
+                        modeManager.setMode(KeyboardMode.Normal)
                     },
                     onPin = { id -> coroutineScope.launch { clipboardRepo.pin(id) } },
                     onUnpin = { id -> coroutineScope.launch { clipboardRepo.unpin(id) } },
@@ -241,12 +243,12 @@ fun DevKeyKeyboard(
                             if (transcription.isNotEmpty()) {
                                 bridge.onText(transcription)
                             }
-                            keyboardMode = KeyboardMode.Normal
+                            modeManager.setMode(KeyboardMode.Normal)
                         }
                     },
                     onCancel = {
                         voiceInputEngine.cancelListening()
-                        keyboardMode = KeyboardMode.Normal
+                        modeManager.setMode(KeyboardMode.Normal)
                     }
                 )
             }
@@ -269,7 +271,6 @@ fun DevKeyKeyboard(
                 else -> layoutMode
             }
 
-            // Extract layout to local val so Compose reliably tracks keyboardMode reads
             val activeLayout = when (keyboardMode) {
                 is KeyboardMode.Symbols -> SymbolsLayout.layout
                 else -> QwertyLayout.getLayout(layoutMode)
@@ -299,7 +300,7 @@ fun DevKeyKeyboard(
                     when (code) {
                         SymbolsLayout.KEYCODE_ALPHA -> {
                             // ABC key from symbols layout
-                            keyboardMode = KeyboardMode.Normal
+                            modeManager.setMode(KeyboardMode.Normal)
                         }
                         KeyCodes.SYMBOLS -> {
                             // 123 key — toggle symbols mode
@@ -321,8 +322,14 @@ fun DevKeyKeyboard(
                         }
                     }
                 },
-                onKeyPress = { code -> bridge.onKeyPress(code) },
-                onKeyRelease = { code -> bridge.onKeyRelease(code) }
+                onKeyPress = { code ->
+                    // Don't forward codes handled locally by Compose UI to avoid
+                    // LatinIME legacy mode-switching interference
+                    if (!isComposeLocalCode(code)) bridge.onKeyPress(code)
+                },
+                onKeyRelease = { code ->
+                    if (!isComposeLocalCode(code)) bridge.onKeyRelease(code)
+                }
             )
         }
     }
@@ -335,14 +342,23 @@ fun DevKeyKeyboard(
                     macroRepo.saveMacro(name, pendingMacroSteps)
                 }
                 macroNameDialogVisible = false
-                keyboardMode = KeyboardMode.Normal
+                modeManager.setMode(KeyboardMode.Normal)
             },
             onCancel = {
                 macroNameDialogVisible = false
-                keyboardMode = KeyboardMode.Normal
+                modeManager.setMode(KeyboardMode.Normal)
             }
         )
     }
+}
+
+/**
+ * Returns true for key codes that the Compose UI handles locally and should NOT
+ * be forwarded to the IME bridge (which would trigger LatinIME's legacy mode switching).
+ */
+private fun isComposeLocalCode(code: Int): Boolean = when (code) {
+    KeyCodes.SYMBOLS, KeyCodes.EMOJI, SymbolsLayout.KEYCODE_ALPHA -> true
+    else -> false
 }
 
 /**

@@ -27,37 +27,38 @@ object ComposeKeyboardViewFactory {
     private var lifecycleOwner: IMELifecycleOwner? = null
 
     /**
-     * Install lifecycle/savedstate/viewmodel owners on a view (typically the IME decor view).
-     * On API 36+, InputMethodService requires ViewTreeLifecycleOwner on the window decor.
-     */
-    @JvmStatic
-    fun installLifecycleOwner(view: View) {
-        val owner = createFreshOwner()
-        lifecycleOwner = owner
-
-        view.setViewTreeLifecycleOwner(owner)
-        view.setViewTreeSavedStateRegistryOwner(owner)
-        view.setViewTreeViewModelStoreOwner(owner)
-    }
-
-    /**
      * Create a ComposeView that renders the DevKeyKeyboard composable.
+     *
+     * A single lifecycle owner is shared between the decor view and the ComposeView.
+     * This is critical: Compose's WindowRecomposer resolves from the root/decor view.
+     * If the decor has a DESTROYED lifecycle, recomposition silently stops working
+     * (initial composition succeeds because setContent forces it, but state changes
+     * never trigger recomposition).
      *
      * @param context The InputMethodService context.
      * @param actionListener The keyboard action listener (typically the LatinIME itself).
+     * @param decorView The IME window's decor view. Required for API 36+ and for
+     *                  WindowRecomposer lifecycle resolution.
      * @return A View containing the Compose keyboard UI.
      */
     @JvmStatic
     fun create(
         context: Context,
-        actionListener: KeyboardActionListener
+        actionListener: KeyboardActionListener,
+        decorView: View
     ): View {
-        // Always create a fresh lifecycle owner to prevent stale Compose state
-        // across onCreateInputView() recreations (fixes BUG-02: 123 button)
+        // Tear down previous lifecycle owner if any
         lifecycleOwner?.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)
         lifecycleOwner?.viewModelStore?.clear()
+
+        // Single owner shared by decor and ComposeView — WindowRecomposer resolves
+        // from the decor view, so it MUST have an active (RESUMED) lifecycle.
         val owner = createFreshOwner()
         lifecycleOwner = owner
+
+        decorView.setViewTreeLifecycleOwner(owner)
+        decorView.setViewTreeSavedStateRegistryOwner(owner)
+        decorView.setViewTreeViewModelStoreOwner(owner)
 
         val composeView = ComposeView(context).apply {
             setViewTreeLifecycleOwner(owner)

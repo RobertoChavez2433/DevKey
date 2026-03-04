@@ -27,6 +27,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import dev.devkey.keyboard.Keyboard
 import dev.devkey.keyboard.core.KeyPressLogger
@@ -163,6 +164,7 @@ fun KeyView(
 
     Box(
         modifier = modifier
+            .testTag("key_${key.primaryCode}")
             .scale(scale)
             .clip(RoundedCornerShape(DevKeyTheme.keyRadius))
             .background(backgroundColor)

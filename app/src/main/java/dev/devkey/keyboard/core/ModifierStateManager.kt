@@ -71,6 +71,14 @@ class ModifierStateManager(
     private var altLastTapTime: Long = 0L
     private var metaLastTapTime: Long = 0L
 
+    // State before the most recent onModifierDown call.
+    // Used by onModifierTap to detect double-tap when down/up cycle
+    // has already reset the state back to OFF.
+    private var shiftStateBeforeDown: ModifierKeyState = ModifierKeyState.OFF
+    private var ctrlStateBeforeDown: ModifierKeyState = ModifierKeyState.OFF
+    private var altStateBeforeDown: ModifierKeyState = ModifierKeyState.OFF
+    private var metaStateBeforeDown: ModifierKeyState = ModifierKeyState.OFF
+
     fun isShiftActive(): Boolean = _shiftState.value != ModifierKeyState.OFF
     fun isCtrlActive(): Boolean = _ctrlState.value != ModifierKeyState.OFF
     fun isAltActive(): Boolean = _altState.value != ModifierKeyState.OFF
@@ -86,16 +94,27 @@ class ModifierStateManager(
 
     /**
      * Handle a modifier tap. Cycles: OFF -> ONE_SHOT, ONE_SHOT -> LOCKED (if double-tap), LOCKED -> OFF.
+     *
+     * Note: In the real event flow (KeyView), the sequence is always
+     * onModifierDown → onModifierUp → onModifierTap. The down/up cycle converts
+     * ONE_SHOT → HELD → OFF, so by the time tap runs the state is OFF. We use
+     * [stateBeforeDown] to recover the pre-down state for double-tap detection.
      */
     @MainThread
     fun onModifierTap(type: ModifierType) {
         val flow = getFlow(type)
         val now = timeProvider()
         val lastTap = getLastTapTime(type)
+        val preDownState = getStateBeforeDown(type)
 
         when (flow.value) {
             ModifierKeyState.OFF -> {
-                flow.value = ModifierKeyState.ONE_SHOT
+                // Check if we were in ONE_SHOT before the down/up cycle reset us to OFF
+                if (preDownState == ModifierKeyState.ONE_SHOT && now - lastTap <= DOUBLE_TAP_WINDOW_MS) {
+                    flow.value = ModifierKeyState.LOCKED
+                } else {
+                    flow.value = ModifierKeyState.ONE_SHOT
+                }
             }
             ModifierKeyState.ONE_SHOT -> {
                 if (now - lastTap <= DOUBLE_TAP_WINDOW_MS) {
@@ -118,10 +137,12 @@ class ModifierStateManager(
 
     /**
      * Handle modifier pointer down. Enters HELD state.
+     * Saves the pre-down state so [onModifierTap] can detect double-taps.
      */
     @MainThread
     fun onModifierDown(type: ModifierType, pointerId: Int) {
         val flow = getFlow(type)
+        setStateBeforeDown(type, flow.value)
         // Only enter HELD if not already locked
         if (flow.value != ModifierKeyState.LOCKED) {
             flow.value = ModifierKeyState.HELD
@@ -226,6 +247,22 @@ class ModifierStateManager(
             ModifierType.CTRL -> ctrlHeldPointerId = pointerId
             ModifierType.ALT -> altHeldPointerId = pointerId
             ModifierType.META -> metaHeldPointerId = pointerId
+        }
+    }
+
+    private fun getStateBeforeDown(type: ModifierType): ModifierKeyState = when (type) {
+        ModifierType.SHIFT -> shiftStateBeforeDown
+        ModifierType.CTRL -> ctrlStateBeforeDown
+        ModifierType.ALT -> altStateBeforeDown
+        ModifierType.META -> metaStateBeforeDown
+    }
+
+    private fun setStateBeforeDown(type: ModifierType, state: ModifierKeyState) {
+        when (type) {
+            ModifierType.SHIFT -> shiftStateBeforeDown = state
+            ModifierType.CTRL -> ctrlStateBeforeDown = state
+            ModifierType.ALT -> altStateBeforeDown = state
+            ModifierType.META -> metaStateBeforeDown = state
         }
     }
 }

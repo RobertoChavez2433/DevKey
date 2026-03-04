@@ -47,6 +47,12 @@
 - **Init order in LatinIME.onCreate()**: `sKeyboardSettings` MUST be initialized BEFORE `KeyboardSwitcher.init()` — the switcher reads settings during init (Session 25 crash fix)
 - **Background agents can't run ADB**: Bash permissions denied for background Task agents — use foreground or direct commands for emulator testing
 - **Keyboard Y coordinate offset**: Calculated key positions from `key-coordinates.md` need **-153px Y offset** on the emulator. The keyboard renders higher than the 40% height calculation predicts.
+- **ModifierStateManager double-tap**: The KeyView flow is always `onModifierDown → onModifierUp → onModifierTap`. The down/up cycle resets state before tap runs. Fixed by adding `stateBeforeDown` tracking so tap can detect double-tap from the saved pre-down state.
+- **IME Compose lifecycle pitfall (Session 27 root cause)**: In `InputMethodService`, Compose's `WindowRecomposer` resolves from the **decor/root view's lifecycle**, NOT the ComposeView's. If the decor has a DESTROYED lifecycle (even if ComposeView has a RESUMED one), recomposition silently never runs — initial composition works (forced by `setContent`) but NO state change triggers recomposition. Fix: share ONE lifecycle owner between decor and ComposeView via `ComposeKeyboardViewFactory.create(ctx, listener, decorView)`.
+- **`adb install -r` does NOT restart the IME process**: The keyboard process survives APK replacement. Always `am force-stop` + `ime set` after install to ensure fresh code loads.
+- **Bridge interference with legacy IME**: `bridge.onKeyPress(code)` and `bridge.onKeyRelease(code)` forward ALL keycodes to LatinIME. For keys handled locally by Compose (SYMBOLS, EMOJI, KEYCODE_ALPHA), this causes LatinIME's legacy `changeKeyboardMode()` to fire, interfering with Compose state. Fixed with `isComposeLocalCode()` filter in DevKeyKeyboard.kt.
+- **`connectedAndroidTest` uninstalls the app**: Running instrumented tests removes the debug APK from the device. Must reinstall + `ime enable` + `ime set` after.
+- **Espresso incompatible with API 36**: `InputManager.getInstance()` reflection fails on Android 16. Compose BOM 2024.06.00 Espresso deps need upgrading for API 36 emulators.
 
 ## Java→Kotlin Migration (COMPLETE)
 - **All phases executed**: Sessions 21-24 (brainstorm → plan → review → implement → deferred items → code review)
@@ -68,7 +74,10 @@
 - Migration COMMITTED: 4 commits on main (migration, tests, plans, crash fix)
 - 3 keyboard modes: Compact (SwiftKey), Compact Dev (long-press numbers), Full (6-row + utility)
 - Theme: teal monochrome design token system
-- Build passing, 355 unit tests passing
-- Keyboard RUNNING on emulator — "hello" test PASSES, DevKeyPress logcat WORKING
-- E2E testing IN PROGRESS: key coordinate map ready, full matrix pending
-- Needs: complete key matrix test, modifier/mode testing, PluginManager security
+- Build passing, 361 unit tests passing (355 + 6 new ModifierStateManager double-tap tests)
+- Keyboard RUNNING on emulator — FULL mode E2E mostly verified (Session 28: typing, 123 toggle, modifiers, numbers all PASS)
+- Caps Lock fix APPLIED + E2E verified (ONE_SHOT→LOCKED→OFF cycle)
+- 123 mode switch FIXED + E2E verified (Normal→Symbols→Normal round-trip)
+- Performance: 6.8ms avg key latency, 0 ANRs, 0 dropped keys
+- Compose UI tests: 14 tests written, ALL fail on API 36 emulator (Espresso compat), 9/14 pass on physical device
+- Needs: Commit Session 27 changes, COMPACT/COMPACT_DEV testing, arrow key completion, Compose test dep upgrade

@@ -4,6 +4,23 @@ Max 7 active. Oldest rotates to `.claude/logs/defects-archive.md`.
 
 ## Active Patterns
 
+### [BUILD] 2026-03-03: Compose UI test deps incompatible with API 36 (Android 16)
+**Pattern**: Espresso uses reflection on `android.hardware.input.InputManager.getInstance()` which was removed/changed in API 36. All 14 Compose UI instrumented tests fail with `NoSuchMethodException` on API 36 emulator.
+**Prevention**: Upgrade `espresso-core` and `compose-ui-test-junit4` to versions supporting API 36. Check Compose BOM release notes for Android 16 compatibility.
+**Ref**: @app/build.gradle.kts (androidTestImplementation deps), Compose BOM 2024.06.00
+
+### [BUILD] 2026-03-03: connectedAndroidTest uninstalls the app from emulator
+**Pattern**: Running `./gradlew connectedAndroidTest` installs the test APK and then uninstalls the app after tests complete. This removes the DevKey IME from the device, requiring full reinstall + `ime enable` + `ime set`.
+**Prevention**: After running `connectedAndroidTest`, always reinstall the debug APK and re-enable/re-set the IME. Consider using `--no-uninstall` flag if available.
+**Ref**: @app/build.gradle.kts
+
+### [IME] 2026-03-03: IME ComposeView decor lifecycle must match ComposeView lifecycle — FIXED Session 27
+**Pattern**: `ComposeKeyboardViewFactory` created separate lifecycle owners for the decor view and the ComposeView, then DESTROYED the decor's owner. Compose's `WindowRecomposer` resolves from the root/decor view — finding a DESTROYED lifecycle, it shut down. Initial composition worked (forced by `setContent`), but NO state change EVER triggered recomposition. This silently broke ALL reactive UI: mode switching, animations, etc.
+**Fix**: Single `create(context, actionListener, decorView)` method shares one RESUMED lifecycle owner on both decor and ComposeView.
+**Prevention**: In IME Compose hosting, ALWAYS share one lifecycle owner between the decor view and ComposeView. Never destroy the decor's lifecycle owner independently. The WindowRecomposer resolves from the root view, not the ComposeView.
+**Status**: FIXED — E2E verified (123 toggle, ABC toggle, Caps Lock all pass).
+**Ref**: @ComposeKeyboardViewFactory.kt:create, @LatinIME.kt:onCreateInputView
+
 ### [IME] 2026-03-02: PluginManager loads untrusted packages without signature verification
 **Pattern**: `getSoftKeyboardDictionaries` and `getLegacyDictionaries` load binary dictionary resources from any installed package that declares a matching intent filter. No signature verification — a malicious app could serve crafted dictionaries exploiting native C++ code.
 **Prevention**: Add package signature verification before loading resources from third-party packages. Check signing certificate against an allowlist.
@@ -23,13 +40,3 @@ Max 7 active. Oldest rotates to `.claude/logs/defects-archive.md`.
 **Pattern**: `PendingIntent.getBroadcast(..., 0)` with flags=0 crashes on API 31+ (targetSdk 34). Similarly, `registerReceiver()` without RECEIVER_NOT_EXPORTED crashes on API 34+.
 **Prevention**: Always pass `PendingIntent.FLAG_IMMUTABLE` (or FLAG_MUTABLE if needed). Always pass `Context.RECEIVER_NOT_EXPORTED` for internal receivers.
 **Ref**: @LatinIME.kt:showNotification
-
-### [IME] 2026-02-24: API 36 requires ViewTreeLifecycleOwner on IME window decor view
-**Pattern**: On API 36+, `InputMethodService.setInputView()` walks up to the window's decor view and requires a `ViewTreeLifecycleOwner`. Setting it only on the ComposeView child causes `IllegalStateException`.
-**Prevention**: In `onCreateInputView()`, call `installLifecycleOwner()` on decor view BEFORE returning the ComposeView. Both decor and ComposeView must share the same lifecycle owner instance.
-**Ref**: @ComposeKeyboardViewFactory.kt, @LatinIME.kt:onCreateInputView
-
-### [DB] 2026-02-24: DevKeyDatabase uses destructive migration — wipes user data on schema change
-**Pattern**: `DevKeyDatabase.buildDatabase()` calls `fallbackToDestructiveMigration()`. Any schema change triggers full database wipe.
-**Prevention**: Before changing any Room entity, write a proper `Migration(oldVersion, newVersion)`.
-**Ref**: @DevKeyDatabase.kt

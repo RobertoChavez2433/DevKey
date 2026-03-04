@@ -16,10 +16,10 @@
     "compile_sdk": 34
   },
   "current_phase": {
-    "name": "Kotlin Migration — Fully Complete + Code Review",
-    "status": "complete",
-    "progress_percent": 100,
-    "details": "All migration phases + deferred items complete. Multi-wave code review with all P0/P1/P2/P3 fixes applied. Only JNI bridge BinaryDictionary.java remains as Java. 355 unit tests pass."
+    "name": "E2E Testing + Bug Fixing",
+    "status": "in_progress",
+    "progress_percent": 85,
+    "details": "FULL mode E2E mostly verified (typing, mode switch, modifiers, numbers all PASS). Compose UI tests blocked on API 36 Espresso incompatibility. COMPACT/COMPACT_DEV modes untested. Session 27 changes still NOT COMMITTED."
   },
   "phases": [
     {"name": "Research & Brainstorming", "status": "complete", "progress_percent": 100},
@@ -32,15 +32,16 @@
     {"name": "Testing & Bug Fixing", "status": "complete", "progress_percent": 100},
     {"name": "Layout Redesign", "status": "complete", "progress_percent": 100},
     {"name": "Kotlin Migration", "status": "complete", "progress_percent": 100},
-    {"name": "Code Review & Hardening", "status": "complete", "progress_percent": 100}
+    {"name": "Code Review & Hardening", "status": "complete", "progress_percent": 100},
+    {"name": "E2E Testing + Bug Fixing", "status": "in_progress", "progress_percent": 85}
   ],
   "active_blockers": [
     "Whisper model files (whisper-tiny.en.tflite + filters_vocab_en.bin) need to be downloaded",
-    "Debug logging system (DevKeyPress/DevKeyMap) not producing output on emulator"
+    "Compose UI test deps incompatible with API 36 (Espresso InputManager.getInstance reflection)"
   ],
   "metadata": {
-    "session_count": 24,
-    "last_updated": "2026-03-02",
-    "session_notes": "Session 24: Implemented 5 deferred migration items (ComposeSequence→Kotlin, Settings Unification, Handler→coroutines, Bridge simplification, ComposeSequencing removal). Multi-wave code review: 120 findings across 4 Opus reviewers, all P0/P1/P2/P3 fixes applied (~81 total fixes). 355 tests pass."
+    "session_count": 28,
+    "last_updated": "2026-03-03",
+    "session_notes": "Session 28: Manual ADB E2E testing — FULL mode verified (typing, 123 toggle, Shift/Caps Lock/Ctrl modifiers, number row all PASS). Compose UI tests blocked on API 36. Fixed Bash permissions to Bash(*)."
   }
 }

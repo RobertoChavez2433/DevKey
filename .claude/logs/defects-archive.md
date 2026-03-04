@@ -4,6 +4,32 @@ Archived/resolved defect patterns from `_defects.md` rotation.
 
 ---
 
+## Resolved — Session 28 (2026-03-03, rotated for new test infra defects)
+
+### [IME] 2026-03-02: Caps Lock unreachable — FIXED Session 26, VERIFIED Session 27
+**Pattern**: Double-tapping Shift did NOT enter LOCKED state. `onModifierDown()` converted ONE_SHOT→HELD before `onModifierTap()` could detect double-tap.
+**Fix**: Added `stateBeforeDown` field per modifier in `ModifierStateManager`. 6 unit tests added.
+**Status**: FIXED + VERIFIED on device + E2E verified Session 28 (ONE_SHOT→LOCKED→OFF cycle confirmed).
+**Ref**: @ModifierStateManager.kt
+
+### [UI] 2026-03-02: 123 mode switch — FIXED Session 27
+**Pattern**: Tapping 123 key fired correctly but Compose never recomposed. Root cause: lifecycle owner conflict in `ComposeKeyboardViewFactory`.
+**Fix**: Shared single lifecycle owner between decor and ComposeView. Extracted keyboard mode to `KeyboardModeManager` with StateFlow.
+**Status**: FIXED + VERIFIED — E2E verified Session 28 (Normal→Symbols→Normal round-trip confirmed).
+**Ref**: @ComposeKeyboardViewFactory.kt:create, @KeyboardModeManager.kt, @DevKeyKeyboard.kt
+
+---
+
+## Archived — Session 26 (2026-03-02, rotated for new E2E bugs)
+
+### [DB] 2026-02-24: DevKeyDatabase uses destructive migration — wipes user data on schema change
+**Pattern**: `DevKeyDatabase.buildDatabase()` calls `fallbackToDestructiveMigration()`. Any schema change triggers full database wipe.
+**Prevention**: Before changing any Room entity, write a proper `Migration(oldVersion, newVersion)`.
+**Ref**: @DevKeyDatabase.kt
+**Archived reason**: Still valid but low priority — no schema changes planned. Room for higher-priority E2E bugs.
+
+---
+
 ## Resolved — Session 24 (2026-03-02)
 
 ### [IME] 2026-03-02: Handler kept in LatinIME.kt — coroutine replacement deferred

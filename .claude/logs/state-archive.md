@@ -6,6 +6,16 @@ Archived session entries from `_state.md` rotation.
 
 ## March 2026
 
+### Session 22 (2026-03-02)
+**Work**: 2-wave Opus adversarial review of Kotlin migration plan. Wave 1: 27 issues (5 CRITICAL). Wave 2: validated + 15 new issues. Added Phase 0 (constant migration), KeyboardSwitcher shim, CoroutineScope strategy, swapped Phases 5/6, split Phase 7→7a/7b/7c/7d. Updated plan + design doc.
+**Decisions**: Phase 0 before any deletions. shiftStateProvider lambda decouples KeyEventSender from ModifierKeyState. ServiceScope pattern for coroutines. Convert Java files before settings unification. No @JvmDefault (removed in Kotlin 2.0).
+**Next**: Execute Phase 0 (constants), Phase 1 (dead code + shim), Phase 2 (simple leaves).
+
+### Session 21 (2026-03-02)
+**Work**: Full Kotlin migration brainstorming. 4 Sonnet agents mapped all 40 Java files (~12,500 lines). Designed 7-phase bottom-up incremental migration. KeyEventSender extraction for key synthesis (Ctrl+V, terminal shortcuts). Delete ~4,070 lines of legacy/dead code. Unify modifier state + settings. Design doc + implementation plan committed.
+**Decisions**: Bottom-up incremental (Approach A). Delete legacy Views (not migrate). Delete 8 old pref screens. Coroutines during migration. Unify GlobalKeyboardSettings→SettingsRepository. Unify 3 modifier state machines→1. Extract KeyEventSender.kt. JNI bridge stays Java. Remove all HK branding.
+**Next**: Execute Phase 1 (dead code purge), Phase 2 (simple leaves), continue through all 7 phases.
+
 ### Session 19 (2026-03-01)
 **Work**: Brainstormed and implemented key press testing & debug system. 2 Haiku agents explored codebase (key layout/coordinates + logging/testing infra). Opus agent created plan + adversarial review (8 issues fixed). Implemented all 8 steps via /implement: KeyPressLogger, KeyBoundsCalculator, KeyMapGenerator, KeyBoundsCalculatorTest (11 tests), logging in KeyView/ActionBridge/LatinIME, auto-dump in DevKeyKeyboard. Build passes, 253/254 tests pass.
 **Decisions**: Use Log.d() (R8 strips in release). View.getLocationOnScreen() for precise Y offset. ApplicationInfo.FLAG_DEBUGGABLE instead of BuildConfig. Don't modify ModifierStateManager — log from KeyView call sites. Normalize labels for ADB. Throttle repeat logging every 10th.
@@ -104,3 +114,8 @@ Archived session entries from `_state.md` rotation.
 **Work**: Emulator verification session. Investigated "keyboard dismiss on key tap" bug — traced full key press chain, added debug logging, tested on emulator. Confirmed keyboard typing works correctly (characters commit, keyboard stays open). The "dismiss" was Android gesture navigation from edge taps, not a keyboard bug. Discovered `hasDistinctMultitouch()` always false with Compose keyboard — potential modifier double-toggle issue.
 **Decisions**: "Keyboard dismiss" is NOT a bug (gesture nav). ADB input tap uses raw pixels. `distinctMultiTouch=false` needs investigation for modifier handling.
 **Next**: Test modifier keys for double-toggle, procure Whisper model files, address tech debt.
+
+### Session 23 (2026-03-02)
+**Work**: Full Kotlin migration execution via /implement skill. 6 orchestrator cycles completed all 11 phases (0-7d). Deleted ~30 legacy Java files, converted ~16 Java files to Kotlin, created KeyEventSender.kt + KeyboardActionListener.kt + tests. Only ComposeSequence.java and JNI bridge remain as Java.
+**Decisions**: WordPromotionDelegate breaks circular deps. ComposeSequence.java kept as Java (static data). BinaryDictionary.kt uses JniBridge import alias. GlobalKeyboardSettings keeps @JvmField (full StateFlow deferred). Handler kept in LatinIME.kt (coroutine replacement deferred). ChordeTracker replaces old ModifierKeyState for Symbol/Fn keys.
+**Next**: Commit changes, emulator regression test, convert ComposeSequence.java.

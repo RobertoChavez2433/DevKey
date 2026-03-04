@@ -63,6 +63,7 @@ android {
     testOptions {
         unitTests {
             isIncludeAndroidResources = true
+            isReturnDefaultValues = true
         }
     }
 
@@ -109,9 +110,16 @@ dependencies {
     implementation(libs.tflite)
     implementation(libs.tflite.support)
 
-    // Testing
+    // Testing — unit tests
     testImplementation(libs.junit)
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
     testImplementation("org.json:json:20231013")
     testImplementation("org.robolectric:robolectric:4.12.1")
+
+    // Testing — Compose UI instrumented tests
+    androidTestImplementation(platform(libs.compose.bom))
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    androidTestImplementation("androidx.test.ext:junit:1.1.5")
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
 }

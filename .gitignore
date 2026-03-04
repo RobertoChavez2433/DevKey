@@ -16,5 +16,9 @@ app/.cxx/
 .DS_Store
 Thumbs.db
 
+# Kotlin compiler
+.kotlin/
+
 # Claude Code
 .claude/settings.local.json
+.claude/screenshots/

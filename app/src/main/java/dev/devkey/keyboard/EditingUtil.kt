@@ -16,7 +16,6 @@
 
 package dev.devkey.keyboard
 
-import android.text.TextUtils
 import android.view.inputmethod.ExtractedTextRequest
 import android.view.inputmethod.InputConnection
 import java.util.regex.Pattern
@@ -30,29 +29,6 @@ object EditingUtil {
     private const val LOOKBACK_CHARACTER_NUM = 15
 
     private val spaceRegex: Pattern = Pattern.compile("\\s+")
-
-    /**
-     * Append newText to the text field represented by connection.
-     * The new text becomes selected.
-     */
-    fun appendText(connection: InputConnection?, newText: String) {
-        if (connection == null) return
-
-        // Commit the composing text
-        connection.finishComposingText()
-
-        // Add a space if the field already has text.
-        var text = newText
-        val charBeforeCursor = connection.getTextBeforeCursor(1, 0)
-        if (charBeforeCursor != null
-            && charBeforeCursor != " "
-            && charBeforeCursor.isNotEmpty()
-        ) {
-            text = " $text"
-        }
-
-        connection.setComposingText(text, 1)
-    }
 
     private fun getCursorPosition(connection: InputConnection): Int {
         val extracted = connection.getExtractedText(ExtractedTextRequest(), 0) ?: return -1
@@ -73,29 +49,15 @@ object EditingUtil {
     }
 
     /**
-     * Removes the word surrounding the cursor.
-     */
-    fun deleteWordAtCursor(connection: InputConnection, separators: String) {
-        val range = getWordRangeAtCursor(connection, separators, null) ?: return
-
-        connection.finishComposingText()
-        // Move cursor to beginning of word, to avoid crash when cursor is outside
-        // of valid range after deleting text.
-        val newCursor = getCursorPosition(connection) - range.charsBefore
-        connection.setSelection(newCursor, newCursor)
-        connection.deleteSurroundingText(0, range.charsBefore + range.charsAfter)
-    }
-
-    /**
      * Represents a range of text, relative to the current cursor position.
      */
-    class Range @JvmOverloads constructor(
+    class Range(
         /** Characters before selection start. */
-        @JvmField var charsBefore: Int = 0,
+        var charsBefore: Int = 0,
         /** Characters after selection start, including one trailing word separator. */
-        @JvmField var charsAfter: Int = 0,
+        var charsAfter: Int = 0,
         /** The actual characters that make up a word. */
-        @JvmField var word: String? = null
+        var word: String? = null
     ) {
         init {
             if (charsBefore < 0 || charsAfter < 0) {
@@ -155,9 +117,9 @@ object EditingUtil {
     }
 
     class SelectedWord {
-        @JvmField var start: Int = 0
-        @JvmField var end: Int = 0
-        @JvmField var word: CharSequence? = null
+        var start: Int = 0
+        var end: Int = 0
+        var word: CharSequence? = null
     }
 
     /**
@@ -173,7 +135,7 @@ object EditingUtil {
             // There is just a cursor, so get the word at the cursor
             val range = Range()
             val touching = getWordAtCursor(ic, wordSeparators, range)
-            if (!TextUtils.isEmpty(touching)) {
+            if (!touching.isNullOrEmpty()) {
                 val selWord = SelectedWord()
                 selWord.word = touching
                 selWord.start = selStart - range.charsBefore
@@ -191,7 +153,7 @@ object EditingUtil {
 
             // Extract the selection alone
             val touching = ic.getSelectedText(0)
-            if (TextUtils.isEmpty(touching)) return null
+            if (touching.isNullOrEmpty()) return null
 
             // Is any part of the selection a separator?
             for (i in 0 until touching!!.length) {
@@ -210,13 +172,7 @@ object EditingUtil {
     }
 
     private fun isWordBoundary(singleChar: CharSequence?, wordSeparators: String): Boolean {
-        return TextUtils.isEmpty(singleChar) || wordSeparators.contains(singleChar!!)
+        return singleChar.isNullOrEmpty() || wordSeparators.contains(singleChar!!)
     }
 
-    /**
-     * Tries to set the text into composition mode if there is support for it in the framework.
-     */
-    fun underlineWord(ic: InputConnection, word: SelectedWord) {
-        ic.setComposingRegion(word.start, word.end)
-    }
 }

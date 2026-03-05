@@ -48,13 +48,13 @@ fun SettingsCategoryScreen(
     )
 
     Scaffold(
-        containerColor = DevKeyTheme.keyboardBackground
+        containerColor = DevKeyTheme.kbBg
     ) { padding ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .background(DevKeyTheme.keyboardBackground)
+                .background(DevKeyTheme.kbBg)
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
@@ -99,7 +99,7 @@ private fun CategoryTile(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(DevKeyTheme.keyFill)
+            .background(DevKeyTheme.keyBg)
             .clickable { onClick() }
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically

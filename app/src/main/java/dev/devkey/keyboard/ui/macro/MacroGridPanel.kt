@@ -63,7 +63,7 @@ fun MacroGridPanel(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(max = DevKeyTheme.macroGridMaxHeight)
-            .background(DevKeyTheme.keyboardBackground)
+            .background(DevKeyTheme.kbBg)
             .padding(horizontal = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp)

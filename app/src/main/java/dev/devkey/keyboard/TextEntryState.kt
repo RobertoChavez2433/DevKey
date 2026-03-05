@@ -17,22 +17,13 @@
 package dev.devkey.keyboard
 
 import android.content.Context
-import android.text.format.DateFormat
-import android.util.Log
 import androidx.annotation.MainThread
-import java.io.FileOutputStream
-import java.io.IOException
-import java.util.Calendar
 
 /**
  * Tracks text entry state transitions for suggestion/correction behavior.
  */
 @MainThread
 object TextEntryState {
-
-    private const val DBG = false
-    private const val TAG = "TextEntryState"
-    private const val LOGGING = false
 
     private var sBackspaceCount = 0
     private var sAutoSuggestCount = 0
@@ -60,9 +51,6 @@ object TextEntryState {
 
     private var sState = State.UNKNOWN
 
-    private var sKeyLocationFile: FileOutputStream? = null
-    private var sUserActionFile: FileOutputStream? = null
-
     fun newSession(context: Context) {
         sSessionCount++
         sAutoSuggestCount = 0
@@ -73,40 +61,10 @@ object TextEntryState {
         sTypedChars = 0
         sActualChars = 0
         sState = State.START
-
-        if (LOGGING) {
-            try {
-                sKeyLocationFile = context.openFileOutput("key.txt", Context.MODE_APPEND)
-                sUserActionFile = context.openFileOutput("action.txt", Context.MODE_APPEND)
-            } catch (ioe: IOException) {
-                Log.e("TextEntryState", "Couldn't open file for output: $ioe")
-            }
-        }
     }
 
     fun endSession() {
-        if (sKeyLocationFile == null) {
-            return
-        }
-        try {
-            sKeyLocationFile!!.close()
-            // Write to log file
-            // Write timestamp, settings,
-            val out = DateFormat.format("MM:dd hh:mm:ss", Calendar.getInstance().time)
-                .toString() +
-                    " BS: " + sBackspaceCount +
-                    " auto: " + sAutoSuggestCount +
-                    " manual: " + sManualSuggestCount +
-                    " typed: " + sWordNotInDictionaryCount +
-                    " undone: " + sAutoSuggestUndoneCount +
-                    " saved: " + (sActualChars - sTypedChars).toFloat() / sActualChars +
-                    "\n"
-            sUserActionFile!!.write(out.toByteArray())
-            sUserActionFile!!.close()
-            sKeyLocationFile = null
-            sUserActionFile = null
-        } catch (_: IOException) {
-        }
+        // No-op: file-based logging infrastructure was removed
     }
 
     fun acceptedDefault(typedWord: CharSequence?, actualWord: CharSequence) {
@@ -117,7 +75,6 @@ object TextEntryState {
         sTypedChars += typedWord.length
         sActualChars += actualWord.length
         sState = State.ACCEPTED_DEFAULT
-        displayState()
     }
 
     // State.ACCEPTED_DEFAULT will be changed to other sub-states
@@ -131,18 +88,15 @@ object TextEntryState {
             State.IN_WORD -> sState = State.ACCEPTED_DEFAULT
             else -> {}
         }
-        displayState()
     }
 
     fun manualTyped(typedWord: CharSequence?) {
         sState = State.START
-        displayState()
     }
 
     fun acceptedTyped(typedWord: CharSequence?) {
         sWordNotInDictionaryCount++
         sState = State.PICKED_SUGGESTION
-        displayState()
     }
 
     fun acceptedSuggestion(typedWord: CharSequence, actualWord: CharSequence) {
@@ -156,12 +110,6 @@ object TextEntryState {
         } else {
             State.PICKED_SUGGESTION
         }
-        displayState()
-    }
-
-    fun selectedForCorrection() {
-        sState = State.CORRECTING
-        displayState()
     }
 
     fun typedCharacter(c: Char, isSeparator: Boolean) {
@@ -210,7 +158,6 @@ object TextEntryState {
                 sState = State.START
             }
         }
-        displayState()
     }
 
     fun backspace() {
@@ -221,40 +168,17 @@ object TextEntryState {
             sState = State.IN_WORD
         }
         sBackspaceCount++
-        displayState()
     }
 
     fun reset() {
         sState = State.START
-        displayState()
     }
 
     fun getState(): State {
-        if (DBG) {
-            Log.d(TAG, "Returning state = $sState")
-        }
         return sState
     }
 
     fun isCorrecting(): Boolean {
         return sState == State.CORRECTING || sState == State.PICKED_CORRECTION
-    }
-
-    fun keyPressedAt(key: Keyboard.Key, x: Int, y: Int) {
-        if (LOGGING && sKeyLocationFile != null && (key.codes?.getOrNull(0) ?: 0) >= 32) {
-            val out = "KEY: ${key.codes!![0].toChar()} X: $x Y: $y" +
-                    " MX: ${key.x + key.width / 2} MY: ${key.y + key.height / 2}\n"
-            try {
-                sKeyLocationFile!!.write(out.toByteArray())
-            } catch (_: IOException) {
-                // TODO: May run out of space
-            }
-        }
-    }
-
-    private fun displayState() {
-        if (DBG) {
-            Log.i(TAG, "State = $sState")
-        }
     }
 }

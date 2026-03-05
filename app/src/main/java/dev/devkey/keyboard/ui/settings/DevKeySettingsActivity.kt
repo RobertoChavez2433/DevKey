@@ -107,7 +107,7 @@ class DevKeySettingsActivity : ComponentActivity() {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(DevKeyTheme.keyboardBackground)
+                        .background(DevKeyTheme.kbBg)
                 ) {
                     when (currentNav) {
                         SettingsNav.MAIN -> {

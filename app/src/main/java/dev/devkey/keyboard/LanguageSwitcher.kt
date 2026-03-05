@@ -17,7 +17,6 @@
 package dev.devkey.keyboard
 
 import android.content.SharedPreferences
-import android.text.TextUtils
 import androidx.preference.PreferenceManager
 import java.util.Locale
 
@@ -79,7 +78,7 @@ class LanguageSwitcher(private val mIme: LatinIME) {
         mDefaultInputLocale = mIme.resources.configuration.locale
         val country = mDefaultInputLocale!!.country
         mDefaultInputLanguage = mDefaultInputLocale!!.language +
-                if (TextUtils.isEmpty(country)) "" else "_$country"
+                if (country.isNullOrEmpty()) "" else "_$country"
     }
 
     private fun constructLocales() {
@@ -195,7 +194,6 @@ class LanguageSwitcher(private val mIme: LatinIME) {
     companion object {
         private const val TAG = "DevKey/LanguageSwitcher"
 
-        @JvmStatic
         fun toTitleCase(s: String): String {
             if (s.isEmpty()) return s
             return s.replaceFirstChar { it.uppercaseChar() }

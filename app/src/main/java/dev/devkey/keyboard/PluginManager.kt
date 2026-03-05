@@ -92,7 +92,7 @@ class PluginManager(private val mIME: LatinIME) : BroadcastReceiver() {
     }
 
     companion object {
-        private const val TAG = "DevKey"
+        private const val TAG = "DevKey/PluginManager"
         private const val LEGACY_INTENT_DICT = "org.pocketworkstation.DICT"
         private const val SOFTKEYBOARD_INTENT_DICT = "com.menny.android.anysoftkeyboard.DICTIONARY"
         private const val SOFTKEYBOARD_DICT_RESOURCE_METADATA_NAME =
@@ -104,7 +104,6 @@ class PluginManager(private val mIME: LatinIME) : BroadcastReceiver() {
 
         private val mPluginDicts = HashMap<String, DictPluginSpec>()
 
-        @JvmStatic
         fun getSoftKeyboardDictionaries(packageManager: PackageManager) {
             val dictIntent = Intent(SOFTKEYBOARD_INTENT_DICT)
             val dictPacks = packageManager.queryBroadcastReceivers(
@@ -173,7 +172,6 @@ class PluginManager(private val mIME: LatinIME) : BroadcastReceiver() {
             }
         }
 
-        @JvmStatic
         fun getLegacyDictionaries(packageManager: PackageManager) {
             val dictIntent = Intent(LEGACY_INTENT_DICT)
             val dictPacks = packageManager.queryIntentActivities(dictIntent, 0)
@@ -219,7 +217,6 @@ class PluginManager(private val mIME: LatinIME) : BroadcastReceiver() {
             }
         }
 
-        @JvmStatic
         fun getPluginDictionaries(context: Context) {
             mPluginDicts.clear()
             val packageManager = context.packageManager
@@ -227,7 +224,6 @@ class PluginManager(private val mIME: LatinIME) : BroadcastReceiver() {
             getLegacyDictionaries(packageManager)
         }
 
-        @JvmStatic
         fun getDictionary(context: Context, lang: String): BinaryDictionary? {
             var spec = mPluginDicts[lang]
             if (spec == null && lang.length >= 2) spec = mPluginDicts[lang.substring(0, 2)]

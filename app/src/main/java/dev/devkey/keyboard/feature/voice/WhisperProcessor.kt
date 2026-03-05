@@ -20,7 +20,7 @@ import android.util.Log
 class WhisperProcessor(private val context: Context) {
 
     companion object {
-        private const val TAG = "WhisperProcessor"
+        private const val TAG = "DevKey/WhisperProcessor"
 
         /** Whisper's expected sample rate. */
         const val SAMPLE_RATE = 16000

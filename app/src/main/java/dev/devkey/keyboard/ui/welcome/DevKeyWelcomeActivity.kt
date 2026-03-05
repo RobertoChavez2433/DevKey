@@ -140,7 +140,7 @@ private fun WelcomeScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(DevKeyTheme.keyboardBackground)
+            .background(DevKeyTheme.kbBg)
             .padding(32.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -199,7 +199,7 @@ private fun WelcomeScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
-                .background(DevKeyTheme.keyFill)
+                .background(DevKeyTheme.keyBg)
                 .clickable { onSettingsClick() }
                 .padding(vertical = 16.dp),
             contentAlignment = Alignment.Center
@@ -229,7 +229,7 @@ private fun SetupStep(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(DevKeyTheme.keyFill)
+            .background(DevKeyTheme.keyBg)
             .clickable { onClick() }
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -240,7 +240,7 @@ private fun SetupStep(
                 .size(32.dp)
                 .clip(CircleShape)
                 .background(
-                    if (isComplete) Color(0xFF4CAF50) else DevKeyTheme.keyboardBackground
+                    if (isComplete) Color(0xFF4CAF50) else DevKeyTheme.kbBg
                 ),
             contentAlignment = Alignment.Center
         ) {

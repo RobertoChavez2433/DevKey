@@ -28,7 +28,7 @@ class KeyboardSwitcher private constructor() :
         SharedPreferences.OnSharedPreferenceChangeListener {
 
     companion object {
-        private val TAG = "PCKeyboardKbSw"
+        private const val TAG = "DevKey/KeyboardSwitcher"
 
         const val MODE_NONE = 0
         const val MODE_TEXT = 1
@@ -98,10 +98,8 @@ class KeyboardSwitcher private constructor() :
 
         private val sInstance = KeyboardSwitcher()
 
-        @JvmStatic
         fun getInstance(): KeyboardSwitcher = sInstance
 
-        @JvmStatic
         fun init(ims: LatinIME) {
             sInstance.mInputMethodService = ims
 

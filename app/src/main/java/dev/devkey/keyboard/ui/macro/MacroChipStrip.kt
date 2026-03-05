@@ -42,7 +42,7 @@ fun MacroChipStrip(
     Row(
         modifier = Modifier
             .height(DevKeyTheme.suggestionBarHeight)
-            .background(DevKeyTheme.keyboardBackground),
+            .background(DevKeyTheme.kbBg),
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Collapse arrow

@@ -47,23 +47,23 @@ open class ExpandableDictionary(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     class Node {
-        @JvmField var code: Char = '\u0000'
-        @JvmField var frequency: Int = 0
-        @JvmField var terminal: Boolean = false
-        @JvmField var parent: Node? = null
-        @JvmField var children: NodeArray? = null
-        @JvmField var ngrams: LinkedList<NextWord>? = null // Supports ngram
+        var code: Char = '\u0000'
+        var frequency: Int = 0
+        var terminal: Boolean = false
+        var parent: Node? = null
+        var children: NodeArray? = null
+        var ngrams: LinkedList<NextWord>? = null // Supports ngram
     }
 
     class NodeArray {
-        @JvmField var data: Array<Node?> = arrayOfNulls(INCREMENT)
-        @JvmField var length: Int = 0
+        var data: Array<Node?> = arrayOfNulls(INCREMENT)
+        var length: Int = 0
 
         fun add(n: Node) {
             if (length + 1 > data.size) {
                 val tempData = arrayOfNulls<Node>(length + INCREMENT)
                 if (length > 0) {
-                    System.arraycopy(data, 0, tempData, 0, length)
+                    data.copyInto(tempData, 0, 0, length)
                 }
                 data = tempData
             }
@@ -76,10 +76,10 @@ open class ExpandableDictionary(
     }
 
     class NextWord(
-        @JvmField val word: Node,
-        @JvmField var frequency: Int
+        val word: Node,
+        var frequency: Int
     ) {
-        @JvmField var nextWord: NextWord? = null
+        var nextWord: NextWord? = null
     }
 
     private var mRoots: NodeArray = NodeArray()
@@ -524,7 +524,6 @@ open class ExpandableDictionary(
 
         private const val QUOTE = '\''
 
-        @JvmStatic
         fun toLowerCase(c: Char): Char {
             var ch = c
             if (ch.code < BASE_CHARS.size) {
@@ -533,7 +532,7 @@ open class ExpandableDictionary(
             if (ch in 'A'..'Z') {
                 ch = (ch.code or 32).toChar()
             } else if (ch.code > 127) {
-                ch = Character.toLowerCase(ch)
+                ch = ch.lowercaseChar()
             }
             return ch
         }
@@ -542,7 +541,6 @@ open class ExpandableDictionary(
          * Table mapping most combined Latin, Greek, and Cyrillic characters
          * to their base characters.
          */
-        @JvmField
         val BASE_CHARS = charArrayOf(
             '\u0000', '\u0001', '\u0002', '\u0003', '\u0004', '\u0005', '\u0006', '\u0007',
             '\u0008', '\u0009', '\u000a', '\u000b', '\u000c', '\u000d', '\u000e', '\u000f',

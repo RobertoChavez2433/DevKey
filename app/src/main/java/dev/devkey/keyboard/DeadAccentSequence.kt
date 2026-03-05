@@ -62,7 +62,6 @@ class DeadAccentSequence(
             ComposeSequence.put("${Keyboard.DEAD_KEY_PLACEHOLDER}$nonSpacing", spacing)
         }
 
-        @JvmStatic
         fun getSpacing(nonSpacing: Char): String {
             val spacing = ComposeSequence.get("${Keyboard.DEAD_KEY_PLACEHOLDER}$nonSpacing")
             if (spacing != null) return spacing
@@ -71,7 +70,6 @@ class DeadAccentSequence(
             return nonSpacing.toString()
         }
 
-        @JvmStatic
         fun normalize(input: String): String? {
             val lookup = ComposeSequence.getMap()[input]
             return lookup ?: doNormalise(input)

@@ -41,7 +41,6 @@ object ComposeKeyboardViewFactory {
      *                  WindowRecomposer lifecycle resolution.
      * @return A View containing the Compose keyboard UI.
      */
-    @JvmStatic
     fun create(
         context: Context,
         actionListener: KeyboardActionListener,

@@ -21,7 +21,6 @@ import android.content.res.Resources
 import android.content.res.TypedArray
 import android.content.res.XmlResourceParser
 import android.graphics.drawable.Drawable
-import android.text.TextUtils
 import android.util.DisplayMetrics
 import android.util.Log
 import android.util.TypedValue
@@ -85,7 +84,6 @@ open class Keyboard {
 
         private val SEARCH_DISTANCE = 1.8f
 
-        @JvmStatic
         fun getDimensionOrFraction(a: TypedArray, index: Int, base: Int, defValue: Float): Float {
             val value = a.peekValue(index) ?: return defValue
             return when (value.type) {
@@ -321,7 +319,7 @@ open class Keyboard {
             if (capsLabel != null && capsLabel!!.length == 0) capsLabel = null
             text = a.getText(R.styleable.Keyboard_Key_keyOutputText)
 
-            if (codes == null && !TextUtils.isEmpty(label)) {
+            if (codes == null && !label.isNullOrEmpty()) {
                 codes = getFromString(label!!)
                 if (codes != null && codes!!.size == 1) {
                     val locale = LatinIME.sKeyboardSettings.inputLocale
@@ -717,7 +715,7 @@ open class Keyboard {
                 key.popupReversed = true
             }
 
-            val needUpcase = key.label != null && key.label!!.length == 1 && Character.isUpperCase(key.label!![0].code)
+            val needUpcase = key.label != null && key.label!!.length == 1 && key.label!![0].isUpperCase()
             if (needUpcase) {
                 key.popupCharacters = key.popupCharacters.toString().uppercase()
                 popupLen = key.popupCharacters!!.length
@@ -838,7 +836,7 @@ open class Keyboard {
                     }
                 }
                 val cell = IntArray(count)
-                System.arraycopy(indices, 0, cell, 0, count)
+                indices.copyInto(cell, 0, 0, count)
                 mGridNeighbors!![y / mCellHeight * mLayoutColumns + x / mCellWidth] = cell
                 y += mCellHeight
             }

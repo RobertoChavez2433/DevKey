@@ -59,13 +59,13 @@ fun CommandAppManagerScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(DevKeyTheme.keyboardBackground)
+            .background(DevKeyTheme.kbBg)
     ) {
         // Top bar
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(DevKeyTheme.keyFill)
+                .background(DevKeyTheme.keyBg)
                 .padding(horizontal = 4.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {

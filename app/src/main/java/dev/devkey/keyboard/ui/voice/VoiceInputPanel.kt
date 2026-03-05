@@ -110,7 +110,7 @@ fun VoiceInputPanel(
         ) {
             Text(
                 text = "\uD83C\uDFA4", // microphone emoji
-                fontSize = DevKeyTheme.keyLabelSize
+                fontSize = DevKeyTheme.fontVoiceMic
             )
         }
 

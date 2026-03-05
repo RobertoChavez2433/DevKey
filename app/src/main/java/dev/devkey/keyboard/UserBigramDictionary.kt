@@ -97,7 +97,7 @@ class UserBigramDictionary(
         var mutableWord2 = word2
         // remove caps
         if (mDelegate != null && mDelegate.getCurrentWord().isAutoCapitalized()) {
-            mutableWord2 = Character.toLowerCase(mutableWord2[0]) + mutableWord2.substring(1)
+            mutableWord2 = mutableWord2[0].lowercaseChar() + mutableWord2.substring(1)
         }
 
         var freq = super.addBigram(word1, mutableWord2, FREQUENCY_FOR_TYPED)
@@ -278,7 +278,7 @@ class UserBigramDictionary(
     }
 
     companion object {
-        private const val TAG = "UserBigramDictionary"
+        private const val TAG = "DevKey/UserBigramDictionary"
 
         /** Any pair being typed or picked */
         private const val FREQUENCY_FOR_TYPED = 2
@@ -290,7 +290,6 @@ class UserBigramDictionary(
          * If this pair is typed 6 times, it would be suggested.
          * Should be smaller than ContactsDictionary.FREQUENCY_FOR_CONTACTS_BIGRAM
          */
-        @JvmField
         val SUGGEST_THRESHOLD = 6 * FREQUENCY_FOR_TYPED
 
         /** Maximum number of pairs. Pruning will start when databases goes above this number. */

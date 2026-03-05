@@ -35,7 +35,7 @@ import kotlin.math.sqrt
 class VoiceInputEngine(private val context: Context) {
 
     companion object {
-        private const val TAG = "VoiceInputEngine"
+        private const val TAG = "DevKey/VoiceInputEngine"
         private const val SAMPLE_RATE = 16000
         private const val CHANNEL_CONFIG = AudioFormat.CHANNEL_IN_MONO
         private const val AUDIO_FORMAT = AudioFormat.ENCODING_PCM_16BIT

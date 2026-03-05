@@ -102,10 +102,8 @@ open class ComposeSequence(
 
         private val mPrefixes: MutableSet<String> = HashSet(2048)
 
-        @JvmStatic
         internal fun getMap(): Map<String, String> = mMap
 
-        @JvmStatic
         internal fun getPrefixes(): Set<String> = mPrefixes
 
         // Convenience aliases for use in compose strings
@@ -172,7 +170,6 @@ open class ComposeSequence(
             NUM_LOCK to "Num"
         )
 
-        @JvmStatic
         fun get(key: String?): String? {
             if (key.isNullOrEmpty()) {
                 return null
@@ -198,7 +195,6 @@ open class ComposeSequence(
             return mPrefixes.contains(partialKey)
         }
 
-        @JvmStatic
         fun format(seq: String): String {
             val output = StringBuilder()
             var quoted = false
@@ -231,7 +227,6 @@ open class ComposeSequence(
             return output.toString()
         }
 
-        @JvmStatic
         fun put(key: String, value: String) {
             var found = false
 

@@ -78,6 +78,7 @@ object DevKeyTheme {
     val fontKeySpecial: TextUnit = 11.sp
     val fontKeyHint: TextUnit = 9.sp
     val fontKeyUtility: TextUnit = 10.sp
+    val fontVoiceMic: TextUnit = 18.sp
 
     // ══════════════════════════════════════════
     // Animation tokens
@@ -93,52 +94,6 @@ object DevKeyTheme {
     val modBgShiftActive = Color(0xFF245A5F)
     val modBgCtrlActive = Color(0xFF1E4A4E)
     val modBgAltActive = Color(0xFF1E4A4E)
-
-    // ══════════════════════════════════════════
-    // Deprecated aliases — kept for backward compatibility with non-layout code
-    // ══════════════════════════════════════════
-    @Deprecated("Use kbBg", ReplaceWith("kbBg"))
-    val keyboardBackground = kbBg
-
-    @Deprecated("Use keyBg", ReplaceWith("keyBg"))
-    val keyFill = keyBg
-
-    @Deprecated("Use keyRadius", ReplaceWith("keyRadius"))
-    val keyCornerRadius: Dp = keyRadius
-
-    @Deprecated("Use fontKey", ReplaceWith("fontKey"))
-    val keyLabelSize: TextUnit = 18.sp
-
-    @Deprecated("Use fontKeyHint", ReplaceWith("fontKeyHint"))
-    val keyHintSize: TextUnit = fontKeyHint
-
-    // Legacy special key fills — now replaced by modifier token system
-    @Deprecated("Use modBgAction")
-    val escKeyFill = modBgAction
-    @Deprecated("Use modBgSysmod")
-    val tabKeyFill = modBgSysmod
-    @Deprecated("Use modBgSysmod")
-    val ctrlKeyFill = modBgSysmod
-    @Deprecated("Use modBgSysmod")
-    val altKeyFill = modBgSysmod
-    @Deprecated("Use modBgNav")
-    val arrowKeyFill = modBgNav
-    @Deprecated("Use modBgEnter")
-    val enterKeyFill = modBgEnter
-    @Deprecated("Use modBgAction")
-    val backspaceKeyFill = modBgAction
-    @Deprecated("Use keyBg")
-    val spaceKeyFill = keyBg
-    @Deprecated("Use keyTextSpecial")
-    val spaceKeyText = keyTextSpecial
-
-    // Legacy modifier active fills
-    @Deprecated("Use modBgCtrlActive")
-    val ctrlActiveKeyFill = modBgCtrlActive
-    @Deprecated("Use modBgAltActive")
-    val altActiveKeyFill = modBgAltActive
-    @Deprecated("Use modBgShiftActive")
-    val shiftActiveKeyFill = modBgShiftActive
 
     // ══════════════════════════════════════════
     // Non-layout tokens (unchanged from previous sessions)

@@ -99,7 +99,7 @@ class AutoDictionary(
         if (length < 2 || length > getMaxWordLength()) return
         if (mDelegate.getCurrentWord().isAutoCapitalized()) {
             // Remove caps before adding
-            mutableWord = Character.toLowerCase(mutableWord[0]) + mutableWord.substring(1)
+            mutableWord = mutableWord[0].lowercaseChar() + mutableWord.substring(1)
         }
         var freq = getWordFrequency(mutableWord)
         freq = if (freq < 0) frequency else freq + frequency
@@ -191,14 +191,11 @@ class AutoDictionary(
 
     companion object {
         // Weight added to a user picking a new word from the suggestion strip
-        @JvmField
         val FREQUENCY_FOR_PICKED = 3
         // Weight added to a user typing a new word that doesn't get corrected (or is reverted)
-        @JvmField
         val FREQUENCY_FOR_TYPED = 1
         // A word that is frequently typed and gets promoted to the user dictionary, uses this
         // frequency.
-        @JvmField
         val FREQUENCY_FOR_AUTO_ADD = 250
         // If the user touches a typed word 2 times or more, it will become valid.
         private val VALIDITY_THRESHOLD = 2 * FREQUENCY_FOR_PICKED

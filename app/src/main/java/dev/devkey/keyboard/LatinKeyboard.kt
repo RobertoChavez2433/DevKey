@@ -38,8 +38,7 @@ import java.util.Locale
 class LatinKeyboard : Keyboard {
 
     companion object {
-        private const val DEBUG_PREFERRED_LETTER = false
-        private const val TAG = "DevKeyLK"
+        private const val TAG = "DevKey/LatinKeyboard"
         private const val OPACITY_FULLY_OPAQUE = 255
         private const val SPACE_LED_LENGTH_PERCENT = 80
 
@@ -112,7 +111,6 @@ class LatinKeyboard : Keyboard {
             return language
         }
 
-        @JvmStatic
         fun hasPuncOrSmileysPopup(key: Key): Boolean {
             return key.popupResId == R.xml.popup_punctuation || key.popupResId == R.xml.popup_smileys
         }
@@ -688,11 +686,6 @@ class LatinKeyboard : Keyboard {
             // Handle preferred next letter
             val pref = mPrefLetterFrequencies!!
             if (mPrefLetter > 0) {
-                if (DEBUG_PREFERRED_LETTER) {
-                    if (mPrefLetter == code && !key.isInsideSuper(adjustedX, adjustedY)) {
-                        Log.d(TAG, "CORRECTED !!!!!!")
-                    }
-                }
                 return mPrefLetter == code
             } else {
                 val inside = key.isInsideSuper(adjustedX, adjustedY)
@@ -714,9 +707,6 @@ class LatinKeyboard : Keyboard {
                                 ) {
                                     mPrefLetter = k.codes!![0]
                                     mPrefDistance = dist
-                                    if (DEBUG_PREFERRED_LETTER) {
-                                        Log.d(TAG, "CORRECTED ALTHOUGH PREFERRED !!!!!!")
-                                    }
                                     break
                                 }
                             }

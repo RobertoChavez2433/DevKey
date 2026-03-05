@@ -20,7 +20,6 @@ import android.os.Bundle
 import android.preference.CheckBoxPreference
 import android.preference.PreferenceActivity
 import android.preference.PreferenceGroup
-import android.text.TextUtils
 import android.util.Log
 import androidx.preference.PreferenceManager
 import java.text.Collator
@@ -127,7 +126,7 @@ class InputLanguageSelection : PreferenceActivity() {
 
     private fun get5Code(locale: Locale): String {
         val country = locale.country
-        return locale.language + if (TextUtils.isEmpty(country)) "" else "_$country"
+        return locale.language + if (country.isNullOrEmpty()) "" else "_$country"
     }
 
     override fun onResume() {
@@ -226,20 +225,17 @@ class InputLanguageSelection : PreferenceActivity() {
     }
 
     companion object {
-        private const val TAG = "DevKeyILS"
+        private const val TAG = "DevKey/InputLanguageSelection"
 
         private val BLACKLIST_LANGUAGES = arrayOf("ko", "ja", "zh")
 
         // Languages for which auto-caps should be disabled
-        @JvmField
         val NOCAPS_LANGUAGES: Set<String> = hashSetOf("ar", "iw", "th")
 
         // Languages which should not use dead key logic. The modifier is entered after the base character.
-        @JvmField
         val NODEADKEY_LANGUAGES: Set<String> = hashSetOf("ar", "iw", "th")
 
         // Languages which should not auto-add space after completions
-        @JvmField
         val NOAUTOSPACE_LANGUAGES: Set<String> = hashSetOf("th")
 
         // Run the GetLanguages.sh script to update the following lists based on

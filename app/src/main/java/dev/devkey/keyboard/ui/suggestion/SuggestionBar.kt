@@ -41,7 +41,7 @@ fun SuggestionBar(
             .fillMaxWidth()
             .animateContentSize()
             .height(if (isCollapsed) 0.dp else DevKeyTheme.suggestionBarHeight)
-            .background(DevKeyTheme.keyboardBackground),
+            .background(DevKeyTheme.kbBg),
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (!isCollapsed) {

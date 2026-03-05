@@ -31,7 +31,7 @@ private fun SubScreenHeader(title: String, onBack: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(DevKeyTheme.keyboardBackground)
+            .background(DevKeyTheme.kbBg)
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -62,18 +62,18 @@ private fun SettingsSubScreen(
     onBack: () -> Unit,
     content: LazyListScope.() -> Unit
 ) {
-    Scaffold(containerColor = DevKeyTheme.keyboardBackground) { padding ->
+    Scaffold(containerColor = DevKeyTheme.kbBg) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .background(DevKeyTheme.keyboardBackground)
+                .background(DevKeyTheme.kbBg)
         ) {
             SubScreenHeader(title = title, onBack = onBack)
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(DevKeyTheme.keyboardBackground),
+                    .background(DevKeyTheme.kbBg),
                 content = content
             )
         }

@@ -24,7 +24,7 @@ import java.io.InputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.channels.Channels
-import java.util.Arrays
+
 
 /**
  * Implements a static, compacted, binary dictionary of standard words.
@@ -190,16 +190,13 @@ class BinaryDictionary : Dictionary, java.io.Closeable {
         nextLettersFrequencies: IntArray?
     ) {
         val chars = previousWord.toString().toCharArray()
-        Arrays.fill(mOutputCharsBigrams, 0.toChar())
-        Arrays.fill(mFrequenciesBigrams, 0)
+        mOutputCharsBigrams.fill(0.toChar())
+        mFrequenciesBigrams.fill(0)
 
         val codesSize = composer.size()
-        Arrays.fill(mInputCodes, -1)
+        mInputCodes.fill(-1)
         val alternatives = composer.getCodesAt(0)
-        System.arraycopy(
-            alternatives, 0, mInputCodes, 0,
-            minOf(alternatives.size, MAX_ALTERNATIVES)
-        )
+        alternatives.copyInto(mInputCodes, 0, 0, minOf(alternatives.size, MAX_ALTERNATIVES))
 
         val count = getBigramsNative(
             mNativeDict, chars, chars.size, mInputCodes, codesSize,
@@ -232,16 +229,13 @@ class BinaryDictionary : Dictionary, java.io.Closeable {
         // Won't deal with really long words.
         if (codesSize > MAX_WORD_LENGTH - 1) return
 
-        Arrays.fill(mInputCodes, -1)
+        mInputCodes.fill(-1)
         for (i in 0 until codesSize) {
             val alternatives = composer.getCodesAt(i)
-            System.arraycopy(
-                alternatives, 0, mInputCodes, i * MAX_ALTERNATIVES,
-                minOf(alternatives.size, MAX_ALTERNATIVES)
-            )
+            alternatives.copyInto(mInputCodes, i * MAX_ALTERNATIVES, 0, minOf(alternatives.size, MAX_ALTERNATIVES))
         }
-        Arrays.fill(mOutputChars, 0.toChar())
-        Arrays.fill(mFrequencies, 0)
+        mOutputChars.fill(0.toChar())
+        mFrequencies.fill(0)
 
         if (mNativeDict == 0L) return
 
@@ -310,10 +304,9 @@ class BinaryDictionary : Dictionary, java.io.Closeable {
          * It is necessary to keep it at this value because some languages e.g. German have
          * really long words.
          */
-        @JvmField
         val MAX_WORD_LENGTH = 48
 
-        private const val TAG = "BinaryDictionary"
+        private const val TAG = "DevKey/BinaryDictionary"
         private const val MAX_ALTERNATIVES = 16
         private const val MAX_WORDS = 18
         private const val MAX_BIGRAMS = 60
@@ -326,9 +319,9 @@ class BinaryDictionary : Dictionary, java.io.Closeable {
         init {
             try {
                 Class.forName("org.pocketworkstation.pckeyboard.BinaryDictionary")
-                Log.i("DevKey", "loaded jni_pckeyboard via JNI bridge")
+                Log.i(TAG, "loaded jni_pckeyboard via JNI bridge")
             } catch (e: ClassNotFoundException) {
-                Log.e("BinaryDictionary", "Could not load JNI bridge class", e)
+                Log.e(TAG, "Could not load JNI bridge class", e)
             }
         }
     }

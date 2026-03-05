@@ -70,7 +70,7 @@ fun MacroRecordingBar(
         modifier = Modifier
             .fillMaxWidth()
             .height(DevKeyTheme.recordingBarHeight)
-            .background(DevKeyTheme.keyboardBackground)
+            .background(DevKeyTheme.kbBg)
     ) {
         // Red top border
         Box(

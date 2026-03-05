@@ -34,7 +34,6 @@ import android.os.Build
 import android.os.SystemClock
 import android.os.VibrationEffect
 import android.os.Vibrator
-import android.text.TextUtils
 import android.util.DisplayMetrics
 import android.util.Log
 import android.util.PrintWriterPrinter
@@ -52,16 +51,17 @@ import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.preference.PreferenceManager
-import dev.devkey.keyboard.LatinIMEUtil.RingCharBuffer
 import dev.devkey.keyboard.core.KeyEventSender
 import dev.devkey.keyboard.data.repository.SettingsRepository
 import dev.devkey.keyboard.core.KeyboardActionListener
 import dev.devkey.keyboard.data.db.DevKeyDatabase
 import dev.devkey.keyboard.feature.clipboard.ClipboardRepository
 import dev.devkey.keyboard.feature.clipboard.DevKeyClipboardManager
+import dev.devkey.keyboard.debug.KeyMapGenerator
 import dev.devkey.keyboard.feature.command.CommandModeDetector
 import dev.devkey.keyboard.feature.command.CommandModeRepository
 import dev.devkey.keyboard.ui.keyboard.ComposeKeyboardViewFactory
+import dev.devkey.keyboard.ui.keyboard.LayoutMode
 import dev.devkey.keyboard.ui.keyboard.KeyCodes
 import dev.devkey.keyboard.ui.keyboard.SessionDependencies
 import dev.devkey.keyboard.ui.settings.DevKeySettingsActivity
@@ -125,9 +125,7 @@ class LatinIME : InputMethodService(),
     private var mJustAddedAutoSpace = false
     private var mAutoCorrectEnabled = false
     private var mReCorrectionEnabled = false
-    // Bigram Suggestion is disabled in this version.
-    private val mBigramSuggestionEnabled = false
-    private var mAutoCorrectOn = false
+private var mAutoCorrectOn = false
     private var mModCtrl = false
     private var mModAlt = false
     private var mModMeta = false
@@ -220,11 +218,11 @@ class LatinIME : InputMethodService(),
 
     private var mPluginManager: PluginManager? = null
     private var mNotificationReceiver: NotificationReceiver? = null
+    private var keyMapDumpReceiver: BroadcastReceiver? = null
 
     /* package */ internal lateinit var mKeyEventSender: KeyEventSender
 
     abstract class WordAlternatives {
-        @JvmField
         protected var mChosenWord: CharSequence? = null
 
         constructor()
@@ -388,17 +386,10 @@ class LatinIME : InputMethodService(),
         }
         registerReceiver(mPluginManager, pFilter, Context.RECEIVER_NOT_EXPORTED)
 
-        LatinIMEUtil.GCUtils.instance.reset()
-        var tryGC = true
-        var i = 0
-        while (i < LatinIMEUtil.GCUtils.GC_TRY_LOOP_MAX && tryGC) {
-            try {
-                initSuggest(inputLanguage)
-                tryGC = false
-            } catch (e: OutOfMemoryError) {
-                tryGC = LatinIMEUtil.GCUtils.instance.tryGCOrWait(inputLanguage, e)
-            }
-            i++
+        try {
+            initSuggest(inputLanguage)
+        } catch (e: OutOfMemoryError) {
+            Log.e(TAG, "OOM during dictionary init for $inputLanguage", e)
         }
 
         mOrientation = conf.orientation
@@ -408,6 +399,27 @@ class LatinIME : InputMethodService(),
         registerReceiver(mReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
         prefs.registerOnSharedPreferenceChangeListener(this)
         setNotification(mKeyboardNotification)
+
+        // Debug: register broadcast receiver for on-demand key map dump
+        if (KeyMapGenerator.isDebugBuild(this)) {
+            keyMapDumpReceiver = object : BroadcastReceiver() {
+                override fun onReceive(context: Context, intent: Intent) {
+                    val modeStr = PreferenceManager.getDefaultSharedPreferences(context)
+                        .getString(SettingsRepository.KEY_LAYOUT_MODE, "full") ?: "full"
+                    val mode = when (modeStr) {
+                        "compact" -> LayoutMode.COMPACT
+                        "compact_dev" -> LayoutMode.COMPACT_DEV
+                        else -> LayoutMode.FULL
+                    }
+                    KeyMapGenerator.dumpToLogcat(context, null, mode)
+                }
+            }
+            registerReceiver(
+                keyMapDumpReceiver,
+                IntentFilter("dev.devkey.keyboard.DUMP_KEY_MAP"),
+                Context.RECEIVER_NOT_EXPORTED
+            )
+        }
     }
 
     private fun getKeyboardModeNum(origMode: Int, override: Int): Int {
@@ -561,6 +573,7 @@ class LatinIME : InputMethodService(),
     override fun onDestroy() {
         serviceScope.cancel()
         clipboardManager?.stopListening()
+        keyMapDumpReceiver?.let { unregisterReceiver(it) }
         mUserDictionary?.close()
         unregisterReceiver(mReceiver)
         unregisterReceiver(mPluginManager)
@@ -575,7 +588,7 @@ class LatinIME : InputMethodService(),
     override fun onConfigurationChanged(conf: Configuration) {
         Log.i(TAG, "onConfigurationChanged()")
         val systemLocale = conf.locales[0].toString()
-        if (!TextUtils.equals(systemLocale, mSystemLocale)) {
+        if (systemLocale != mSystemLocale) {
             mSystemLocale = systemLocale
             if (mLanguageSwitcher != null) {
                 mLanguageSwitcher!!.loadLocales(
@@ -813,7 +826,7 @@ class LatinIME : InputMethodService(),
             mLastSelectionEnd = et.startOffset + et.selectionEnd
 
             // Then look for possible corrections in a delayed fashion
-            if (!TextUtils.isEmpty(et.text) && isCursorTouchingWord()) {
+            if (!et.text.isNullOrEmpty() && isCursorTouchingWord()) {
                 postUpdateOldSuggestions()
             }
         }
@@ -868,7 +881,6 @@ class LatinIME : InputMethodService(),
             }
         }
         mJustAccepted = false
-        postUpdateShiftKeyState()
 
         // Make a note of the cursor position
         mLastSelectionStart = newSelStart
@@ -1073,10 +1085,6 @@ class LatinIME : InputMethodService(),
             }
             updateSuggestions()
         }
-    }
-
-    private fun postUpdateShiftKeyState() {
-        // Disabled - see original comment in Java source
     }
 
     fun updateShiftKeyState(attr: EditorInfo?) {
@@ -1346,7 +1354,6 @@ class LatinIME : InputMethodService(),
                     if (primaryCode != ASCII_ENTER) {
                         mJustAddedAutoSpace = false
                     }
-                    RingCharBuffer.getInstance().push(primaryCode.toChar(), x, y)
                     if (isWordSeparator(primaryCode)) {
                         handleSeparator(primaryCode)
                     } else {
@@ -1412,7 +1419,6 @@ class LatinIME : InputMethodService(),
         } else {
             deleteChar = true
         }
-        postUpdateShiftKeyState()
         TextEntryState.backspace()
         if (TextEntryState.getState() == TextEntryState.State.UNDO_COMMIT) {
             revertLastWord(deleteChar)
@@ -1628,7 +1634,7 @@ class LatinIME : InputMethodService(),
             mWord.reset()
             return
         }
-        if (TextUtils.isEmpty(result)) return
+        if (result.isNullOrEmpty()) return
 
         val resultCopy = result.toString()
         val entry = TypedWordAlternatives(resultCopy, WordComposer(mWord))
@@ -1839,7 +1845,7 @@ class LatinIME : InputMethodService(),
         var foundWord: WordComposer? = null
         var alternatives: WordAlternatives? = null
         for (entry in mWordHistory) {
-            if (TextUtils.equals(entry.getChosenWord(), touching.word)) {
+            if (entry.getChosenWord() == touching.word) {
                 if (entry is TypedWordAlternatives) {
                     foundWord = entry.word
                 }
@@ -1856,7 +1862,7 @@ class LatinIME : InputMethodService(),
             for (i in touchingWord.indices) {
                 foundWord.add(touchingWord[i].code, intArrayOf(touchingWord[i].code))
             }
-            foundWord.setFirstCharCapitalized(Character.isUpperCase(touchingWord[0]))
+            foundWord.setFirstCharCapitalized(touchingWord[0].isUpperCase())
         }
         if (foundWord != null || alternatives != null) {
             if (alternatives == null) {
@@ -1919,7 +1925,7 @@ class LatinIME : InputMethodService(),
             val prevWord = EditingUtil.getPreviousWord(
                 currentInputConnection, mSentenceSeparators ?: ""
             )
-            if (!TextUtils.isEmpty(prevWord)) {
+            if (!prevWord.isNullOrEmpty()) {
                 mUserBigramDictionary!!.addBigrams(
                     prevWord.toString(), suggestion.toString()
                 )
@@ -1931,12 +1937,12 @@ class LatinIME : InputMethodService(),
         val ic = currentInputConnection ?: return false
         val toLeft = ic.getTextBeforeCursor(1, 0)
         val toRight = ic.getTextAfterCursor(1, 0)
-        if (!TextUtils.isEmpty(toLeft) && !isWordSeparator(toLeft!![0].code)
+        if (!toLeft.isNullOrEmpty() && !isWordSeparator(toLeft[0].code)
             && !isSuggestedPunctuation(toLeft[0].code)
         ) {
             return true
         }
-        if (!TextUtils.isEmpty(toRight) && !isWordSeparator(toRight!![0].code)
+        if (!toRight.isNullOrEmpty() && !isWordSeparator(toRight[0].code)
             && !isSuggestedPunctuation(toRight[0].code)
         ) {
             return true
@@ -1946,7 +1952,7 @@ class LatinIME : InputMethodService(),
 
     private fun sameAsTextBeforeCursor(ic: InputConnection, text: CharSequence): Boolean {
         val beforeText = ic.getTextBeforeCursor(text.length, 0)
-        return TextUtils.equals(text, beforeText)
+        return text == beforeText
     }
 
     fun revertLastWord(deleteChar: Boolean) {
@@ -2385,11 +2391,6 @@ class LatinIME : InputMethodService(),
             mAutoCorrectOn -> Suggest.CORRECTION_BASIC
             else -> Suggest.CORRECTION_NONE
         }
-        mCorrectionMode = if (mBigramSuggestionEnabled && mAutoCorrectOn && mAutoCorrectEnabled) {
-            Suggest.CORRECTION_FULL_BIGRAM
-        } else {
-            mCorrectionMode
-        }
         if (suggestionsDisabled()) {
             mAutoCorrectOn = false
             mCorrectionMode = Suggest.CORRECTION_NONE
@@ -2543,7 +2544,7 @@ class LatinIME : InputMethodService(),
     }
 
     companion object {
-        private const val TAG = "DevKeyIME"
+        private const val TAG = "DevKey/LatinIME"
 
         // Align sound effect volume on music volume
         private const val FX_VOLUME = -1.0f
@@ -2563,8 +2564,8 @@ class LatinIME : InputMethodService(),
 
         private const val IME_OPTION_NO_MICROPHONE = "nm"
 
-        @JvmField val PREF_SELECTED_LANGUAGES = "selected_languages"
-        @JvmField val PREF_INPUT_LANGUAGE = "input_language"
+        val PREF_SELECTED_LANGUAGES = "selected_languages"
+        val PREF_INPUT_LANGUAGE = "input_language"
         private const val PREF_RECORRECTION_ENABLED = "recorrection_enabled"
         internal const val PREF_FULLSCREEN_OVERRIDE = "fullscreen_override"
         internal const val PREF_FORCE_KEYBOARD_ON = "force_keyboard_on"
@@ -2590,9 +2591,9 @@ class LatinIME : InputMethodService(),
         private const val QUICK_PRESS = 200
 
         // ASCII constants delegate to KeyCodes (single source of truth)
-        @JvmField val ASCII_ENTER = KeyCodes.ENTER
-        @JvmField val ASCII_SPACE = KeyCodes.ASCII_SPACE
-        @JvmField val ASCII_PERIOD = KeyCodes.ASCII_PERIOD
+        val ASCII_ENTER = KeyCodes.ENTER
+        val ASCII_SPACE = KeyCodes.ASCII_SPACE
+        val ASCII_PERIOD = KeyCodes.ASCII_PERIOD
 
         // Contextual menu positions
         private const val POS_METHOD = 0
@@ -2604,12 +2605,11 @@ class LatinIME : InputMethodService(),
         // Strong reference intentionally held for the service lifetime so that other
         // components (KeyboardSwitcher, CandidateView, etc.) can reach the service.
         // Set to null in onDestroy() to prevent leaks after the service is destroyed.
-        @JvmStatic var sInstance: LatinIME? = null
+        var sInstance: LatinIME? = null
             private set
 
         private val NUMBER_RE = Pattern.compile("(\\d+).*")
 
-        @JvmStatic
         fun getDictionary(res: Resources): IntArray {
             val packageName = LatinIME::class.java.`package`?.name ?: ""
             val xrp = res.getXml(R.xml.dictionary)
@@ -2637,38 +2637,26 @@ class LatinIME : InputMethodService(),
             return dictionaries.toIntArray()
         }
 
-        @JvmStatic
         fun getIntFromString(value: String, defVal: Int): Int {
             val num = NUMBER_RE.matcher(value)
             return if (num.matches()) num.group(1)!!.toInt() else defVal
         }
 
-        @JvmStatic
         fun getPrefInt(prefs: SharedPreferences, prefName: String, defVal: Int): Int {
             val prefVal = prefs.getString(prefName, defVal.toString())
             return getIntFromString(prefVal ?: defVal.toString(), defVal)
         }
 
-        @JvmStatic
         fun getPrefInt(prefs: SharedPreferences, prefName: String, defStr: String): Int {
             val defVal = getIntFromString(defStr, 0)
             return getPrefInt(prefs, prefName, defVal)
         }
 
-        @JvmStatic
         fun getHeight(prefs: SharedPreferences, prefName: String, defVal: String): Int {
             var value = getPrefInt(prefs, prefName, defVal)
             if (value < 15) value = 15
             if (value > 75) value = 75
             return value
-        }
-
-        @JvmStatic
-        fun <E> newArrayList(vararg elements: E): ArrayList<E> {
-            val capacity = (elements.size * 110) / 100 + 5
-            val list = ArrayList<E>(capacity)
-            java.util.Collections.addAll(list, *elements)
-            return list
         }
 
         private fun getCapsOrShiftLockState(): Int {

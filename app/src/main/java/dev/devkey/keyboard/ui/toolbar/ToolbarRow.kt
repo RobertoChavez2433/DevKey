@@ -57,7 +57,7 @@ fun ToolbarRow(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(DevKeyTheme.toolbarHeight)
-                .background(DevKeyTheme.keyboardBackground),
+                .background(DevKeyTheme.kbBg),
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {

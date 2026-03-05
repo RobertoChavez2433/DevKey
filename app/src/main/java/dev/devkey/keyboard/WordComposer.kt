@@ -79,7 +79,7 @@ class WordComposer {
         correctPrimaryJuxtapos(primaryCode, codes)
         correctCodesCase(codes)
         mCodes.add(codes)
-        if (Character.isUpperCase(primaryCode.toChar())) mCapsCount++
+        if (primaryCode.toChar().isUpperCase()) mCapsCount++
     }
 
     /**
@@ -98,7 +98,7 @@ class WordComposer {
     private fun correctCodesCase(codes: IntArray) {
         for (i in codes.indices) {
             val code = codes[i]
-            if (code > 0) codes[i] = Character.toLowerCase(code)
+            if (code > 0) codes[i] = code.toChar().lowercaseChar().code
         }
     }
 
@@ -110,7 +110,7 @@ class WordComposer {
             val lastPos = mTypedWord.length - 1
             val last = mTypedWord[lastPos]
             mTypedWord.deleteCharAt(lastPos)
-            if (Character.isUpperCase(last)) mCapsCount--
+            if (last.isUpperCase()) mCapsCount--
         }
     }
 

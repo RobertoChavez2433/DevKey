@@ -18,11 +18,10 @@ package dev.devkey.keyboard
 
 import android.content.Context
 import android.text.AutoText
-import android.text.TextUtils
 import android.util.Log
 import android.view.View
 import java.nio.ByteBuffer
-import java.util.Arrays
+import kotlin.math.roundToInt
 
 /**
  * This class loads a dictionary and provides a list of suggestions for a given sequence of
@@ -191,8 +190,8 @@ class Suggest : Dictionary.WordCallback {
         mIsFirstCharCapitalized = wordComposer.isFirstCharCapitalized()
         mIsAllUpperCase = wordComposer.isAllUpperCase()
         collectGarbage(mSuggestions, mPrefMaxSuggestions)
-        Arrays.fill(mPriorities, 0)
-        Arrays.fill(mNextLettersFrequencies, 0)
+        mPriorities.fill(0)
+        mNextLettersFrequencies.fill(0)
 
         // Save a lowercase version of the original word
         mOriginalWord = wordComposer.getTypedWord()
@@ -210,10 +209,10 @@ class Suggest : Dictionary.WordCallback {
                     mCorrectionMode == CORRECTION_BASIC)
         ) {
             // At first character typed, search only the bigrams
-            Arrays.fill(mBigramPriorities, 0)
+            mBigramPriorities.fill(0)
             collectGarbage(mBigramSuggestions, PREF_MAX_BIGRAMS)
 
-            if (!TextUtils.isEmpty(mutablePrevWordForBigram)) {
+            if (!mutablePrevWordForBigram.isNullOrEmpty()) {
                 val lowerPrevWord: CharSequence = mutablePrevWordForBigram.toString().lowercase()
                 if (mMainDict.isValidWord(lowerPrevWord)) {
                     mutablePrevWordForBigram = lowerPrevWord
@@ -235,7 +234,7 @@ class Suggest : Dictionary.WordCallback {
                     mNextLettersFrequencies
                 )
                 val currentChar = wordComposer.getTypedWord()!![0]
-                val currentCharUpper = Character.toUpperCase(currentChar)
+                val currentCharUpper = currentChar.uppercaseChar()
                 var count = 0
                 val bigramSuggestionSize = mBigramSuggestions.size
                 for (i in 0 until bigramSuggestionSize) {
@@ -298,10 +297,10 @@ class Suggest : Dictionary.WordCallback {
                 // Is there an AutoText correction?
                 var canAdd = autoText != null
                 // Is that correction already the current prediction (or original word)?
-                canAdd = canAdd && !TextUtils.equals(autoText, mSuggestions[i])
+                canAdd = canAdd && autoText != mSuggestions[i]
                 // Is that correction already the next predicted word?
                 if (canAdd && i + 1 < mSuggestions.size && mCorrectionMode != CORRECTION_BASIC) {
-                    canAdd = canAdd && !TextUtils.equals(autoText, mSuggestions[i + 1])
+                    canAdd = canAdd && autoText != mSuggestions[i + 1]
                 }
                 if (canAdd) {
                     mHaveCorrection = true
@@ -327,7 +326,7 @@ class Suggest : Dictionary.WordCallback {
             // Compare each candidate with each previous candidate
             for (j in 0 until i) {
                 val previous = suggestions[j]
-                if (TextUtils.equals(cur, previous)) {
+                if (cur == previous) {
                     removeFromSuggestions(i)
                     i--
                     break
@@ -351,9 +350,9 @@ class Suggest : Dictionary.WordCallback {
         word: CharArray, offset: Int, length: Int
     ): Boolean {
         val originalLength = lowerOriginalWord.length
-        if (originalLength == length && Character.isUpperCase(word[offset])) {
+        if (originalLength == length && word[offset].isUpperCase()) {
             for (i in 0 until originalLength) {
-                if (lowerOriginalWord[i] != Character.toLowerCase(word[offset + i])) {
+                if (lowerOriginalWord[i] != word[offset + i].lowercaseChar()) {
                     return false
                 }
             }
@@ -395,7 +394,7 @@ class Suggest : Dictionary.WordCallback {
                             MAXIMUM_BIGRAM_FREQUENCY) *
                             (BIGRAM_MULTIPLIER_MAX - BIGRAM_MULTIPLIER_MIN) +
                             BIGRAM_MULTIPLIER_MIN
-                    frequency = Math.round(frequency * multiplier).toInt()
+                    frequency = (frequency * multiplier).roundToInt()
                 }
             }
 
@@ -414,7 +413,7 @@ class Suggest : Dictionary.WordCallback {
             return true
         }
 
-        System.arraycopy(priorities, pos, priorities, pos + 1, prefMaxSuggestions - pos - 1)
+        priorities.copyInto(priorities, pos + 1, pos, pos + prefMaxSuggestions - pos - 1)
         priorities[pos] = frequency
         val poolSize = mStringPool.size
         val sb = if (poolSize > 0) {
@@ -426,7 +425,7 @@ class Suggest : Dictionary.WordCallback {
         if (mIsAllUpperCase) {
             sb.append(String(word, wordOffset, wordLength).uppercase())
         } else if (mIsFirstCharCapitalized) {
-            sb.append(Character.toUpperCase(word[wordOffset]))
+            sb.append(word[wordOffset].uppercaseChar())
             if (wordLength > 1) {
                 sb.append(word, wordOffset + 1, wordLength - 1)
             }
@@ -498,8 +497,6 @@ class Suggest : Dictionary.WordCallback {
     }
 
     companion object {
-        private const val TAG = "DevKey"
-
         const val APPROX_MAX_WORD_LENGTH = 32
 
         const val CORRECTION_NONE = 0

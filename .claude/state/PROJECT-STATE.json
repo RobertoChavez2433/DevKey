@@ -16,10 +16,10 @@
     "compile_sdk": 34
   },
   "current_phase": {
-    "name": "E2E Testing + Bug Fixing",
-    "status": "in_progress",
+    "name": "Dead Code Cleanup + Kotlin Quality",
+    "status": "phases_1_5_implemented",
     "progress_percent": 85,
-    "details": "FULL mode E2E mostly verified (typing, mode switch, modifiers, numbers all PASS). Compose UI tests blocked on API 36 Espresso incompatibility. COMPACT/COMPACT_DEV modes untested. Session 27 changes still NOT COMMITTED."
+    "details": "Phases 1-5 implemented via /implement skill. 33 files modified, 1 deleted. Build + tests pass. Phase 6 (DRY refactoring) deferred. Not yet committed."
   },
   "phases": [
     {"name": "Research & Brainstorming", "status": "complete", "progress_percent": 100},
@@ -33,15 +33,20 @@
     {"name": "Layout Redesign", "status": "complete", "progress_percent": 100},
     {"name": "Kotlin Migration", "status": "complete", "progress_percent": 100},
     {"name": "Code Review & Hardening", "status": "complete", "progress_percent": 100},
-    {"name": "E2E Testing + Bug Fixing", "status": "in_progress", "progress_percent": 85}
+    {"name": "E2E Testing + Test Skill Fixes", "status": "blocked", "progress_percent": 87},
+    {"name": "Test Skill Redesign + Commit Backlog", "status": "in_progress", "progress_percent": 40},
+    {"name": "Dead Code Cleanup + Kotlin Quality", "status": "phases_1_5_implemented", "progress_percent": 85}
   ],
   "active_blockers": [
+    "Large uncommitted backlog (Sessions 27, 31-35)",
+    "Wasted space in Symbols/other keyboard modes — layout doesn't fill available area",
     "Whisper model files (whisper-tiny.en.tflite + filters_vocab_en.bin) need to be downloaded",
-    "Compose UI test deps incompatible with API 36 (Espresso InputManager.getInstance reflection)"
+    "Compose UI test deps incompatible with API 36 (Espresso InputManager.getInstance reflection)",
+    "Test skill design fundamentally flawed — needs redesign before further E2E testing"
   ],
   "metadata": {
-    "session_count": 28,
-    "last_updated": "2026-03-03",
-    "session_notes": "Session 28: Manual ADB E2E testing — FULL mode verified (typing, 123 toggle, Shift/Caps Lock/Ctrl modifiers, number row all PASS). Compose UI tests blocked on API 36. Fixed Bash permissions to Bash(*)."
+    "session_count": 35,
+    "last_updated": "2026-03-05",
+    "session_notes": "Session 35: Implemented dead code cleanup Phases 1-5 via /implement skill. 33 files modified, 1 deleted (LatinIMEUtil.kt). All quality gates pass. Not yet committed."
   }
 }

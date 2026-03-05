@@ -6,6 +6,26 @@ Archived session entries from `_state.md` rotation.
 
 ## March 2026
 
+### Session 30 (2026-03-04)
+**Work**: Ran /test --full on emulator. Discovered pre-computed coordinates ~130px off. Recalibrated via Y-scan. 7/8 flows PASS (rapid-stress incomplete). Dispatched wave agents with corrected coordinates — modifier-combos (5/5) and layout-modes (8/8 including all 4 arrow keys) both PASS via background agents.
+**Decisions**: Update key-coordinates.md (priority 1), fix DevKeyMap logcat (priority 2), add calibration scan as fallback (priority 3). Contacts First name field at (540, 1356) via uiautomator.
+**Next**: Fix coordinate files, fix DevKeyMap, add calibration scan, re-run /test --full, commit Session 27 changes.
+
+### Session 29 (2026-03-04)
+**Work**: Updated /test skill with structural improvements from Field Guide App project. Added Iron Law #4, background dispatch Data Flow diagram, combining/special/named flags, auto-selection, prerequisites. Improved output-format.md and adb-commands.md structure.
+**Decisions**: Port field guide skill patterns to DevKey test skill. Keep IME-specific content unchanged.
+**Next**: Commit Session 27 changes, complete arrow testing, test COMPACT/COMPACT_DEV modes.
+
+### Session 28 (2026-03-03)
+**Work**: Manual ADB E2E testing on emulator. FULL mode verified: typing, 123 toggle, Shift one-shot, Caps Lock cycle, Ctrl one-shot, number row (10/10), Alt, Tab, Arrow Left all PASS. Compose UI tests all fail on API 36 (Espresso incompatibility).
+**Decisions**: `Bash(*)` for project permissions. Manual ADB testing more productive than Python harness.
+**Next**: Commit Session 27 changes, complete arrow testing, test COMPACT/COMPACT_DEV modes.
+
+### Session 27 (2026-03-03)
+**Work**: Fixed 123 mode switch P1 blocker. Root cause: decor view lifecycle DESTROYED killed WindowRecomposer. Added KeyboardModeManager (StateFlow), Compose UI test infra, ADB E2E harness. E2E verified: 123→Symbols, ABC→Normal, Caps Lock all pass.
+**Decisions**: StateFlow for keyboard mode. Single lifecycle owner shared between decor and ComposeView.
+**Next**: Commit changes, test COMPACT/COMPACT_DEV modes.
+
 ### Session 22 (2026-03-02)
 **Work**: 2-wave Opus adversarial review of Kotlin migration plan. Wave 1: 27 issues (5 CRITICAL). Wave 2: validated + 15 new issues. Added Phase 0 (constant migration), KeyboardSwitcher shim, CoroutineScope strategy, swapped Phases 5/6, split Phase 7→7a/7b/7c/7d. Updated plan + design doc.
 **Decisions**: Phase 0 before any deletions. shiftStateProvider lambda decouples KeyEventSender from ModifierKeyState. ServiceScope pattern for coroutines. Convert Java files before settings unification. No @JvmDefault (removed in Kotlin 2.0).
@@ -115,7 +135,22 @@ Archived session entries from `_state.md` rotation.
 **Decisions**: "Keyboard dismiss" is NOT a bug (gesture nav). ADB input tap uses raw pixels. `distinctMultiTouch=false` needs investigation for modifier handling.
 **Next**: Test modifier keys for double-toggle, procure Whisper model files, address tech debt.
 
+### Session 25 (2026-03-02)
+**Work**: Committed full Kotlin migration (4 commits). Fixed critical init order crash: `sKeyboardSettings` must be initialized BEFORE `KeyboardSwitcher.init()`. 361 tests pass.
+**Decisions**: Init order fix in LatinIME.onCreate(). All migration work committed to main.
+**Next**: E2E testing on emulator, verify all keyboard features.
+
+### Session 26 (2026-03-02)
+**Work**: Full FULL-mode E2E test (44/44 keys PASS). Fixed Caps Lock bug (stateBeforeDown tracking in ModifierStateManager + 6 unit tests). Partially fixed 123 mode switch (bridge filter). Identified Compose recomposition blocker — toggleMode fires but layout doesn't change. Performance: 6.8ms avg latency, 0 ANRs.
+**Decisions**: Caps Lock fix uses stateBeforeDown approach (preserves chording). 123 fix needs deeper Compose investigation — bridge interference is only part of the problem. User wants deterministic E2E test harness for modifier combos with target apps.
+**Next**: Debug 123 Compose recomposition, verify Caps Lock on device, brainstorm E2E test harness for modifier combos.
+
 ### Session 23 (2026-03-02)
 **Work**: Full Kotlin migration execution via /implement skill. 6 orchestrator cycles completed all 11 phases (0-7d). Deleted ~30 legacy Java files, converted ~16 Java files to Kotlin, created KeyEventSender.kt + KeyboardActionListener.kt + tests. Only ComposeSequence.java and JNI bridge remain as Java.
 **Decisions**: WordPromotionDelegate breaks circular deps. ComposeSequence.java kept as Java (static data). BinaryDictionary.kt uses JniBridge import alias. GlobalKeyboardSettings keeps @JvmField (full StateFlow deferred). Handler kept in LatinIME.kt (coroutine replacement deferred). ChordeTracker replaces old ModifierKeyState for Symbol/Fn keys.
 **Next**: Commit changes, emulator regression test, convert ComposeSequence.java.
+
+### Session 24 (2026-03-02)
+**Work**: Implemented all 5 deferred Kotlin migration items via /implement (ComposeSequence→Kotlin, Settings Unification, Handler→coroutines, Bridge simplification, ComposeSequencing removal). Then ran multi-wave code review: Wave 1 (4 parallel Opus reviewers, 120 findings), Fix Pass 1 (18 P0+P1 fixes), Wave 2 (verification + 3 new P1s), Fix Pass 2 (3 parallel agents, ~63 P2+P3 fixes). All 355 tests pass.
+**Decisions**: KeyboardActionBridge stays (shift-uppercase, smart backspace are real value). ComposeSequencing replaced with lambdas. Debug logging kept as-is (intentional). consumeFlag() replaces hasFlag(). uptimeMillis for tap timing. Character.isLetter for Unicode support.
+**Next**: Commit changes, emulator regression test, address PluginManager security.

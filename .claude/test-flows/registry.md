@@ -46,13 +46,17 @@ When `/test` runs with no arguments:
 - **precondition**: APK is installed, IME is enabled and set, a text field has focus.
 - **steps**:
   1. Verify IME process is running: `pidof dev.devkey.keyboard`
-  2. Take screenshot to confirm keyboard is visible
-  3. Read `DevKeyMap` logcat to load key coordinates
-  4. Tap the 'h' key and verify `DevKeyPress` logcat entry appears
-  5. If DevKeyMap is empty, use pre-calibrated coordinates from key-coordinates.md
-- **verify**: Keyboard is visible in screenshot. At least one key tap produces a `DevKeyPress` logcat entry. Key coordinates are loaded.
-- **timeout**: 15s
-- **notes**: This flow is a dependency for all other flows. It establishes that the keyboard is functional and coordinates are calibrated.
+  2. **Reset keyboard to Normal mode**: Force-stop and re-set IME (`am force-stop dev.devkey.keyboard && ime set dev.devkey.keyboard/.LatinIME`). This guarantees Normal/QWERTY mode regardless of previous keyboard state. Then re-open the text field and tap to bring up keyboard.
+  3. Take screenshot to confirm keyboard is visible in Normal mode
+  4. Load key coordinates via 3-tier calibration cascade (run by **orchestrator**, not the wave agent):
+     - 4a. **Broadcast (fast path)**: `adb shell am broadcast -a dev.devkey.keyboard.DUMP_KEY_MAP` then read `DevKeyMap` logcat
+     - 4b. **Cache**: Read `.claude/test-flows/calibration.json` if it exists (device-specific runtime data)
+     - 4c. **Y-scan probe (slow path)**: Binary search for keyboard top Y by tapping at candidate Y positions and checking logcat. Saves results to `calibration.json` for future runs.
+  5. Tap the 'h' key at coordinates from the resolved coordinate table and verify `DevKeyPress` logcat entry with `code=104` appears
+  6. If all calibration tiers fail, use pre-calibrated coordinates from key-coordinates.md as final fallback
+- **verify**: Keyboard is visible in screenshot in Normal mode. At least one key tap produces a `DevKeyPress` logcat entry. Key coordinates are resolved and passed to all wave agents. Calibration source is logged (broadcast/cache/scan/fallback).
+- **timeout**: 30s
+- **notes**: This flow is a dependency for all other flows. It establishes that the keyboard is functional and coordinates are calibrated. The orchestrator runs calibration (step 4) and passes resolved coordinates to ALL wave agents — agents never parse DevKeyMap themselves. Force-stop in step 2 guarantees a clean Normal mode start.
 
 ---
 

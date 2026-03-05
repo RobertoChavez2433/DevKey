@@ -143,6 +143,23 @@ object KeyMapGenerator {
     }
 
     /**
+     * Polls until the keyboard view is laid out with valid dimensions, then dumps the key map.
+     * Used from LaunchedEffect to replace the old fixed delay approach.
+     *
+     * @param context Application context
+     * @param keyboardView The keyboard root view (must be attached)
+     * @param layoutMode The active layout mode
+     */
+    suspend fun dumpToLogcatWhenReady(context: Context, keyboardView: View, layoutMode: LayoutMode) {
+        var waited = 0L
+        while (waited < 2000L && (!keyboardView.isLaidOut || keyboardView.height == 0)) {
+            kotlinx.coroutines.delay(100L)
+            waited += 100L
+        }
+        dumpToLogcat(context, keyboardView, layoutMode)
+    }
+
+    /**
      * Dump the full key map to logcat for ADB extraction.
      *
      * Usage: adb logcat -s DevKeyMap:D

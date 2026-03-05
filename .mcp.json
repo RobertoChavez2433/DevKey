@@ -6,6 +6,10 @@
       "env": {
         "NODE_ENV": "production"
       }
+    },
+    "jcodemunch": {
+      "command": "uv",
+      "args": ["run", "--directory", "C:\\Users\\rseba\\Projects\\jcodemunch-mcp", "jcodemunch-mcp"]
     }
   }
 }

@@ -96,12 +96,11 @@ fun DevKeyKeyboard(
         }
     }
 
-    // Debug: dump key coordinate map on startup
+    // Debug: dump key coordinate map when layout mode changes
     val currentView = LocalView.current
-    LaunchedEffect(Unit) {
+    LaunchedEffect(layoutMode) {
         if (KeyMapGenerator.isDebugBuild(context)) {
-            kotlinx.coroutines.delay(500L)  // wait for layout
-            KeyMapGenerator.dumpToLogcat(context, currentView, layoutMode)
+            KeyMapGenerator.dumpToLogcatWhenReady(context, currentView, layoutMode)
         }
     }
 

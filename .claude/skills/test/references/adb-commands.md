@@ -79,12 +79,32 @@ The keyboard only appears when a text field has focus. Use the Contacts app as a
 # Open Contacts "Add contact" screen
 adb -s $SERIAL shell am start -a android.intent.action.INSERT -t vnd.android.cursor.dir/contact
 sleep 2
-# Tap "First name" field to bring up keyboard
-adb -s $SERIAL shell input tap 350 650
+# Tap "First name" field to bring up keyboard (calibrated for emulator-5554)
+adb -s $SERIAL shell input tap 540 1356
 sleep 1
 ```
 
 Alternative: use Settings search field or any app with a text input.
+
+## Key Map Calibration
+
+### Trigger DevKeyMap dump via broadcast (debug builds only)
+```bash
+adb -s $SERIAL shell am broadcast -a dev.devkey.keyboard.DUMP_KEY_MAP
+```
+Then read coordinates from logcat:
+```bash
+adb -s $SERIAL logcat -d -s DevKeyMap | grep "^.*KEY " | \
+  sed 's/.*KEY label=\([^ ]*\).*x=\([0-9]*\) y=\([0-9]*\)/\1 \2 \3/'
+```
+
+### Calibration cascade (used by ime-setup flow)
+1. **Broadcast (fast)**: Send `DUMP_KEY_MAP` broadcast, parse `DevKeyMap` logcat output
+2. **Cache**: Read `.claude/test-flows/calibration.json` if present
+3. **Y-scan probe (slow)**: Binary search for keyboard top Y (~10s)
+4. **Fallback**: Use pre-calibrated values from `.claude/logs/key-coordinates.md`
+
+---
 
 ## UI Interaction
 
@@ -148,11 +168,11 @@ MSYS_NO_PATHCONV=1 adb -s $SERIAL pull /sdcard/screenshot.png ./local_path/scree
 MSYS_NO_PATHCONV=1 adb -s $SERIAL shell rm /sdcard/screenshot.png
 ```
 
-## Logcat (Primary Verification Method — MANDATORY)
+## Log Collection (MANDATORY)
 
 **Check logcat after EVERY ADB interaction.** This catches IME errors, state drift, and transient issues.
 
-DevKey uses specific logcat tags for test observability:
+### DevKey logcat tags
 
 | Tag | Purpose |
 |-----|---------|
@@ -166,11 +186,24 @@ DevKey uses specific logcat tags for test observability:
 adb -s $SERIAL logcat -c
 ```
 
+### Check logcat after every interaction
+```bash
+adb -s $SERIAL logcat -d -t 5 *:W 2>/dev/null | tail -30
+```
+Run this AFTER EVERY ADB interaction. Look for IME errors, crashes, and state drift.
+
 ### Capture logcat for a specific tag
 ```bash
 adb -s $SERIAL logcat -d -s DevKeyPress    # Key press events
 adb -s $SERIAL logcat -d -s DevKeyMode     # Mode transitions
 adb -s $SERIAL logcat -d -s DevKeyMap      # Key map coordinates
+```
+
+### Full log collection for a flow
+```bash
+adb -s $SERIAL logcat -d -t 60 *:W > ./logs/{flow}-warnings.log 2>/dev/null
+adb -s $SERIAL logcat -d -s DevKeyPress > ./logs/{flow}-keypress.log 2>/dev/null
+adb -s $SERIAL logcat -d -s DevKeyMode > ./logs/{flow}-mode.log 2>/dev/null
 ```
 
 ### Filter logcat with regex
@@ -183,6 +216,13 @@ adb -s $SERIAL logcat -d -s DevKeyMode | grep -E "toggleMode.*Normal.*Symbols"
 ```bash
 adb -s $SERIAL logcat -d -t "60" *:W
 ```
+
+### What to look for in logs
+- `DevKeyPress: ModifierTransition` — Modifier state changes
+- `DevKeyMode: toggleMode` / `setMode` — Mode switches
+- `Exception` / `Error` — Runtime exceptions
+- `FATAL` — Process crash (keyboard silently disappears)
+- `ANR` — Application Not Responding
 
 ### Assert logcat contains pattern (shell one-liner)
 ```bash

@@ -33,7 +33,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import dev.devkey.keyboard.data.db.entity.MacroEntity
 import dev.devkey.keyboard.feature.macro.MacroRepository
 import dev.devkey.keyboard.ui.theme.DevKeyTheme
@@ -64,7 +63,7 @@ fun MacroManagerScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(DevKeyTheme.keyBg)
-                .padding(horizontal = 4.dp, vertical = 8.dp),
+                .padding(horizontal = DevKeyTheme.managerBarPadH, vertical = DevKeyTheme.managerBarPadV),
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onBack) {
@@ -86,7 +85,7 @@ fun MacroManagerScreen(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(32.dp),
+                    .padding(DevKeyTheme.managerFullPad),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -189,7 +188,7 @@ private fun MacroListItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = DevKeyTheme.settingsRowPadH, vertical = DevKeyTheme.settingsRowPadVLg),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
@@ -199,7 +198,7 @@ private fun MacroListItem(
                 color = DevKeyTheme.keyText,
                 style = MaterialTheme.typography.bodyLarge
             )
-            Spacer(modifier = Modifier.height(2.dp))
+            Spacer(modifier = Modifier.height(DevKeyTheme.managerItemSubtitleSpacerH))
             Text(
                 text = "Used ${macro.usageCount} times",
                 color = DevKeyTheme.settingsDescriptionColor,

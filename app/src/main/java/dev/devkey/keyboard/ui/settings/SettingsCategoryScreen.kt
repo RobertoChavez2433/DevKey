@@ -22,8 +22,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import dev.devkey.keyboard.ui.theme.DevKeyTheme
 
 /**
@@ -55,20 +53,23 @@ fun SettingsCategoryScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .background(DevKeyTheme.kbBg)
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+                .padding(horizontal = DevKeyTheme.settingsCategoryScreenPadH),
+            verticalArrangement = Arrangement.spacedBy(DevKeyTheme.settingsTileSpacing)
         ) {
             item(key = "header") {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 24.dp, bottom = 16.dp),
+                        .padding(
+                            top = DevKeyTheme.settingsHeaderPadTop,
+                            bottom = DevKeyTheme.settingsHeaderPadBottom
+                        ),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
                         text = "Settings",
                         color = DevKeyTheme.keyText,
-                        fontSize = 24.sp,
+                        fontSize = DevKeyTheme.fontSettingsSectionTitle,
                         fontWeight = FontWeight.Bold
                     )
                 }
@@ -83,7 +84,7 @@ fun SettingsCategoryScreen(
             }
 
             item(key = "bottom_spacer") {
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(DevKeyTheme.settingsListBottomSpacerH))
             }
         }
     }
@@ -98,30 +99,30 @@ private fun CategoryTile(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(DevKeyTheme.settingsTileRadius))
             .background(DevKeyTheme.keyBg)
             .clickable { onClick() }
-            .padding(16.dp),
+            .padding(DevKeyTheme.settingsTilePad),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
                 color = DevKeyTheme.keyText,
-                fontSize = 16.sp,
+                fontSize = DevKeyTheme.fontSettingsTileTitle,
                 fontWeight = FontWeight.Medium
             )
             Text(
                 text = description,
                 color = DevKeyTheme.settingsDescriptionColor,
-                fontSize = 13.sp
+                fontSize = DevKeyTheme.fontSettingsTileDescription
             )
         }
-        Spacer(modifier = Modifier.width(8.dp))
+        Spacer(modifier = Modifier.width(DevKeyTheme.settingsTileTrailingSpacerW))
         Text(
             text = "\u203A",
             color = DevKeyTheme.settingsDescriptionColor,
-            fontSize = 24.sp
+            fontSize = DevKeyTheme.fontSettingsSectionTitle
         )
     }
 }

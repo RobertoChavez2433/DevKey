@@ -26,8 +26,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import dev.devkey.keyboard.feature.macro.MacroStep
 import dev.devkey.keyboard.ui.theme.DevKeyTheme
 
@@ -76,7 +74,7 @@ fun MacroRecordingBar(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(2.dp)
+                .height(DevKeyTheme.macroRecordingTopBorderH)
                 .background(DevKeyTheme.macroRecordingRed)
                 .align(Alignment.TopCenter)
         )
@@ -84,18 +82,21 @@ fun MacroRecordingBar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 4.dp)
+                .padding(
+                    horizontal = DevKeyTheme.macroRecordingBarPadH,
+                    vertical = DevKeyTheme.macroRecordingBarPadV
+                )
                 .align(Alignment.Center),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Left: Pulsing red circle + "Recording..."
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                horizontalArrangement = Arrangement.spacedBy(DevKeyTheme.macroRecordingIndicatorSpacing)
             ) {
                 Box(
                     modifier = Modifier
-                        .size(8.dp)
+                        .size(DevKeyTheme.macroRecordingDotSize)
                         .alpha(pulseAlpha)
                         .clip(CircleShape)
                         .background(DevKeyTheme.macroRecordingRed)
@@ -103,7 +104,7 @@ fun MacroRecordingBar(
                 Text(
                     text = "Recording...",
                     color = DevKeyTheme.macroRecordingRed,
-                    fontSize = 12.sp
+                    fontSize = DevKeyTheme.macroChipTextSize
                 )
             }
 
@@ -112,8 +113,8 @@ fun MacroRecordingBar(
                 state = listState,
                 modifier = Modifier
                     .weight(1f)
-                    .padding(horizontal = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    .padding(horizontal = DevKeyTheme.macroRecordingBarPadH),
+                horizontalArrangement = Arrangement.spacedBy(DevKeyTheme.macroStepSpacing),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 itemsIndexed(capturedSteps, key = { index, _ -> index }) { index, step ->
@@ -127,14 +128,14 @@ fun MacroRecordingBar(
                     Text(
                         text = stepText,
                         color = DevKeyTheme.keyText,
-                        fontSize = 11.sp
+                        fontSize = DevKeyTheme.clipboardTimestampSize
                     )
                     if (capturedSteps.isNotEmpty() && step != capturedSteps.lastOrNull()) {
                         Text(
                             text = "\u2192", // →
                             color = DevKeyTheme.timestampText,
-                            fontSize = 11.sp,
-                            modifier = Modifier.padding(horizontal = 2.dp)
+                            fontSize = DevKeyTheme.clipboardTimestampSize,
+                            modifier = Modifier.padding(horizontal = DevKeyTheme.macroStepArrowPadH)
                         )
                     }
                 }
@@ -145,14 +146,14 @@ fun MacroRecordingBar(
                 Text(
                     text = "Cancel",
                     color = DevKeyTheme.timestampText,
-                    fontSize = 12.sp
+                    fontSize = DevKeyTheme.macroChipTextSize
                 )
             }
             TextButton(onClick = onStop) {
                 Text(
                     text = "Stop",
                     color = DevKeyTheme.macroRecordingRed,
-                    fontSize = 12.sp
+                    fontSize = DevKeyTheme.macroChipTextSize
                 )
             }
         }

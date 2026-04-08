@@ -18,8 +18,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import dev.devkey.keyboard.data.repository.SettingsRepository
 import dev.devkey.keyboard.ui.theme.DevKeyTheme
 
@@ -32,21 +30,21 @@ private fun SubScreenHeader(title: String, onBack: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .background(DevKeyTheme.kbBg)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = DevKeyTheme.settingsRowPadH, vertical = DevKeyTheme.settingsRowPadVLg),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
             text = "\u2190",
             color = DevKeyTheme.settingsCategoryColor,
-            fontSize = 20.sp,
+            fontSize = DevKeyTheme.fontSettingsScreenTitle,
             modifier = Modifier
                 .clickable { onBack() }
-                .padding(end = 16.dp)
+                .padding(end = DevKeyTheme.settingsBackArrowPadEnd)
         )
         Text(
             text = title,
             color = DevKeyTheme.keyText,
-            fontSize = 20.sp,
+            fontSize = DevKeyTheme.fontSettingsScreenTitle,
             fontWeight = FontWeight.Bold
         )
     }
@@ -267,10 +265,10 @@ fun PredictionSettingsScreen(
             // Subtitle preserved from Phase 5 (BUG-04)
             Text(
                 text = "Controls the legacy suggestion engine. Suggestion bar is not shown in current UI.",
-                fontSize = 11.sp,
+                fontSize = DevKeyTheme.fontSettingsSubtitle,
                 color = DevKeyTheme.keyHint,
                 style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                modifier = Modifier.padding(horizontal = DevKeyTheme.settingsRowPadH, vertical = DevKeyTheme.settingsRowPadVSm)
             )
         }
         item(key = "quick_fixes") { ToggleSetting("Quick Fixes", "Auto-fix common typos (e.g. i -> I)", quickFixes) { settingsRepository.setBoolean(SettingsRepository.KEY_QUICK_FIXES, it) } }

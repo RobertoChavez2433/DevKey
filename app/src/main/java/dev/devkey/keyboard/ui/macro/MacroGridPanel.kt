@@ -28,8 +28,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import dev.devkey.keyboard.data.db.entity.MacroEntity
 import dev.devkey.keyboard.ui.theme.DevKeyTheme
 
@@ -64,9 +62,9 @@ fun MacroGridPanel(
             .fillMaxWidth()
             .heightIn(max = DevKeyTheme.macroGridMaxHeight)
             .background(DevKeyTheme.kbBg)
-            .padding(horizontal = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+            .padding(horizontal = DevKeyTheme.macroGridPadH),
+        horizontalArrangement = Arrangement.spacedBy(DevKeyTheme.macroGridSpacing),
+        verticalArrangement = Arrangement.spacedBy(DevKeyTheme.macroGridSpacing)
     ) {
         items(macros) { macro ->
             MacroGridCell(
@@ -154,7 +152,7 @@ private fun MacroGridCell(
     onClick: () -> Unit,
     onLongClick: () -> Unit
 ) {
-    val cellShape = RoundedCornerShape(8.dp)
+    val cellShape = RoundedCornerShape(DevKeyTheme.macroCellRadius)
     Column(
         modifier = Modifier
             .height(DevKeyTheme.macroGridCellHeight)
@@ -164,7 +162,7 @@ private fun MacroGridCell(
                 onClick = onClick,
                 onLongClick = onLongClick
             )
-            .padding(4.dp),
+            .padding(DevKeyTheme.macroCellPad),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -172,14 +170,14 @@ private fun MacroGridCell(
         Text(
             text = formatFromJson(macro.keySequence),
             color = DevKeyTheme.macroAmber,
-            fontSize = 12.sp,
+            fontSize = DevKeyTheme.macroChipTextSize,
             maxLines = 1
         )
         // Macro name in grey
         Text(
             text = macro.name,
             color = DevKeyTheme.timestampText,
-            fontSize = 11.sp,
+            fontSize = DevKeyTheme.clipboardTimestampSize,
             maxLines = 1
         )
     }
@@ -187,20 +185,20 @@ private fun MacroGridCell(
 
 @Composable
 private fun RecordCell(onClick: () -> Unit) {
-    val cellShape = RoundedCornerShape(8.dp)
+    val cellShape = RoundedCornerShape(DevKeyTheme.macroCellRadius)
     Box(
         modifier = Modifier
             .height(DevKeyTheme.macroGridCellHeight)
             .clip(cellShape)
-            .border(1.dp, DevKeyTheme.dashedBorder, cellShape)
+            .border(DevKeyTheme.dividerThickness, DevKeyTheme.dashedBorder, cellShape)
             .clickable { onClick() }
-            .padding(4.dp),
+            .padding(DevKeyTheme.macroCellPad),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = "+ Record",
             color = DevKeyTheme.dashedBorder,
-            fontSize = 12.sp
+            fontSize = DevKeyTheme.macroChipTextSize
         )
     }
 }

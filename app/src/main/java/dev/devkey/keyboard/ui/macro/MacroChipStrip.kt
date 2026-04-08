@@ -17,7 +17,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.unit.dp
 import dev.devkey.keyboard.data.db.entity.MacroEntity
 import dev.devkey.keyboard.ui.theme.DevKeyTheme
 
@@ -49,7 +48,7 @@ fun MacroChipStrip(
         Box(
             modifier = Modifier
                 .clickable { onCollapse() }
-                .padding(horizontal = 8.dp)
+                .padding(horizontal = DevKeyTheme.suggestionBarPadH)
                 .fillMaxHeight(),
             contentAlignment = Alignment.Center
         ) {
@@ -62,12 +61,12 @@ fun MacroChipStrip(
 
         // Macro chips in a scrollable row
         LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(DevKeyTheme.chipStripSpacing),
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .weight(1f)
                 .fillMaxHeight()
-                .padding(end = 8.dp)
+                .padding(end = DevKeyTheme.suggestionBarPadH)
         ) {
             items(macros, key = { it.id }) { macro ->
                 MacroChip(
@@ -89,16 +88,16 @@ private fun MacroChip(
     macro: MacroEntity,
     onClick: () -> Unit
 ) {
-    val chipShape = RoundedCornerShape(16.dp)
+    val chipShape = RoundedCornerShape(DevKeyTheme.chipRadius)
     Row(
         modifier = Modifier
             .clip(chipShape)
             .background(DevKeyTheme.chipBg)
-            .border(1.dp, DevKeyTheme.chipBorder, chipShape)
+            .border(DevKeyTheme.dividerThickness, DevKeyTheme.chipBorder, chipShape)
             .clickable { onClick() }
-            .padding(horizontal = 8.dp, vertical = 4.dp),
+            .padding(horizontal = DevKeyTheme.chipPadH, vertical = DevKeyTheme.chipPadV),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp)
+        horizontalArrangement = Arrangement.spacedBy(DevKeyTheme.chipInnerSpacing)
     ) {
         Text(
             text = "\u26A1", // ⚡
@@ -115,13 +114,13 @@ private fun MacroChip(
 
 @Composable
 private fun AddChip(onClick: () -> Unit) {
-    val chipShape = RoundedCornerShape(16.dp)
+    val chipShape = RoundedCornerShape(DevKeyTheme.chipRadius)
     Box(
         modifier = Modifier
             .clip(chipShape)
-            .border(1.dp, DevKeyTheme.dashedBorder, chipShape)
+            .border(DevKeyTheme.dividerThickness, DevKeyTheme.dashedBorder, chipShape)
             .clickable { onClick() }
-            .padding(horizontal = 8.dp, vertical = 4.dp),
+            .padding(horizontal = DevKeyTheme.chipPadH, vertical = DevKeyTheme.chipPadV),
         contentAlignment = Alignment.Center
     ) {
         Text(

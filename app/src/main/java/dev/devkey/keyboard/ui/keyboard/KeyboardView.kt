@@ -44,7 +44,7 @@ fun KeyboardView(
 ) {
     val screenHeightDp = LocalConfiguration.current.screenHeightDp
     val rawHeight = (screenHeightDp * heightPercent).dp - DevKeyTheme.toolbarHeight
-    val keyAreaHeight = rawHeight.coerceAtLeast(48.dp)
+    val keyAreaHeight = rawHeight.coerceAtLeast(DevKeyTheme.keyAreaMinHeight)
 
     // Compute per-row heights based on weight ratios
     val rowHeights = remember(layout, layoutMode, keyAreaHeight) {
@@ -60,7 +60,7 @@ fun KeyboardView(
         verticalArrangement = Arrangement.spacedBy(DevKeyTheme.keyGap)
     ) {
         for ((index, row) in layout.rows.withIndex()) {
-            val rowHeight = rowHeights.getOrElse(index) { 40.dp }
+            val rowHeight = rowHeights.getOrElse(index) { DevKeyTheme.rowHeightFallback }
             KeyRow(
                 row = row,
                 modifierState = modifierState,

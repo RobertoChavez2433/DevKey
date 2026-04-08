@@ -28,8 +28,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import dev.devkey.keyboard.ui.theme.DevKeyTheme
 
 @Composable
@@ -37,24 +35,29 @@ fun SettingsCategory(title: String, subtitle: String? = null) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 16.dp, bottom = 4.dp, start = 16.dp, end = 16.dp)
+            .padding(
+                top = DevKeyTheme.settingsCategoryPadTop,
+                bottom = DevKeyTheme.settingsCategoryPadBottom,
+                start = DevKeyTheme.settingsCategoryPadH,
+                end = DevKeyTheme.settingsCategoryPadH
+            )
     ) {
         Text(
             text = title,
             color = DevKeyTheme.settingsCategoryColor,
             style = MaterialTheme.typography.titleSmall,
-            fontSize = 14.sp
+            fontSize = DevKeyTheme.fontSettingsCategory
         )
         if (subtitle != null) {
             Text(
                 text = subtitle,
-                fontSize = 11.sp,
+                fontSize = DevKeyTheme.fontSettingsSubtitle,
                 color = DevKeyTheme.keyHint,
                 style = MaterialTheme.typography.bodySmall
             )
         }
-        Spacer(modifier = Modifier.height(4.dp))
-        HorizontalDivider(color = DevKeyTheme.settingsDividerColor, thickness = 1.dp)
+        Spacer(modifier = Modifier.height(DevKeyTheme.settingsCategorySpacerH))
+        HorizontalDivider(color = DevKeyTheme.settingsDividerColor, thickness = DevKeyTheme.dividerThickness)
     }
 }
 
@@ -70,7 +73,7 @@ fun ToggleSetting(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(enabled = enabled) { onCheckedChange(!checked) }
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = DevKeyTheme.settingsRowPadH, vertical = DevKeyTheme.settingsRowPadVLg),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
@@ -87,7 +90,7 @@ fun ToggleSetting(
                 )
             }
         }
-        Spacer(modifier = Modifier.width(8.dp))
+        Spacer(modifier = Modifier.width(DevKeyTheme.settingsTrailingSpacerW))
         Switch(
             checked = checked,
             onCheckedChange = onCheckedChange,
@@ -110,7 +113,7 @@ fun SliderSetting(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .padding(horizontal = DevKeyTheme.settingsRowPadH, vertical = DevKeyTheme.settingsRowPadVSm)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -157,7 +160,7 @@ fun DropdownSetting(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { showDialog = true }
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = DevKeyTheme.settingsRowPadH, vertical = DevKeyTheme.settingsRowPadVLg),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
@@ -191,14 +194,14 @@ fun DropdownSetting(
                                     },
                                     role = Role.RadioButton
                                 )
-                                .padding(vertical = 8.dp),
+                                .padding(vertical = DevKeyTheme.settingsRowPadVSm),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             RadioButton(
                                 selected = value == currentValue,
                                 onClick = null
                             )
-                            Spacer(modifier = Modifier.width(8.dp))
+                            Spacer(modifier = Modifier.width(DevKeyTheme.settingsTrailingSpacerW))
                             Text(text = label)
                         }
                     }
@@ -226,7 +229,7 @@ fun TextInputSetting(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { showDialog = true }
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = DevKeyTheme.settingsRowPadH, vertical = DevKeyTheme.settingsRowPadVLg),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
@@ -281,7 +284,7 @@ fun ButtonSetting(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = DevKeyTheme.settingsRowPadH, vertical = DevKeyTheme.settingsRowPadVLg),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {

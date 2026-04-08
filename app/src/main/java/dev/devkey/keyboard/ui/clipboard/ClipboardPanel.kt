@@ -28,7 +28,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import dev.devkey.keyboard.data.db.entity.ClipboardHistoryEntity
 import dev.devkey.keyboard.ui.theme.DevKeyTheme
 
@@ -88,8 +87,8 @@ fun ClipboardPanel(
             singleLine = true,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 4.dp),
-            shape = RoundedCornerShape(8.dp)
+                .padding(horizontal = DevKeyTheme.clipboardPadH, vertical = DevKeyTheme.clipboardEntryPadV),
+            shape = RoundedCornerShape(DevKeyTheme.clipboardSearchRadius)
         )
 
         if (filteredEntries.isEmpty()) {
@@ -140,7 +139,7 @@ fun ClipboardPanel(
             onClick = { showClearAllDialog = true },
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp)
+                .padding(horizontal = DevKeyTheme.clipboardPadH)
         ) {
             Text(
                 text = "Clear All",
@@ -192,7 +191,7 @@ private fun ClipboardEntry(
                 onClick = { onPaste(entry) },
                 onLongClick = { showContextMenu = true }
             )
-            .padding(horizontal = 8.dp, vertical = 4.dp)
+            .padding(horizontal = DevKeyTheme.clipboardPadH, vertical = DevKeyTheme.clipboardEntryPadV)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -203,7 +202,7 @@ private fun ClipboardEntry(
             Row(
                 modifier = Modifier.weight(1f),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                horizontalArrangement = Arrangement.spacedBy(DevKeyTheme.clipboardEntrySpacing)
             ) {
                 if (entry.isPinned) {
                     Text(

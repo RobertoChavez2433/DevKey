@@ -15,7 +15,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import dev.devkey.keyboard.ui.theme.DevKeyTheme
 
 /**
@@ -40,7 +39,7 @@ fun SuggestionBar(
         modifier = Modifier
             .fillMaxWidth()
             .animateContentSize()
-            .height(if (isCollapsed) 0.dp else DevKeyTheme.suggestionBarHeight)
+            .height(if (isCollapsed) DevKeyTheme.collapsedHeight else DevKeyTheme.suggestionBarHeight)
             .background(DevKeyTheme.kbBg),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -49,7 +48,7 @@ fun SuggestionBar(
             Box(
                 modifier = Modifier
                     .clickable { onCollapseToggle() }
-                    .padding(horizontal = 8.dp)
+                    .padding(horizontal = DevKeyTheme.suggestionBarPadH)
                     .fillMaxHeight(),
                 contentAlignment = Alignment.Center
             ) {
@@ -67,7 +66,7 @@ fun SuggestionBar(
                     // Vertical divider
                     Box(
                         modifier = Modifier
-                            .width(1.dp)
+                            .width(DevKeyTheme.dividerThickness)
                             .fillMaxHeight()
                             .background(DevKeyTheme.dividerColor)
                     )

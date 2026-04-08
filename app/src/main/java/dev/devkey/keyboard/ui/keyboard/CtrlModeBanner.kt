@@ -8,7 +8,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.sp
 import dev.devkey.keyboard.ui.theme.DevKeyTheme
 
 /**
@@ -29,7 +28,7 @@ fun CtrlModeBanner() {
         Text(
             text = "CTRL MODE \u2014 tap a key for shortcut",
             color = DevKeyTheme.keyText,
-            fontSize = 11.sp
+            fontSize = DevKeyTheme.fontCtrlModeBanner
         )
     }
 }

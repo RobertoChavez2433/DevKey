@@ -27,7 +27,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import dev.devkey.keyboard.feature.voice.VoiceInputEngine
 import dev.devkey.keyboard.ui.theme.DevKeyTheme
 
@@ -85,7 +84,7 @@ fun VoiceInputPanel(
             fontWeight = FontWeight.Medium
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(DevKeyTheme.voiceSpacerLg))
 
         // Mic icon
         Box(
@@ -114,14 +113,14 @@ fun VoiceInputPanel(
             )
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(DevKeyTheme.voiceSpacerMd))
 
         // Waveform visualization (only visible when listening)
         if (voiceState == VoiceInputEngine.VoiceState.LISTENING) {
             Canvas(
                 modifier = Modifier
-                    .width(120.dp)
-                    .height(32.dp)
+                    .width(DevKeyTheme.voiceWaveformWidth)
+                    .height(DevKeyTheme.voiceWaveformHeight)
             ) {
                 val barCount = 7
                 val barWidth = size.width / (barCount * 2)
@@ -145,20 +144,20 @@ fun VoiceInputPanel(
             }
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(DevKeyTheme.voiceSpacerMd))
 
         // Buttons / Progress
         when (voiceState) {
             VoiceInputEngine.VoiceState.PROCESSING -> {
                 CircularProgressIndicator(
                     color = DevKeyTheme.voiceMicActive,
-                    modifier = Modifier.size(24.dp),
-                    strokeWidth = 2.dp
+                    modifier = Modifier.size(DevKeyTheme.voiceProgressSize),
+                    strokeWidth = DevKeyTheme.voiceProgressStrokeWidth
                 )
             }
             VoiceInputEngine.VoiceState.LISTENING -> {
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(32.dp),
+                    horizontalArrangement = Arrangement.spacedBy(DevKeyTheme.voiceButtonSpacing),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     TextButton(onClick = onCancel) {

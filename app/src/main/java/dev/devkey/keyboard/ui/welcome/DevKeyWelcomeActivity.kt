@@ -34,10 +34,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import dev.devkey.keyboard.InputLanguageSelection
@@ -141,26 +138,26 @@ private fun WelcomeScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(DevKeyTheme.kbBg)
-            .padding(32.dp),
+            .padding(DevKeyTheme.welcomeScreenPad),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Spacer(modifier = Modifier.height(48.dp))
+        Spacer(modifier = Modifier.height(DevKeyTheme.welcomeSpacerLg))
 
         // Title
         Text(
             text = "DevKey",
             color = DevKeyTheme.keyText,
-            fontSize = 36.sp,
+            fontSize = DevKeyTheme.fontWelcomeTitle,
             fontWeight = FontWeight.Bold
         )
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(DevKeyTheme.welcomeSpacerSm))
         Text(
             text = "Power-user keyboard for Android",
             color = DevKeyTheme.settingsDescriptionColor,
-            fontSize = 16.sp
+            fontSize = DevKeyTheme.fontWelcomeSubtitle
         )
 
-        Spacer(modifier = Modifier.height(48.dp))
+        Spacer(modifier = Modifier.height(DevKeyTheme.welcomeSpacerLg))
 
         // Setup steps
         SetupStep(
@@ -171,7 +168,7 @@ private fun WelcomeScreen(
             onClick = onEnableClick
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(DevKeyTheme.welcomeSpacerMd))
 
         SetupStep(
             stepNumber = 2,
@@ -181,7 +178,7 @@ private fun WelcomeScreen(
             onClick = onSetDefaultClick
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(DevKeyTheme.welcomeSpacerMd))
 
         SetupStep(
             stepNumber = 3,
@@ -198,21 +195,21 @@ private fun WelcomeScreen(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
+                .clip(RoundedCornerShape(DevKeyTheme.welcomeCardRadius))
                 .background(DevKeyTheme.keyBg)
                 .clickable { onSettingsClick() }
-                .padding(vertical = 16.dp),
+                .padding(vertical = DevKeyTheme.welcomeButtonPadV),
             contentAlignment = Alignment.Center
         ) {
             Text(
                 text = "Settings",
                 color = DevKeyTheme.keyText,
-                fontSize = 16.sp,
+                fontSize = DevKeyTheme.fontWelcomeSubtitle,
                 fontWeight = FontWeight.Medium
             )
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(DevKeyTheme.welcomeSpacerXl))
     }
 }
 
@@ -228,55 +225,55 @@ private fun SetupStep(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(DevKeyTheme.welcomeCardRadius))
             .background(DevKeyTheme.keyBg)
             .clickable { onClick() }
-            .padding(16.dp),
+            .padding(DevKeyTheme.welcomeCardPad),
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Status indicator
         Box(
             modifier = Modifier
-                .size(32.dp)
+                .size(DevKeyTheme.welcomeStepIndicatorSize)
                 .clip(CircleShape)
                 .background(
-                    if (isComplete) Color(0xFF4CAF50) else DevKeyTheme.kbBg
+                    if (isComplete) DevKeyTheme.setupCompleteGreen else DevKeyTheme.kbBg
                 ),
             contentAlignment = Alignment.Center
         ) {
             Text(
                 text = if (isComplete) "\u2713" else stepNumber.toString(),
-                color = if (isComplete) Color.White else DevKeyTheme.settingsDescriptionColor,
-                fontSize = 14.sp,
+                color = if (isComplete) DevKeyTheme.setupCompleteText else DevKeyTheme.settingsDescriptionColor,
+                fontSize = DevKeyTheme.fontWelcomeStepIndicator,
                 fontWeight = FontWeight.Bold
             )
         }
 
-        Spacer(modifier = Modifier.width(16.dp))
+        Spacer(modifier = Modifier.width(DevKeyTheme.welcomeStepTextSpacerW))
 
         Column(modifier = Modifier.weight(1f)) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(DevKeyTheme.welcomeTagSpacing)
             ) {
                 Text(
                     text = title,
                     color = DevKeyTheme.keyText,
-                    fontSize = 16.sp,
+                    fontSize = DevKeyTheme.fontWelcomeSubtitle,
                     fontWeight = FontWeight.Medium
                 )
                 if (isOptional) {
                     Text(
                         text = "Optional",
                         color = DevKeyTheme.settingsDescriptionColor,
-                        fontSize = 11.sp
+                        fontSize = DevKeyTheme.fontSettingsSubtitle
                     )
                 }
             }
             Text(
                 text = description,
                 color = DevKeyTheme.settingsDescriptionColor,
-                fontSize = 13.sp
+                fontSize = DevKeyTheme.fontWelcomeDescription
             )
         }
 
@@ -284,7 +281,7 @@ private fun SetupStep(
         Text(
             text = "\u203A",
             color = DevKeyTheme.settingsDescriptionColor,
-            fontSize = 24.sp
+            fontSize = DevKeyTheme.fontWelcomeArrow
         )
     }
 }

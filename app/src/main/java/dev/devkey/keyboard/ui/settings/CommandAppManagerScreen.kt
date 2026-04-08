@@ -33,7 +33,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import dev.devkey.keyboard.data.db.entity.CommandAppEntity
 import dev.devkey.keyboard.feature.command.CommandModeDetector
 import dev.devkey.keyboard.feature.command.CommandModeRepository
@@ -66,7 +65,7 @@ fun CommandAppManagerScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(DevKeyTheme.keyBg)
-                .padding(horizontal = 4.dp, vertical = 8.dp),
+                .padding(horizontal = DevKeyTheme.managerBarPadH, vertical = DevKeyTheme.managerBarPadV),
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onBack) {
@@ -96,7 +95,7 @@ fun CommandAppManagerScreen(
             text = "Apps listed here override automatic terminal detection.",
             color = DevKeyTheme.settingsDescriptionColor,
             style = MaterialTheme.typography.bodySmall,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            modifier = Modifier.padding(horizontal = DevKeyTheme.managerRowPadH, vertical = DevKeyTheme.managerInfoPadV)
         )
         HorizontalDivider(color = DevKeyTheme.settingsDividerColor)
 
@@ -105,17 +104,17 @@ fun CommandAppManagerScreen(
             text = "Auto-detected terminal apps:",
             color = DevKeyTheme.settingsCategoryColor,
             style = MaterialTheme.typography.labelMedium,
-            modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 4.dp)
+            modifier = Modifier.padding(start = DevKeyTheme.managerRowPadH, top = DevKeyTheme.managerSectionPadTop, bottom = DevKeyTheme.managerSectionPadBottom)
         )
         Text(
             text = CommandModeDetector.TERMINAL_PACKAGES.joinToString(", "),
             color = DevKeyTheme.settingsDescriptionColor,
             style = MaterialTheme.typography.bodySmall,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+            modifier = Modifier.padding(horizontal = DevKeyTheme.managerRowPadH, vertical = DevKeyTheme.managerRowPadVSm)
         )
         HorizontalDivider(
             color = DevKeyTheme.settingsDividerColor,
-            modifier = Modifier.padding(top = 8.dp)
+            modifier = Modifier.padding(top = DevKeyTheme.managerDividerPadTop)
         )
 
         // User overrides section
@@ -124,14 +123,14 @@ fun CommandAppManagerScreen(
                 text = "No custom overrides configured.",
                 color = DevKeyTheme.settingsDescriptionColor,
                 style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(16.dp)
+                modifier = Modifier.padding(DevKeyTheme.settingsTilePad)
             )
         } else {
             Text(
                 text = "Custom overrides:",
                 color = DevKeyTheme.settingsCategoryColor,
                 style = MaterialTheme.typography.labelMedium,
-                modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 4.dp)
+                modifier = Modifier.padding(start = DevKeyTheme.managerRowPadH, top = DevKeyTheme.managerSectionPadTop, bottom = DevKeyTheme.managerSectionPadBottom)
             )
             LazyColumn(
                 modifier = Modifier.fillMaxSize()
@@ -198,7 +197,7 @@ private fun CommandAppListItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = DevKeyTheme.settingsRowPadH, vertical = DevKeyTheme.settingsRowPadVLg),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
@@ -208,7 +207,7 @@ private fun CommandAppListItem(
                 color = DevKeyTheme.keyText,
                 style = MaterialTheme.typography.bodyLarge
             )
-            Spacer(modifier = Modifier.height(2.dp))
+            Spacer(modifier = Modifier.height(DevKeyTheme.managerItemSubtitleSpacerH))
             Text(
                 text = if (app.mode == "command") "Command Mode" else "Normal Mode",
                 color = if (app.mode == "command") DevKeyTheme.cmdBadgeText else DevKeyTheme.settingsDescriptionColor,
@@ -246,12 +245,12 @@ private fun AddCommandAppDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(DevKeyTheme.managerDialogFieldSpacerH))
                 Text(
                     text = "Mode:",
                     style = MaterialTheme.typography.labelMedium
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(DevKeyTheme.managerDialogLabelSpacerH))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     TextButton(
                         onClick = { selectedMode = InputMode.COMMAND }
@@ -262,7 +261,7 @@ private fun AddCommandAppDialog(
                                 DevKeyTheme.cmdBadgeText else DevKeyTheme.settingsDescriptionColor
                         )
                     }
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(DevKeyTheme.managerDialogButtonSpacerW))
                     TextButton(
                         onClick = { selectedMode = InputMode.NORMAL }
                     ) {

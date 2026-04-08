@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
 import dev.devkey.keyboard.core.ModifierStateManager
 import dev.devkey.keyboard.ui.theme.DevKeyTheme
 
@@ -35,7 +34,7 @@ fun KeyRow(
     ctrlHeld: Boolean = false,
     showHints: Boolean = false,
     hintBright: Boolean = false,
-    rowHeight: Dp = 48.dp,
+    rowHeight: Dp = DevKeyTheme.keyAreaMinHeight,
     modifier: Modifier = Modifier
 ) {
     Row(

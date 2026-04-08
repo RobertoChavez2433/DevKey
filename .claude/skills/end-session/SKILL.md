@@ -45,30 +45,49 @@ If >5 sessions exist in "Recent Sessions", run rotation:
 2. Append to `.claude/logs/state-archive.md` under appropriate month header
 3. Remove from _state.md
 
-### 3. Update Defects
-**File**: `.claude/autoload/_defects.md`
+### 3. File Defects to GitHub Issues
 
-For defects discovered during this session:
-1. Add new defect at the **top** of "Active Patterns" section
-2. Use standardized format:
-```markdown
-### [CATEGORY] YYYY-MM-DD: Brief Title
+**Repo**: `RobertoChavez2433/DevKey`
+
+For each new pattern discovered this session, file a GitHub issue:
+
+```bash
+gh issue create --repo RobertoChavez2433/DevKey \
+  --title "[CATEGORY] YYYY-MM-DD: Brief Title" \
+  --label "defect,category:<CAT>,area:<AREA>,priority:<P>" \
+  --body "$(cat <<'EOF'
 **Pattern**: What to avoid (1 line)
 **Prevention**: How to avoid (1-2 lines)
-**Ref**: @path/to/file (optional)
+**Ref**: file:line
+EOF
+)"
 ```
-3. If >7 defects, move oldest to `.claude/logs/defects-archive.md`
 
-### Defect Categories
-| Category | Use For |
-|----------|---------|
-| [ANDROID] | Activity lifecycle, ViewModel, permissions, config changes |
-| [IME] | InputMethodService, key dispatch, composition, text fields |
-| [PREDICTION] | Dictionary, autocorrect, command prediction, TF Lite |
-| [UI] | Compose, themes, animations, layout |
-| [NATIVE] | C++ NDK, JNI bridge, memory |
-| [VOICE] | Speech recognition, audio, transcription |
-| [BUILD] | Gradle, dependencies, ProGuard, signing |
+If a previously-open defect was resolved this session, close it with a fix commit reference:
+```bash
+gh issue close <number> --comment "Fixed in <commit-sha> (Session N)"
+```
+
+### Defect Label Taxonomy
+
+| Label type | Allowed values |
+|---|---|
+| `category:*` (pick one) | `IME`, `UI`, `MODIFIER`, `NATIVE`, `BUILD`, `TEXT`, `VOICE`, `ANDROID` |
+| `area:*` (pick one) | `ime-lifecycle`, `compose-ui`, `modifier-state`, `native-jni`, `build-test`, `text-input`, `voice-dictation` |
+| `priority:*` (pick one) | `critical`, `high`, `medium`, `low` |
+| Always include | `defect` |
+
+### Category → Area mapping (default pairing)
+| Category | Default area |
+|----------|-------------|
+| `IME` | `ime-lifecycle` |
+| `UI` | `compose-ui` |
+| `MODIFIER` | `modifier-state` |
+| `NATIVE` | `native-jni` |
+| `BUILD` | `build-test` |
+| `TEXT` | `text-input` |
+| `VOICE` | `voice-dictation` |
+| `ANDROID` | `ime-lifecycle` |
 
 ### 4. Update JSON State Files
 
@@ -88,15 +107,16 @@ For defects discovered during this session:
 Present:
 - Session summary (what was accomplished)
 - Features touched
-- Defects logged (if any)
+- Defects filed to GitHub Issues (include issue numbers/URLs)
+- Defects closed this session (include issue numbers + fix commit)
 - Next priorities
 - Reminder: Run `/resume-session` to start next session
 
 ---
 
 ## Rules
-- **NO git commands** — not `git status`, not `git diff`, not `git add`, not `git commit`
+- **NO code git commands** — not `git status`, not `git diff`, not `git add`, not `git commit`
+- `gh issue create`, `gh issue close`, `gh issue list` are ALLOWED and encouraged — that's how defects are filed
 - All analysis from conversation context only
 - Zero user input required
-- Defects go to single `.claude/autoload/_defects.md` (not per-feature files)
-- Max 7 active defects — oldest rotates to archive
+- Defects are GitHub Issues on `RobertoChavez2433/DevKey` with label `defect` — no file-based defect tracking

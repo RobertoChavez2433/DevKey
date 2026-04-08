@@ -13,15 +13,15 @@ Fast context load. No questions — just read state and display summary.
 
 ## Actions
 
-### Step 1: Read HOT Context (3 files only)
+### Step 1: Read HOT Context (2 files only)
 1. `.claude/memory/MEMORY.md` — Key learnings and patterns
 2. `.claude/autoload/_state.md` — Current state
-3. `.claude/autoload/_defects.md` — Active defects (auto-loaded)
 
 **DO NOT READ** (lazy load only when needed):
 - `.claude/logs/state-archive.md`
-- `.claude/logs/defects-archive.md`
+- `.claude/logs/defects-archive-final.md` (historical snapshot only — new defects are on GitHub Issues)
 - Any rules, docs, constraints, or state JSON files
+- **Defects**: do NOT pre-load. If the user asks, run `gh issue list --repo RobertoChavez2433/DevKey --label defect --state open --limit 20`
 
 ### Step 2: Display Summary
 
@@ -31,7 +31,6 @@ Print this compact format:
 **Phase**: [From _state.md]
 **Status**: [From _state.md]
 **Last Session**: [1-line summary from most recent session entry]
-**Active Defects**: [count] ([categories])
 
 **Next Tasks**:
 1. [From _state.md "What Needs to Happen Next"]
@@ -64,11 +63,12 @@ Wait for the user to say what they want. Their message determines what happens n
 
 When work begins on a feature, load context on demand:
 - **State**: `state/PROJECT-STATE.json`
-- **Defects**: `.claude/autoload/_defects.md` (already auto-loaded)
+- **Defects**: `gh issue list --repo RobertoChavez2433/DevKey --label defect --state open` (filter further with `--label "area:<area>"` as needed)
 - **Plans**: `plans/` for active plans
 - **Research**: `docs/research/` for reference material
 
 ## Rules
-- **NO git commands** — not `git status`, not `git log`, not any git operation
+- **NO code git commands** — not `git status`, not `git log`, not any git operation on the repo
+- `gh issue list` is ALLOWED for loading defects on demand
 - **NO questions** — display summary and wait
 - **NO pre-loading** — load context only when the user gives direction

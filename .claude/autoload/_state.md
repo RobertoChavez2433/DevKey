@@ -1,36 +1,41 @@
 # Session State
 
-**Last Updated**: 2026-03-05 | **Session**: 35
+**Last Updated**: 2026-04-08 | **Session**: 37
 
 ## Current Phase
-- **Phase**: Dead Code Cleanup + Kotlin Quality
-- **Status**: Phases 1-5 IMPLEMENTED. Build + tests pass. Not yet committed.
+- **Phase**: .claude Directory Restructure
+- **Status**: Plan heavily revised + rescoped (938 → 1545 lines). Ready for `/implement` once GH labels are created and jcodemunch re-indexed. Live skills updated for interim use.
 
 ## HOT CONTEXT - Resume Here
 
 ### EXACTLY WHERE WE LEFT OFF
 
-**Dead code cleanup plan fully implemented (Phases 1-5). All quality gates pass. Changes NOT committed.**
+**Session 37 was a plan-revision + live-skill-update session. No source code changed. Plan at `.claude/plans/2026-03-17-claude-directory-restructure.md` is now the spec for the restructure and reflects all current decisions.**
 
 This session accomplished:
-1. **Ran `/implement` on dead-code-cleanup-plan.md** — Orchestrator dispatched agents for Phases 1-5
-2. **Phase 1**: Removed dead methods (LatinIMEUtil, EditingUtil, TextEntryState), dead theme aliases (14), RingCharBuffer + caller, dead stubs/flags across LatinIME/LatinKeyboard/Suggest
-3. **Phase 2**: Migrated `keyboardBackground→kbBg` (16 sites, 11 files), `keyFill→keyBg` (5 sites, 4 files), created `fontVoiceMic=18.sp` token for VoiceInputPanel
-4. **Phase 3**: Removed `@JvmStatic` (24 occurrences, 10 files), `@JvmOverloads`/`@JvmField` from EditingUtil.Range+SelectedWord, `@JvmField` from 7 files. Kept CandidateView, Keyboard.Key, SettingsRepository per plan.
-5. **Phase 4**: Replaced GCUtils retry loop with simple try/catch OOM handling. Deleted `LatinIMEUtil.kt` entirely (empty after Phase 1 + 4).
-6. **Phase 5**: Replaced Java API calls with Kotlin equivalents (Character.*, TextUtils, Arrays.fill, System.arraycopy, Math.round). Standardized TAG naming to `DevKey/<ClassName>`.
-7. **All quality gates pass**: `assembleDebug` BUILD SUCCESSFUL, `test` all passing, completeness verified
+1. **jcodemunch MCP verified functional** — Standalone Python server at `C:\Users\rseba\Projects\jcodemunch-mcp\`, registered in `.mcp.json:10` and `~\.claude.json`. 15 repos indexed. Local HK index is stale (2026-03-05, empty git_head) — needs refresh before `/tailor` is useful.
+2. **Staleness audit against 2026-03-17 plan** — Found: all 4 in-flight plans (kotlin-migration, dead-code-cleanup, coordinate-calibration, 123-fix-e2e-harness) are actually committed (22a3050, 73e211b, 31d33f7, 386a25b) and need to move to `completed/`; `.claude/plans/completed/` already exists with 9 archived plans; `docs/research/` and `.claude/docs/guides/` must be preserved; one of the P0 stale refs (`_state.md:85` test-results path) no longer exists and SKIP it; other 5 P0 refs confirmed still broken.
+3. **Plan rescoped to include full tailor + writing-plans pipeline** (Sub-phases 5.4a/b/c) — adapted from Field Guide, DevKey-specific: 9-step jcodemunch sequence with Kotlin credential blocklist (local.properties, keystores, signing), 9 DevKey patterns (IME lifecycle, modifier state, key dispatch, Compose layout, theme tokens, JNI, coroutines, Room, settings), 12-row DevKey ground-truth table (KeyCodes, LayoutMode, DevKeyTheme, JNI package paths, calibration.json), IME privacy rule (never log user text). Created plan-writer-agent, plan-fixer-agent, completeness-review-agent definitions.
+4. **Implement pipeline fully rewritten** (Sub-phases 4.5 + 5.8) — **NO HEADLESS MODE.** Everything via Agent tool (Task). New per-phase loop: implementer → build → **one** completeness-review-agent (spec intent vs. phase) → checkpoint. End-of-plan gate runs ONCE after all phases: `./gradlew lint` + parallel 3-sweep (code-review + security + completeness) + fixer loop, max 3 cycles with monotonicity check. Checkpoint JSON schema included in plan.
+5. **Defects migrated from files to GitHub Issues** — Entirely eliminated per-concern defect files. Sub-phase 1.1 drops `.claude/defects/` creation. Sub-phase 1.3 rewritten: creates GH labels (`defect`, `category:{IME,UI,MODIFIER,NATIVE,BUILD,TEXT,VOICE,ANDROID}`, `area:{7 values}`, `priority:{4}`), files all 7 existing defects from `_defects.md` as `gh issue create` commands (including closing the already-fixed ComposeView lifecycle defect with 386a25b ref), archives `_defects.md` → `logs/defects-archive-final.md`. `defects-integration.md` reference renamed to `github-issues-integration.md`. All agent context_loading blocks replaced with `gh issue list --label "area:*"` queries.
+6. **Live skills updated for immediate use** — Updated `.claude/CLAUDE.md`, `skills/implement/SKILL.md`, `skills/end-session/SKILL.md`, `skills/resume-session/SKILL.md`, `agents/test-wave-agent.md`, `agents/test-orchestrator-agent.md`, `skills/test/references/output-format.md`, `logs/README.md` — all now reference GH Issues via `gh` CLI instead of `_defects.md`. Grep for `_defects.md` in live files is now clean (only plan + to-be-archived file + completed/archived plans remain).
 
 ### What Needs to Happen Next
 
-**Priority 1: Commit all changes**
-Sessions 27, 31-35 all have uncommitted work. Dead code cleanup (Session 35) should be its own commit(s) — one per phase for easy bisection per plan's git strategy.
+**Priority 1: Set up GH labels and migrate existing defects**
+Manual/scripted step before running `/implement`:
+1. Create all labels per Sub-phase 1.3 Step 1 (`gh label create ...`)
+2. File the 7 existing defects from `_defects.md` as issues per the table in Sub-phase 1.3 Step 2 (close the ComposeView lifecycle one immediately with ref 386a25b)
+3. Archive `_defects.md` → `logs/defects-archive-final.md`
 
-**Priority 2: On-device verification**
-Install updated APK on emulator, verify typing/suggestions/keyboard switching still work after cleanup.
+**Priority 2: Re-index jcodemunch with source_root**
+`mcp__jcodemunch__index_folder(path="C:\\Users\\rseba\\Projects\\Hackers_Keyboard_Fork", incremental=false, use_ai_summaries=true)`. Record the new repo key (`local/Hackers_Keyboard_Fork-<hash>`) — needed by debug-research-agent and tailor skill.
 
-**Priority 3: Fix Symbols mode wasted space**
-Layout doesn't fill available area in non-Normal modes — long-standing blocker.
+**Priority 3: Execute restructure plan**
+Run `/implement .claude/plans/2026-03-17-claude-directory-restructure.md`. Plan is now 1545 lines, 6 phases, ~59 files created / ~18 modified. Plan counts as its own spec.
+
+**Priority 4: Commit backlog**
+Still untouched from Sessions 27, 31-36. Plus all of Session 37's live-skill edits. Plan says one commit per phase during /implement; backlog should be its own commit(s) first.
 
 ### Key Testing Resumption Guide
 
@@ -47,9 +52,19 @@ adb -s emulator-5554 shell "ime set dev.devkey.keyboard/.LatinIME"
 - **Wasted space in Symbols/other keyboard modes**: Layout doesn't fill available area in non-Normal modes
 - **Whisper model files**: Need `whisper-tiny.en.tflite` and `filters_vocab_en.bin` -> `app/src/main/assets/`
 - **Compose UI tests blocked on API 36**: Espresso incompatible with Android 16
-- **Large uncommitted backlog**: Sessions 27, 31-35 changes not committed
+- **Uncommitted state/docs backlog**: Session 36 restructure plan + all Session 37 live-skill edits + session state files not yet committed. Most source-code backlog (dead code, calibration, 123 fix, Kotlin migration) is already committed (73e211b, 31d33f7, 386a25b, 22a3050).
 
 ## Recent Sessions
+
+### Session 37 (2026-04-08)
+**Work**: Plan-revision + live-skill-update session. Staleness-audited the 2026-03-17 restructure plan against current repo (4 committed plans need moving, P0 refs still broken minus one). Rescoped plan (938 → 1545 lines) to add full tailor + writing-plans pipeline adapted from Field Guide for Kotlin/Android/jcodemunch, including plan-writer/plan-fixer/completeness-review agents. Rewrote implement pipeline to drop headless mode entirely (Agent tool only) and restructure reviews: one completeness-review-agent per phase, full 3-sweep + fixer loop only at end of plan (max 3 cycles, monotonicity check). Eliminated per-concern defect files: all defect tracking now GitHub Issues on `RobertoChavez2433/DevKey` with `defect` + `category:*` + `area:*` + `priority:*` label taxonomy. Updated 8 live files (CLAUDE.md, 3 skills, 2 agents, output-format, logs/README) to use `gh` CLI interim. jcodemunch MCP confirmed functional but HK index stale.
+**Decisions**: No headless `claude --bare` anywhere. Per-phase review is completeness-only (spec intent vs phase); 3-agent adversarial sweep moved to end of plan. Defects = GH Issues, no file-based tracking, no rotation. Plan serves as its own spec (no separate spec file). `gh issue` commands explicitly allowed in end-session/resume-session despite NO-git-commands rule (which applies only to code git ops). `.claude/plans/completed/` already exists — don't recreate.
+**Next**: (1) Create GH labels + file 7 existing defects as issues, (2) re-index jcodemunch with source_root, (3) run `/implement` on the restructure plan, (4) commit Sessions 27/31-37 backlog.
+
+### Session 36 (2026-03-17)
+**Work**: Audited DevKey + Field Guide App .claude/ directories with 4 Sonnet agents. Brainstormed restructure via `/brainstorming`. Wrote 6-phase implementation plan mirroring Field Guide patterns: systematic-debug skill (10-phase, HTTP server, DevKeyLogger), specialist agents, rules extraction, hooks, writing-plans separation.
+**Decisions**: Scaled to DevKey (not full Field Guide mirror). HTTP debug server + DevKeyLogger class. 7 concern-area defect files. 3 specialist agents + code-review + security. Split brainstorming/writing-plans with adversarial review only in writing-plans. block-orchestrator-writes + pre-agent-dispatch hooks.
+**Next**: Execute restructure plan via `/implement`, commit all changes, on-device verification.
 
 ### Session 35 (2026-03-05)
 **Work**: Implemented dead code cleanup Phases 1-5 via `/implement` skill. Orchestrator dispatched Sonnet agents per phase, build-verified after each. 33 files modified, 1 deleted (LatinIMEUtil.kt). All quality gates pass (build + tests + completeness).
@@ -61,28 +76,18 @@ adb -s emulator-5554 shell "ime set dev.devkey.keyboard/.LatinIME"
 **Decisions**: Java BinaryDictionary.java MUST stay (JNI bridge). CandidateView @JvmOverloads MUST stay (XML inflation). keyLabelSize→fontVoiceMic (18sp, not fontKey 14sp). Keyboard.Key @JvmField deferred (performance). Hungarian notation: opportunistic only.
 **Next**: Implement Phase 1 (zero-risk dead code removal), commit all uncommitted work, continue cleanup phases.
 
-### Session 33 (2026-03-04)
-**Work**: Ran /test --full (partial). Wave 0 + Wave 1 all PASS (ime-setup, typing, modifier-states, mode-switching). Identified fundamental test skill design flaws: agents too slow, don't write docs, too expensive for mechanical ADB. Documented redesign plan.
-**Decisions**: Test skill needs full redesign. Orchestrator should do ADB directly; agents only for vision. Broadcast-verified coords from S32 are wrong (~100px low); key-coordinates.md calibrated values are correct.
-**Next**: Redesign test skill, commit all uncommitted work, fix Symbols mode wasted space.
-
-### Session 32 (2026-03-04)
-**Work**: Ran /test --full. DevKeyMap broadcast calibration verified ON-DEVICE (53 keys). Haiku wave agent failed (wrong sleep, confused by Symbols mode). Fixed 4 test skill issues: Sonnet agents, ADB batching, orchestrator-side calibration, Normal mode reset. Added "wasted space in Symbols mode" blocker.
-**Decisions**: Wave agents use Sonnet not Haiku. Orchestrator owns calibration and passes coordinate table to agents. ADB commands batched in single Bash calls. ime-setup force-stops IME for clean Normal mode start.
-**Next**: Re-run /test --full with fixed skill, commit all uncommitted work, fix Symbols mode wasted space.
-
 ## Active Plans
 
-- **Dead Code Cleanup** — PHASES 1-5 IMPLEMENTED, NOT YET COMMITTED (Session 35). Phase 6 (DRY refactoring) deferred. Plan: `.claude/plans/dead-code-cleanup-plan.md`
-- **Kotlin Migration** — FULLY COMPLETE + COMMITTED (Session 25, 4 commits)
-- **123 Fix + E2E Harness** — IMPLEMENTED, NOT YET COMMITTED (Session 27)
+- **.claude Directory Restructure** — PLAN REVISED (Session 37), NOT YET IMPLEMENTED. 6 phases, 1545 lines. Now includes full tailor + writing-plans pipeline and Agent-tool-only implement flow. Plan: `.claude/plans/2026-03-17-claude-directory-restructure.md`
 - **E2E Testing** — IN PROGRESS (FULL mode 7/8 PASS Session 30, COMPACT/COMPACT_DEV pending)
-- **Coordinate Calibration** — IMPLEMENTED + VERIFIED ON-DEVICE, NOT YET COMMITTED (Sessions 31-32)
-- **Test Skill Fixes** — APPLIED but INSUFFICIENT (Sessions 32-33). Fundamental redesign needed — see `memory/test-skill-redesign.md`.
+- **Dead Code Cleanup** — COMPLETE + COMMITTED (73e211b, Session 35). Phase 6 deferred. Plan to be moved to `plans/completed/` in restructure Phase 1.4.
+- **Coordinate Calibration** — COMPLETE + COMMITTED (31d33f7, Sessions 31-32). Plan to be moved to `plans/completed/` in restructure Phase 1.4.
+- **123 Fix + E2E Harness** — COMPLETE + COMMITTED (386a25b, Session 27). Plan to be moved to `plans/completed/` in restructure Phase 1.4.
+- **Kotlin Migration** — FULLY COMPLETE + COMMITTED (22a3050, Session 25). Plan still at top level of `plans/`; move to `completed/` in restructure Phase 1.4.
 
 ## Reference
-- **Dead code cleanup plan**: `.claude/plans/dead-code-cleanup-plan.md`
-- **Test results**: `.claude/test-results/2026-03-04_0954_full/` (Session 33, partial: Wave 0+1 only)
+- **Restructure plan**: `.claude/plans/2026-03-17-claude-directory-restructure.md`
+- **Dead code cleanup plan**: `.claude/plans/completed/dead-code-cleanup-plan.md`
 - **Test skill redesign**: `.claude/memory/test-skill-redesign.md`
 - **Key coordinate map**: `.claude/logs/key-coordinates.md` (UPDATED Session 31)
 - **Calibration design**: `docs/plans/2026-03-04-coordinate-calibration-design.md`

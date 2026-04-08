@@ -27,8 +27,7 @@ You MUST create a task for each of these items and complete them in order:
 2. **Ask clarifying questions** — one at a time, understand purpose/constraints/success criteria
 3. **Propose 2-3 approaches** — with trade-offs and your recommendation
 4. **Present design** — in sections scaled to their complexity, get user approval after each section
-5. **Write design doc** — save to `docs/plans/YYYY-MM-DD-<topic>-design.md` and commit
-6. **Transition to implementation** — write an implementation plan (`.claude/plans/<topic>-implementation-plan.md`) and commit it
+5. **Write spec** — save to `.claude/specs/YYYY-MM-DD-<topic>-spec.md`
 
 ## Process Flow
 
@@ -39,20 +38,18 @@ digraph brainstorming {
     "Propose 2-3 approaches" [shape=box];
     "Present design sections" [shape=box];
     "User approves design?" [shape=diamond];
-    "Write design doc" [shape=box];
-    "Write implementation plan" [shape=doublecircle];
+    "Write spec" [shape=doublecircle];
 
     "Explore project context" -> "Ask clarifying questions";
     "Ask clarifying questions" -> "Propose 2-3 approaches";
     "Propose 2-3 approaches" -> "Present design sections";
     "Present design sections" -> "User approves design?";
     "User approves design?" -> "Present design sections" [label="no, revise"];
-    "User approves design?" -> "Write design doc" [label="yes"];
-    "Write design doc" -> "Write implementation plan";
+    "User approves design?" -> "Write spec" [label="yes"];
 }
 ```
 
-**The terminal state is writing the implementation plan.** Do NOT invoke frontend-design, mcp-builder, or any other implementation skill. After the design doc, write an implementation plan and commit it.
+**The terminal state is writing the spec file.** Do NOT invoke any implementation skill or write code. After writing the spec, offer to invoke `/writing-plans` next.
 
 ## The Process
 
@@ -77,15 +74,10 @@ digraph brainstorming {
 
 ## After the Design
 
-**Documentation:**
-- Write the validated design to `docs/plans/YYYY-MM-DD-<topic>-design.md`
+**Spec file:**
+- Write the validated design to `.claude/specs/YYYY-MM-DD-<topic>-spec.md`
 - Use elements-of-style:writing-clearly-and-concisely skill if available
-- Commit the design document to git
-
-**Implementation:**
-- Write a detailed implementation plan to `.claude/plans/<topic>-implementation-plan.md`
-- Commit the plan to git
-- The plan can then be executed via `/implement`
+- Offer to invoke `/writing-plans` next to produce an implementation plan from the spec
 
 ## Key Principles
 

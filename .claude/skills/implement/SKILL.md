@@ -6,91 +6,145 @@ user-invocable: true
 
 # /implement — Pure Supervisor
 
-You are the **supervisor**. You spawn orchestrator agents and handle handoffs. You NEVER read source files, review agent output, or write code.
+You are the **supervisor**. You spawn orchestrator agents via the Agent tool (Task) and handle handoffs. You do NOT read source files, review agent output, or write code.
 
 <IRON-LAW>
-NEVER use Edit or Write tools on source files. Only Read (plan/checkpoint), Bash (none), Task (spawn orchestrator), AskUserQuestion.
-The ONLY file you may Write is `.claude/state/implement-checkpoint.json` (to initialize or delete it).
+1. **NEVER use headless mode.** No `claude --bare`, no `claude --agent`, no `--print`, no CLI invocations of Claude. Everything goes through the Agent tool (Task).
+2. **Supervisor never edits source.** Allowed writes: ONLY `.claude/state/implement-checkpoint.json` (initialize or delete).
+3. **Supervisor never reads plan content.** Only plan metadata (phase names, line ranges). The orchestrator and implementers read the plan themselves.
 </IRON-LAW>
 
-## Supervisor Workflow
+---
 
-### Step 1: Accept the Plan
+## Step 1: Accept the Plan
 
-1. User provides a plan file path (or name — search `.claude/plans/` if needed)
-2. Read the plan file to extract the phase list (just names, not full content)
-3. Check if `.claude/state/implement-checkpoint.json` exists:
-   - If exists AND matches the same plan path: ask user "Resume from checkpoint or start fresh?"
-   - If exists but different plan: delete it, start fresh
-   - If not exists: start fresh
-4. If starting fresh, initialize the checkpoint file:
+1. User invokes `/implement <plan-path>` — bare filename searches `.claude/plans/` if needed
+2. Read the plan file **header only** — extract phase names + line ranges, `**Spec:**` path, `**Tailor:**` path (if present)
+3. Checkpoint path: `.claude/state/implement-checkpoint.json`
+4. Checkpoint existence check:
+   - **Missing** → start fresh
+   - **Exists + same plan path** → ask user "Resume from checkpoint (phases done: N) or start fresh?"
+   - **Exists + different plan** → delete checkpoint, start fresh
+5. Present phase list to user and confirm before starting
+
+---
+
+## Step 2: Initialize Checkpoint (if starting fresh)
+
+Write `.claude/state/implement-checkpoint.json`:
+
 ```json
 {
-  "plan": "<plan file path>",
-  "phases": [],
-  "build": "pending",
+  "plan": "<absolute plan path>",
+  "spec": "<absolute spec path or null>",
+  "tailor": "<absolute tailor path or null>",
+  "phases": {
+    "1": {
+      "name": "...",
+      "plan_lines": "10-85",
+      "status": "pending",
+      "files_modified": [],
+      "decisions": [],
+      "completeness": { "verdict": null, "findings": [], "correction_rounds": 0 },
+      "build": null,
+      "fix_attempts": 0
+    }
+  },
   "modified_files": [],
-  "phase_reviews": [],
-  "review": {"status": "pending", "findings": []},
-  "lint": "pending",
-  "p1_fixes": "pending",
-  "completeness": "pending",
   "decisions": [],
-  "fix_attempts": [],
+  "end_gate": {
+    "status": "pending",
+    "cycles": [],
+    "low_findings": []
+  },
   "blocked": []
 }
 ```
-5. Present phase list to user and confirm before starting
 
-### Step 2: Spawn Orchestrator
+Add one entry per phase extracted from the plan header.
 
-Spawn a **single foreground Task** with the orchestrator prompt below. Provide:
-- Plan file path
-- Checkpoint file path (`.claude/state/implement-checkpoint.json`)
+---
+
+## Step 3: Dispatch Orchestrator via Agent Tool
+
+Spawn a single foreground Task:
 
 ```
-subagent_type: general-purpose
-model: opus
+Task tool call:
+  subagent_type: implement-orchestrator
+  description: "Execute implementation plan"
+  prompt: |
+    Plan file: {{PLAN_PATH}}
+    Spec file: {{SPEC_PATH}}
+    Tailor dir: {{TAILOR_PATH}}
+    Checkpoint file: {{CHECKPOINT_PATH}}
+
+    Execute the full orchestration loop defined in your agent frontmatter.
+    Return DONE, HANDOFF, or BLOCKED.
 ```
 
-### Step 3: Handle Orchestrator Result
+Replace `{{PLAN_PATH}}`, `{{SPEC_PATH}}`, `{{TAILOR_PATH}}`, `{{CHECKPOINT_PATH}}` with actual absolute paths. Set `{{SPEC_PATH}}` and `{{TAILOR_PATH}}` to `null` if not present.
 
-The orchestrator returns one of three statuses:
+No headless flags. No `--print`. No `--json-schema`. No `tee` pipelines. No `stream-filter.py`. No `extract-result.py`. Just one Task call.
 
-| Status | Action |
-|--------|--------|
-| **DONE** | Present final summary to user. Delete checkpoint file. |
-| **HANDOFF** | Log the handoff count. Spawn a fresh orchestrator (Step 2 again). |
-| **BLOCKED** | Present the blocked issue(s) to user. Ask: fix manually, skip, or adjust plan. If user resolves, update checkpoint and spawn again. |
+---
 
-This is a loop: `while status != DONE: spawn orchestrator`.
+## Step 4: Handle Return Status (loop)
 
-### Step 4: Final Summary
+```
+while status != DONE:
+  result = Task(subagent_type=implement-orchestrator, ...)
+  status = parse(result)
 
-When DONE, present to user:
+  if status == HANDOFF:
+    log cycle count
+    spawn a fresh orchestrator (Step 3 again)
+
+  if status == BLOCKED:
+    present blocked item(s) to user
+    options: fix manually / skip / adjust plan
+    if user resolves → update checkpoint, spawn again
+    if user gives up → break
+
+  if status == DONE:
+    break
+```
+
+Each fresh orchestrator dispatch reads the checkpoint to determine where to resume.
+
+---
+
+## Step 5: Final Summary
+
+Read checkpoint to compile the summary. Present to user:
 
 ```
 ## Implementation Complete
 
-**Plan**: [plan filename]
+**Plan**: [filename]
 **Orchestrator cycles**: N (M handoffs)
+**Phases**: N/N complete
 
-### Phases
-1. [Phase] — DONE
+### Per-Phase Completeness
+Phase 1 — APPROVED (0 correction rounds)
+Phase 2 — APPROVED (1 correction round)
 ...
 
-### Files Modified
-- [file list]
-
-### Quality Gates
+### End-of-Plan Quality Gate
 - Build: PASS
 - Lint: PASS
-- P1 Fix Pass: PASS (N P1s fixed)
-- Full Code Review: PASS (N cycles)
-- Plan Completeness: PASS
+- Code Review: PASS (cycle 1)
+- Security Review: PASS (cycle 1)
+- Completeness Review: PASS (cycle 1)
+
+### Files Modified
+[deduped list from checkpoint modified_files]
 
 ### Decisions Made
-- [list]
+[list from checkpoint decisions]
+
+### Low Findings (logged, not fixed)
+[count from checkpoint end_gate.low_findings]
 
 Ready to review and commit.
 ```
@@ -99,85 +153,13 @@ Ready to review and commit.
 
 ---
 
-## Orchestrator Agent Prompt
+## Troubleshooting
 
-The following is the FULL prompt to pass to the orchestrator agent via the Task tool. Copy it verbatim into the `prompt` parameter, replacing `{{PLAN_PATH}}` and `{{CHECKPOINT_PATH}}` with actual values.
-
-<ORCHESTRATOR-PROMPT>
-
-You are the **implementation orchestrator**. You dispatch agents, run builds, enforce quality gates, and manage checkpoint state. You NEVER write code yourself.
-
-**Tools you may use**: Read, Glob, Grep, Bash, Task, Write (ONLY for the checkpoint file)
-
-**Bash is pre-authorized** for the following commands — use them without hesitation:
-- `cd "C:/Users/rseba/Projects/Hackers Keyboard Fork" && ./gradlew build`
-- `cd "C:/Users/rseba/Projects/Hackers Keyboard Fork" && ./gradlew lint`
-- `cd "C:/Users/rseba/Projects/Hackers Keyboard Fork" && ./gradlew assembleDebug`
-
-## Inputs
-
-- Plan file: `{{PLAN_PATH}}`
-- Checkpoint file: `{{CHECKPOINT_PATH}}`
-- Conventions: `.claude/CLAUDE.md`
-- Active defects: `.claude/autoload/_defects.md`
-
-## On Start
-
-1. Read the checkpoint file at `{{CHECKPOINT_PATH}}`
-2. Read the plan file at `{{PLAN_PATH}}`
-3. Read `.claude/CLAUDE.md` and `.claude/autoload/_defects.md`
-4. Determine current position: which phases are done, which is next
-5. If resuming mid-review-cycle, pick up from the last gate state
-
-## Phase 1: Implementation Loop
-
-For each remaining phase in the plan, execute steps 1a through 1e **in order**. Do NOT skip any step.
-
-### 1a. Analyze the Phase
-- Identify files to modify and dependencies on prior phases
-- Group files into non-overlapping ownership sets
-
-### 1b. Dispatch Implementer Agent(s)
-- Split by file ownership to prevent edit conflicts
-- Max 3 parallel agents for independent phases; sequential for dependent phases
-- Each implementer is a Task:
-  ```
-  subagent_type: general-purpose
-  model: sonnet
-  ```
-- Each implementer receives:
-  - The plan text (relevant phase section only)
-  - Their assigned files
-  - Full text of `.claude/CLAUDE.md` conventions
-  - Relevant entries from `.claude/autoload/_defects.md`
-  - Instruction: "Implement the assigned phase. Only modify your assigned files. Read each file before editing."
-
-### 1c. Verify Results
-- After agents return, verify expected files were modified (Grep/Read spot check)
-
-### 1d. Build
-- Run build command
-- If build **fails**: dispatch fixer agent (Sonnet) with error output, max 3 attempts, then BLOCKED
-- If build **passes**: continue
-
-### 1e. Update Checkpoint — MANDATORY
-After EVERY phase, write updated checkpoint to disk.
-
-## Phase 2: Quality Gate Loop
-
-After all phases done, run these gates in order:
-
-### Gate 1: Build
-### Gate 2: Lint
-### Gate 3: P1 Fix Pass
-### Gate 4: Plan Completeness
-
-## Context Management
-
-**At ~80% context utilization**: Write checkpoint, return HANDOFF to supervisor.
-
-## Termination
-
-Return DONE, HANDOFF, or BLOCKED with appropriate details.
-
-</ORCHESTRATOR-PROMPT>
+| Symptom | Action |
+|---------|--------|
+| Orchestrator returns BLOCKED immediately | Read the `blocked` array in checkpoint. Resolve the blocker manually or skip the blocked step, then re-dispatch. |
+| Orchestrator returns HANDOFF after partial progress | Normal — context limit hit. Spawn fresh orchestrator; it will resume from checkpoint. |
+| Build fails repeatedly after 3 fixer attempts | Orchestrator will return BLOCKED. Present error to user; fix manually in editor, then re-dispatch. |
+| Checkpoint has stale data from a different plan | Delete `.claude/state/implement-checkpoint.json` and start fresh. |
+| User wants to skip a phase | Update checkpoint manually: set that phase's `status` to `"skipped"`, then re-dispatch. |
+| Orchestrator cycles exceed 10 | Investigate whether the plan has circular dependencies or the build is fundamentally broken. |

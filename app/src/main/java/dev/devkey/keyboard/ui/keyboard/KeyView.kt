@@ -5,9 +5,12 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -16,6 +19,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -25,10 +29,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.PointerEvent
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
 import dev.devkey.keyboard.Keyboard
 import dev.devkey.keyboard.core.KeyPressLogger
 import dev.devkey.keyboard.core.ModifierKeyState
@@ -44,6 +57,10 @@ import kotlinx.coroutines.launch
  *
  * Handles rendering, press animation, long-press, key repeat, modifier behavior,
  * and theme-based coloring per KeyType.
+ *
+ * When a key's longPressCodes has ≥2 entries, a Compose Popup opens on long-press
+ * offering all candidates. The user drags to a candidate and releases to select it.
+ * Releasing without dragging (or dragging back to origin) selects the default (index 0).
  */
 @Composable
 fun KeyView(
@@ -59,7 +76,16 @@ fun KeyView(
 ) {
     val view = LocalView.current
     val coroutineScope = rememberCoroutineScope()
+    val density = LocalDensity.current
+
     var isPressed by remember { mutableStateOf(false) }
+
+    // Multi-char long-press popup state
+    var popupCodes by remember { mutableStateOf<List<Int>?>(null) }
+    var popupActiveIndex by remember { mutableIntStateOf(0) }
+
+    // Track this key's size so the popup can be centered horizontally.
+    var keySize by remember { mutableStateOf(IntSize.Zero) }
 
     // Observe modifier states for visual feedback
     val shiftState by modifierState.shiftState.collectAsState()
@@ -162,13 +188,21 @@ fun KeyView(
     val isModifierKey = key.type == KeyType.MODIFIER ||
             (key.type == KeyType.UTILITY && (key.primaryCode == KeyCodes.CTRL_LEFT || key.primaryCode == KeyCodes.ALT_LEFT))
 
+    // Whether this key uses the multi-char popup on long-press
+    val hasMultiPopup = !isModifierKey &&
+            key.longPressCodes != null &&
+            key.longPressCodes.size >= 2
+
     Box(
         modifier = modifier
             .testTag("key_${key.primaryCode}")
             .scale(scale)
             .clip(RoundedCornerShape(DevKeyTheme.keyRadius))
             .background(backgroundColor)
-            .pointerInput(key.primaryCode, key.type, key.longPressCode, key.isRepeatable) {
+            .onGloballyPositioned { coords ->
+                keySize = coords.size
+            }
+            .pointerInput(key.primaryCode, key.type, key.longPressCode, key.isRepeatable, hasMultiPopup) {
                 if (isModifierKey) {
                     // Modifier keys use simple tap detection
                     detectTapGestures(
@@ -195,8 +229,82 @@ fun KeyView(
                             }
                         }
                     )
+                } else if (hasMultiPopup) {
+                    // Multi-char popup path: track pointer position across the gesture
+                    // so we can highlight candidates as the user drags.
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        isPressed = true
+                        onKeyPress(key.primaryCode)
+                        KeyPressLogger.logKeyDown(key.primaryLabel, key.primaryCode, key.type.name)
+
+                        var longPressTriggered = false
+
+                        // Launch the long-press timer
+                        val longPressJob = coroutineScope.launch {
+                            delay(300L)
+                            // Long-press fires: open the popup
+                            view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                            KeyPressLogger.logLongPress(key.primaryLabel, key.primaryCode, key.longPressCode)
+                            popupCodes = key.longPressCodes
+                            popupActiveIndex = 0
+                            longPressTriggered = true
+                        }
+
+                        // Poll for pointer move / up events
+                        try {
+                            while (true) {
+                                val event: PointerEvent = awaitPointerEvent(PointerEventPass.Main)
+                                val pointer = event.changes.firstOrNull() ?: break
+
+                                if (!pointer.pressed) {
+                                    // Finger lifted
+                                    pointer.consume()
+                                    break
+                                }
+
+                                // If popup is open, compute active index from drag distance.
+                                // pointer.position is composable-local. The popup row is centered
+                                // over the key, so its left edge in composable-local coords is:
+                                //   popupLeftEdge = (keyWidth - totalPopupWidth) / 2
+                                // candidate index = (fingerX - popupLeftEdge) / cellWidth
+                                val codes = popupCodes
+                                if (codes != null && codes.isNotEmpty()) {
+                                    val cellWidthPx = with(density) {
+                                        (DevKeyTheme.popupCellPadH * 2 + DevKeyTheme.popupCellGlyphWidth).toPx()
+                                    }
+                                    val totalPopupWidthPx = cellWidthPx * codes.size
+                                    val popupLeftEdgePx = (keySize.width - totalPopupWidthPx) / 2f
+                                    val fingerX = pointer.position.x
+                                    val indexFromLeft = ((fingerX - popupLeftEdgePx) / cellWidthPx).toInt()
+                                    popupActiveIndex = indexFromLeft.coerceIn(0, codes.size - 1)
+                                }
+
+                                pointer.consume()
+                            }
+                        } finally {
+                            longPressJob.cancel()
+                            isPressed = false
+                        }
+
+                        val codes = popupCodes
+                        if (longPressTriggered && codes != null) {
+                            // Dispatch selected candidate
+                            val selectedCode = codes[popupActiveIndex]
+                            onKeyAction(selectedCode)
+                            // Clear popup state
+                            popupCodes = null
+                            popupActiveIndex = 0
+                        } else if (!longPressTriggered) {
+                            // Short tap — dispatch primary code
+                            KeyPressLogger.logKeyTap(key.primaryLabel, key.primaryCode)
+                            onKeyAction(key.primaryCode)
+                        }
+                        onKeyRelease(key.primaryCode)
+                        KeyPressLogger.logKeyUp(key.primaryLabel, key.primaryCode)
+                    }
                 } else {
-                    // Non-modifier keys: handle press, long-press, repeat
+                    // Non-modifier, non-popup keys: handle press, long-press, repeat
                     detectTapGestures(
                         onPress = {
                             isPressed = true
@@ -277,7 +385,7 @@ fun KeyView(
                 fontSize = DevKeyTheme.fontKeyHint,
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .padding(end = 3.dp, top = 2.dp)
+                    .padding(end = DevKeyTheme.hintLabelPadEnd, top = DevKeyTheme.hintLabelPadTop)
             )
         }
 
@@ -286,11 +394,86 @@ fun KeyView(
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(bottom = 4.dp)
-                    .size(4.dp)
+                    .padding(bottom = DevKeyTheme.lockDotPadBottom)
+                    .size(DevKeyTheme.lockDotSize)
                     .clip(CircleShape)
                     .background(DevKeyTheme.keyText)
             )
+        }
+
+        // Multi-char long-press popup
+        val currentPopupCodes = popupCodes
+        if (currentPopupCodes != null) {
+            LongPressPopup(
+                codes = currentPopupCodes,
+                activeIndex = popupActiveIndex,
+                keySize = keySize,
+                density = density
+            )
+        }
+    }
+}
+
+/**
+ * Renders the multi-char long-press candidate popup anchored above the key.
+ *
+ * Displayed as a horizontal Row of candidate cells. The cell at [activeIndex]
+ * is highlighted using [DevKeyTheme.popupSelectedBg]. All other cells use
+ * [DevKeyTheme.popupBg].
+ *
+ * The popup is offset upward by its own estimated height plus a small gap
+ * so it appears above the key surface.
+ */
+@Composable
+private fun LongPressPopup(
+    codes: List<Int>,
+    activeIndex: Int,
+    keySize: IntSize,
+    density: Density
+) {
+    // Estimate cell width to compute the popup offset that centers it over the key.
+    val cellWidthDp: Dp = DevKeyTheme.popupCellPadH * 2 + DevKeyTheme.popupCellGlyphWidth
+    val popupHeightDp: Dp = DevKeyTheme.popupCellPadV * 2 + DevKeyTheme.popupCellGlyphHeight
+    val gapDp: Dp = DevKeyTheme.popupAnchorGap
+
+    val totalPopupWidthPx = with(density) { (cellWidthDp * codes.size).roundToPx() }
+    val keyWidthPx = keySize.width
+    // Center the popup horizontally over the key
+    val xOffsetPx = (keyWidthPx - totalPopupWidthPx) / 2
+    val yOffsetPx = with(density) { -(popupHeightDp + gapDp).roundToPx() }
+
+    Popup(
+        alignment = Alignment.TopStart,
+        offset = IntOffset(xOffsetPx, yOffsetPx),
+        properties = PopupProperties(focusable = false)
+    ) {
+        Row(
+            modifier = Modifier
+                .clip(RoundedCornerShape(DevKeyTheme.popupRadius))
+                .background(DevKeyTheme.popupBg)
+        ) {
+            codes.forEachIndexed { index, code ->
+                val isSelected = index == activeIndex
+                val bgColor = if (isSelected) DevKeyTheme.popupSelectedBg else Color.Transparent
+                val textColor = if (isSelected) DevKeyTheme.popupSelectedText else DevKeyTheme.popupCandidateText
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(DevKeyTheme.popupRadius))
+                        .background(bgColor)
+                        .padding(
+                            horizontal = DevKeyTheme.popupCellPadH,
+                            vertical = DevKeyTheme.popupCellPadV
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    val label = if (code > 0) code.toChar().toString() else "?"
+                    Text(
+                        text = label,
+                        color = textColor,
+                        fontSize = DevKeyTheme.fontPopupCandidate
+                    )
+                }
+            }
         }
     }
 }

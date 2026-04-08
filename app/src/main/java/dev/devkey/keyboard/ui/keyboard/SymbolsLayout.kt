@@ -14,19 +14,53 @@ object SymbolsLayout {
     val layout: KeyboardLayoutData by lazy { buildLayout() }
 
     private fun buildLayout(): KeyboardLayoutData {
+        // Long-press data added per plan Phase 5.3 + spec §4.2.
+        // Defaults to common SwiftKey-style popup content for symbol keys.
+        // Retune against actual reference captures in Phase 6 if needed.
+
         // Row 1: Numbers 1-0
         val numberRow = KeyRowData(
             keys = listOf(
-                KeyData("1", '1'.code, type = KeyType.NUMBER),
-                KeyData("2", '2'.code, type = KeyType.NUMBER),
-                KeyData("3", '3'.code, type = KeyType.NUMBER),
-                KeyData("4", '4'.code, type = KeyType.NUMBER),
-                KeyData("5", '5'.code, type = KeyType.NUMBER),
-                KeyData("6", '6'.code, type = KeyType.NUMBER),
-                KeyData("7", '7'.code, type = KeyType.NUMBER),
-                KeyData("8", '8'.code, type = KeyType.NUMBER),
-                KeyData("9", '9'.code, type = KeyType.NUMBER),
-                KeyData("0", '0'.code, type = KeyType.NUMBER)
+                KeyData("1", '1'.code,
+                    longPressLabel = "\u00B9", longPressCode = '\u00B9'.code,
+                    longPressCodes = listOf('\u00B9'.code),
+                    type = KeyType.NUMBER),
+                KeyData("2", '2'.code,
+                    longPressLabel = "\u00B2", longPressCode = '\u00B2'.code,
+                    longPressCodes = listOf('\u00B2'.code),
+                    type = KeyType.NUMBER),
+                KeyData("3", '3'.code,
+                    longPressLabel = "\u00B3", longPressCode = '\u00B3'.code,
+                    longPressCodes = listOf('\u00B3'.code),
+                    type = KeyType.NUMBER),
+                KeyData("4", '4'.code,
+                    longPressLabel = "\u2074", longPressCode = '\u2074'.code,
+                    longPressCodes = listOf('\u2074'.code),
+                    type = KeyType.NUMBER),
+                KeyData("5", '5'.code,
+                    longPressLabel = "\u2075", longPressCode = '\u2075'.code,
+                    longPressCodes = listOf('\u2075'.code),
+                    type = KeyType.NUMBER),
+                KeyData("6", '6'.code,
+                    longPressLabel = "\u2076", longPressCode = '\u2076'.code,
+                    longPressCodes = listOf('\u2076'.code),
+                    type = KeyType.NUMBER),
+                KeyData("7", '7'.code,
+                    longPressLabel = "\u2077", longPressCode = '\u2077'.code,
+                    longPressCodes = listOf('\u2077'.code),
+                    type = KeyType.NUMBER),
+                KeyData("8", '8'.code,
+                    longPressLabel = "\u2078", longPressCode = '\u2078'.code,
+                    longPressCodes = listOf('\u2078'.code),
+                    type = KeyType.NUMBER),
+                KeyData("9", '9'.code,
+                    longPressLabel = "\u2079", longPressCode = '\u2079'.code,
+                    longPressCodes = listOf('\u2079'.code),
+                    type = KeyType.NUMBER),
+                KeyData("0", '0'.code,
+                    longPressLabel = "\u2070", longPressCode = '\u2070'.code,
+                    longPressCodes = listOf('\u2070'.code),
+                    type = KeyType.NUMBER)
             )
         )
 
@@ -35,23 +69,50 @@ object SymbolsLayout {
             keys = listOf(
                 KeyData("@", '@'.code, type = KeyType.SPECIAL),
                 KeyData("#", '#'.code, type = KeyType.SPECIAL),
-                KeyData("$", '$'.code, longPressLabel = "\u20AC", longPressCode = '\u20AC'.code, type = KeyType.SPECIAL),
+                KeyData("$", '$'.code,
+                    longPressLabel = "\u00A2", longPressCode = '\u00A2'.code,
+                    longPressCodes = listOf('\u00A2'.code, '\u20AC'.code, '\u00A3'.code, '\u00A5'.code, '\u20B9'.code),
+                    type = KeyType.SPECIAL),
                 KeyData("_", '_'.code, type = KeyType.SPECIAL),
                 KeyData("&", '&'.code, type = KeyType.SPECIAL),
-                KeyData("-", '-'.code, type = KeyType.SPECIAL),
-                KeyData("+", '+'.code, type = KeyType.SPECIAL),
-                KeyData("(", '('.code, longPressLabel = "<", longPressCode = '<'.code, type = KeyType.SPECIAL),
-                KeyData(")", ')'.code, longPressLabel = ">", longPressCode = '>'.code, type = KeyType.SPECIAL),
-                KeyData("/", '/'.code, longPressLabel = "\\", longPressCode = '\\'.code, type = KeyType.SPECIAL)
+                KeyData("-", '-'.code,
+                    longPressLabel = "_", longPressCode = '_'.code,
+                    longPressCodes = listOf('_'.code, '\u2014'.code, '\u2013'.code, '~'.code),
+                    type = KeyType.SPECIAL),
+                KeyData("+", '+'.code,
+                    longPressLabel = "\u00B1", longPressCode = '\u00B1'.code,
+                    longPressCodes = listOf('\u00B1'.code, '\u00D7'.code, '\u00F7'.code),
+                    type = KeyType.SPECIAL),
+                KeyData("(", '('.code,
+                    longPressLabel = "[", longPressCode = '['.code,
+                    longPressCodes = listOf('['.code, '{'.code, '<'.code),
+                    type = KeyType.SPECIAL),
+                KeyData(")", ')'.code,
+                    longPressLabel = "]", longPressCode = ']'.code,
+                    longPressCodes = listOf(']'.code, '}'.code, '>'.code),
+                    type = KeyType.SPECIAL),
+                KeyData("/", '/'.code,
+                    longPressLabel = "\\", longPressCode = '\\'.code,
+                    longPressCodes = listOf('\\'.code, '|'.code),
+                    type = KeyType.SPECIAL)
             )
         )
 
         // Row 3: Punctuation
         val symbolRow2 = KeyRowData(
             keys = listOf(
-                KeyData("*", '*'.code, type = KeyType.SPECIAL),
-                KeyData("\"", '"'.code, longPressLabel = "\u201C", longPressCode = '\u201C'.code, type = KeyType.SPECIAL),
-                KeyData("'", '\''.code, longPressLabel = "\u2018", longPressCode = '\u2018'.code, type = KeyType.SPECIAL),
+                KeyData("*", '*'.code,
+                    longPressLabel = "\u00D7", longPressCode = '\u00D7'.code,
+                    longPressCodes = listOf('\u00D7'.code, '\u2022'.code, '\u00B0'.code),
+                    type = KeyType.SPECIAL),
+                KeyData("\"", '"'.code,
+                    longPressLabel = "\u00AB", longPressCode = '\u00AB'.code,
+                    longPressCodes = listOf('\u00AB'.code, '\u00BB'.code, '\u201E'.code, '\u201C'.code, '\u201D'.code),
+                    type = KeyType.SPECIAL),
+                KeyData("'", '\''.code,
+                    longPressLabel = "\u2018", longPressCode = '\u2018'.code,
+                    longPressCodes = listOf('\u2018'.code, '\u2019'.code, '\u201A'.code),
+                    type = KeyType.SPECIAL),
                 KeyData(":", ':'.code, type = KeyType.SPECIAL),
                 KeyData(";", ';'.code, type = KeyType.SPECIAL),
                 KeyData("!", '!'.code, longPressLabel = "\u00A1", longPressCode = '\u00A1'.code, type = KeyType.SPECIAL),
@@ -98,7 +159,10 @@ object SymbolsLayout {
                     type = KeyType.SPACEBAR,
                     weight = 4.0f
                 ),
-                KeyData(".", '.'.code, type = KeyType.SPECIAL, weight = 0.8f),
+                KeyData(".", '.'.code,
+                    longPressLabel = ",", longPressCode = ','.code,
+                    longPressCodes = listOf(','.code, ';'.code, ':'.code, '!'.code, '?'.code, '\u2026'.code),
+                    type = KeyType.SPECIAL, weight = 0.8f),
                 KeyData(
                     primaryLabel = "Enter",
                     primaryCode = KeyCodes.ENTER,

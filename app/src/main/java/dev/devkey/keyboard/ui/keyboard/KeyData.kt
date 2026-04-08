@@ -36,6 +36,7 @@ enum class LayoutMode {
  * @param primaryCode The keycode sent when the key is tapped.
  * @param longPressLabel Optional label for long-press hint (shown top-right).
  * @param longPressCode Optional keycode sent on long-press.
+ * @param longPressCodes Optional list of keycodes for multi-char long-press popup.
  * @param type The key type, used for styling and behavior.
  * @param weight Flex weight for layout sizing (default 1.0f).
  * @param isRepeatable Whether the key repeats when held (default false).
@@ -45,6 +46,16 @@ data class KeyData(
     val primaryCode: Int,
     val longPressLabel: String? = null,
     val longPressCode: Int? = null,
+    // WHY: SwiftKey-style multi-char long-press popups (e.g. a → à á â ä)
+    // need to present multiple candidates. When non-null, KeyView
+    // opens a popup offering all of these as selectable options;
+    // longPressCode remains the "primary" (first) long-press for
+    // backward-compat and quick-flick dispatch.
+    // FROM SPEC: §4.2 "Same long-press popup content on every key"
+    // (user chose Phase 5 option A — applies to COMPACT letter keys as well).
+    // NOTE: Defaulted to null so every existing KeyData(...) site in
+    // the codebase remains source-compatible.
+    val longPressCodes: List<Int>? = null,
     val type: KeyType = KeyType.LETTER,
     val weight: Float = 1.0f,
     val isRepeatable: Boolean = false

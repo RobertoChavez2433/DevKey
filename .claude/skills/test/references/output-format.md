@@ -61,7 +61,7 @@ Rules:
 
 ## Summary
 - **Total**: {N} | **Pass**: {P} | **Fail**: {F} | **Skip**: {S}
-- **Defects filed**: {count} -> .claude/autoload/_defects.md
+- **Defects filed**: {count} -> GitHub Issues (`RobertoChavez2433/DevKey`, label `defect`)
 - **Screenshots**: {count} -> screenshots/
 - **Logs**: {count} -> logs/
 
@@ -164,24 +164,29 @@ Content format for per-flow logcat:
 {raw logcat output}
 ```
 
-## Defect Filing Format
+## Defect Filing Format (GitHub Issues)
 
-When a flow fails, the wave agent files a defect to `.claude/autoload/_defects.md`:
+When a flow fails, the wave agent files a GitHub issue on `RobertoChavez2433/DevKey`:
 
-```markdown
-### [IME] {YYYY-MM-DD}: {flow-name} flow failure (auto-test)
-**Status**: OPEN
+```bash
+gh issue create --repo RobertoChavez2433/DevKey \
+  --title "[IME] {YYYY-MM-DD}: {flow-name} flow failure (auto-test)" \
+  --label "defect,category:IME,area:ime-lifecycle,priority:medium" \
+  --body "$(cat <<'EOF'
 **Source**: Automated test run {run-directory-name}
 **Symptom**: {failure description from the flow report}
 **Step**: Step {N} -- {step description}
 **Logcat**: {relevant error lines, max 5 lines}
 **Screenshot**: .claude/test-results/{run-dir}/screenshots/{flow}-{step}-{desc}.png
 **Suggested cause**: {assessment based on logs + screenshots + flow context}
+EOF
+)"
 ```
 
 Rules:
-- Check for existing duplicate defects before filing
-- Max 7 active defects — archive oldest to `defects-archive.md` if full
+- Before creating, search for existing open duplicates: `gh issue list --repo RobertoChavez2433/DevKey --label defect --state open --search "{flow-name}"`
+- If a matching open issue exists, comment on it instead of opening a new one: `gh issue comment <num> --body "New occurrence in run {run-id}: ..."`
+- No count limit, no archival — GitHub handles lifecycle
 - Defects filed immediately on failure (not batched)
 
 ## Retention Policy

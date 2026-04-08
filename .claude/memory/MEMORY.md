@@ -34,7 +34,7 @@
 ## Build
 ```bash
 ./gradlew assembleDebug    # Build debug APK
-./gradlew test             # Run unit tests (355 tests)
+./gradlew test             # Run unit tests (361 tests)
 ./gradlew installDebug     # Install on device
 ```
 
@@ -57,6 +57,12 @@
 - **`connectedAndroidTest` uninstalls the app**: Running instrumented tests removes the debug APK from the device. Must reinstall + `ime enable` + `ime set` after.
 - **Espresso incompatible with API 36**: `InputManager.getInstance()` reflection fails on Android 16. Compose BOM 2024.06.00 Espresso deps need upgrading for API 36 emulators.
 
+## Systematic Debugging
+
+- **DevKeyLogger**: `app/src/main/java/dev/devkey/keyboard/debug/DevKeyLogger.kt` — structured debug logging class with session-scoped log capture and logcat integration.
+- **HTTP debug server**: `tools/debug-server/server.js` — Node.js server on port 3947. Serves logcat streams and device state over HTTP for remote debugging sessions.
+- Use `/systematic-debugging` skill for 10-phase root cause analysis on hard bugs.
+
 ## Java→Kotlin Migration (COMPLETE)
 - **All phases executed**: Sessions 21-24 (brainstorm → plan → review → implement → deferred items → code review)
 - **Only Java file remaining**: JNI bridge (`org.pocketworkstation.pckeyboard.BinaryDictionary`)
@@ -75,6 +81,7 @@
 ## Current State
 - All implementation sessions + layout redesign + Kotlin migration + code review complete
 - Migration COMMITTED: 4 commits on main (migration, tests, plans, crash fix)
+- **.claude/ restructure COMPLETE (Phase 1-6 of 2026-03-17 plan)**: New dirs added — `rules/`, `hooks/`, `architecture-decisions/`, `agent-memory/`, `specs/`, `adversarial_reviews/`, `code-reviews/`, `dependency_graphs/`, `outputs/`. CLAUDE.md rewritten with 9-skill table, domain rules, context efficiency, expanded directory reference.
 - 3 keyboard modes: Compact (SwiftKey), Compact Dev (long-press numbers), Full (6-row + utility)
 - Theme: teal monochrome design token system
 - Build passing, 361 unit tests passing (355 + 6 new ModifierStateManager double-tap tests)

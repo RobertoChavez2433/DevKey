@@ -1892,8 +1892,71 @@ private var mAutoCorrectOn = false
         }
     }
 
+    /**
+     * Extracts the last completed word from the text immediately before
+     * the cursor. Used by setNextSuggestions for bigram prediction.
+     *
+     * Returns null when:
+     *   - InputConnection is unavailable
+     *   - Cursor is at the start of the field
+     *   - No word-character precedes the cursor
+     *
+     * Reads up to 64 chars before the cursor and walks backward past
+     * whitespace, then captures the longest run of word characters
+     * immediately before the whitespace.
+     *
+     * FROM SPEC: §4.3 — next-word prediction needs the previously
+     * committed word as the bigram lookup key.
+     */
+    private fun getLastCommittedWordBeforeCursor(): CharSequence? {
+        val ic = currentInputConnection ?: return null
+        val before = ic.getTextBeforeCursor(64, 0) ?: return null
+        if (before.isEmpty()) return null
+
+        // Walk backward past trailing whitespace (usually the space that
+        // just triggered setNextSuggestions).
+        var end = before.length
+        while (end > 0 && before[end - 1].isWhitespace()) end--
+        if (end == 0) return null
+
+        // Walk backward over word characters to find the start of the
+        // last word. Letters, digits, apostrophe (for contractions).
+        var start = end
+        while (start > 0) {
+            val c = before[start - 1]
+            if (c.isLetterOrDigit() || c == '\'') start-- else break
+        }
+        if (start == end) return null
+        return before.subSequence(start, end)
+    }
+
     private fun setNextSuggestions() {
-        setSuggestions(mSuggestPuncList, completions = false, typedWordValid = false, haveMinimalSuggestion = false)
+        // FROM SPEC: §4.3 predictive next-word after space. If the bigram
+        // path returns any candidates for the previously committed word,
+        // show them in the candidate strip; otherwise fall back to the
+        // punctuation list (the v0 behavior).
+        val suggestImpl = mSuggest
+        if (suggestImpl != null && isPredictionOn()) {
+            val prevWord = getLastCommittedWordBeforeCursor()
+            if (prevWord != null) {
+                val nextWords = suggestImpl.getNextWordSuggestions(prevWord)
+                if (nextWords.isNotEmpty()) {
+                    setSuggestions(
+                        nextWords,
+                        completions = false,
+                        typedWordValid = false,
+                        haveMinimalSuggestion = false
+                    )
+                    return
+                }
+            }
+        }
+        setSuggestions(
+            mSuggestPuncList,
+            completions = false,
+            typedWordValid = false,
+            haveMinimalSuggestion = false
+        )
     }
 
     private fun addToDictionaries(suggestion: CharSequence, frequencyDelta: Int) {

@@ -195,8 +195,16 @@ class BinaryDictionary : Dictionary, java.io.Closeable {
 
         val codesSize = composer.size()
         mInputCodes.fill(-1)
-        val alternatives = composer.getCodesAt(0)
-        alternatives.copyInto(mInputCodes, 0, 0, minOf(alternatives.size, MAX_ALTERNATIVES))
+        if (codesSize > 0) {
+            // WHY: composer.getCodesAt(0) throws IndexOutOfBoundsException when
+            // the composer is empty (next-word prediction path in Suggest
+            // .getNextWordSuggestions passes a zero-size composer). The native
+            // side (see dictionary.cpp Dictionary::searchForTerminalNode) is
+            // patched to skip checkFirstCharacter when mInputLength == 0, so
+            // passing codesSize=0 with mInputCodes left as -1 fill is safe.
+            val alternatives = composer.getCodesAt(0)
+            alternatives.copyInto(mInputCodes, 0, 0, minOf(alternatives.size, MAX_ALTERNATIVES))
+        }
 
         val count = getBigramsNative(
             mNativeDict, chars, chars.size, mInputCodes, codesSize,

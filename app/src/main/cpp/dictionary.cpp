@@ -533,7 +533,11 @@ Dictionary::searchForTerminalNode(int addressLookingFor, int frequency)
             break;
         }
     }
-    if (checkFirstCharacter(word)) {
+    // mInputLength == 0 signals next-word prediction (no typed character
+    // yet), where the caller wants every bigram candidate — bypass the
+    // first-character alternative filter in that case. See
+    // BinaryDictionary.kt getBigrams and Suggest.getNextWordSuggestions.
+    if (mInputLength == 0 || checkFirstCharacter(word)) {
         addWordBigram(word, depth, frequency);
     }
 }

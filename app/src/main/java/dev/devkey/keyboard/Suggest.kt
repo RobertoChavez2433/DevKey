@@ -52,6 +52,12 @@ class Suggest : Dictionary.WordCallback {
     private val mSuggestions = ArrayList<CharSequence>()
     private val mBigramSuggestions = ArrayList<CharSequence>()
     val bigramSuggestions: List<CharSequence> get() = mBigramSuggestions
+    // WHY: next-word prediction (spec §4.3) runs the bigram path with
+    // zero typed characters. BinaryDictionary.kt is patched to guard the
+    // getCodesAt(0) call and dictionary.cpp is patched to skip
+    // checkFirstCharacter when mInputLength == 0, so a zero-size composer
+    // is safe to share across calls. One instance avoids GC pressure.
+    private val mEmptyComposer = WordComposer()
     private val mStringPool = ArrayList<CharSequence>()
     private var mHaveCorrection = false
     private var mOriginalWord: CharSequence? = null
@@ -359,6 +365,67 @@ class Suggest : Dictionary.WordCallback {
             return true
         }
         return false
+    }
+
+    /**
+     * Bigram-only suggestions for the "next word after space" case.
+     *
+     * Runs the same three-dictionary bigram path as getSuggestions()'s
+     * wordComposer.size() == 1 branch but with a zero-char composer so
+     * candidates are not filtered by currentChar. Used by
+     * LatinIME.setNextSuggestions to populate the candidate strip after
+     * a word is committed and space is entered.
+     *
+     * FROM SPEC: §4.3 "predictive next-word after space".
+     *
+     * NOTE: mMainDict bigrams are returned. BinaryDictionary.getBigrams guards
+     * getCodesAt(0) with `if (codesSize > 0)` and dictionary.cpp skips
+     * checkFirstCharacter when mInputLength == 0, so all three dictionaries
+     * participate in next-word prediction.
+     *
+     * @param prevWord the last committed word. Null or empty returns an
+     *                 empty list.
+     * @return up to mPrefMaxSuggestions bigram candidates, ordered by
+     *         frequency. Empty if no bigrams found.
+     */
+    fun getNextWordSuggestions(prevWord: CharSequence?): List<CharSequence> {
+        if (prevWord.isNullOrEmpty()) return emptyList()
+
+        mIsFirstCharCapitalized = false
+        mIsAllUpperCase = false
+        mLowerOriginalWord = ""
+        mOriginalWord = null
+        mNextLettersFrequencies.fill(0)
+        mBigramPriorities.fill(0)
+        collectGarbage(mBigramSuggestions, PREF_MAX_BIGRAMS)
+        collectGarbage(mSuggestions, mPrefMaxSuggestions)
+
+        var lookupPrev: CharSequence = prevWord
+        val lowerPrevWord = prevWord.toString().lowercase()
+        if (mMainDict.isValidWord(lowerPrevWord)) {
+            lookupPrev = lowerPrevWord
+        }
+
+        if (mUserBigramDictionary != null) {
+            mUserBigramDictionary!!.getBigrams(
+                mEmptyComposer, lookupPrev, this, mNextLettersFrequencies
+            )
+        }
+        if (mContactsDictionary != null) {
+            mContactsDictionary!!.getBigrams(
+                mEmptyComposer, lookupPrev, this, mNextLettersFrequencies
+            )
+        }
+        mMainDict.getBigrams(
+            mEmptyComposer, lookupPrev, this, mNextLettersFrequencies
+        )
+
+        val cap = minOf(mBigramSuggestions.size, mPrefMaxSuggestions)
+        val result = ArrayList<CharSequence>(cap)
+        for (i in 0 until cap) {
+            result.add(mBigramSuggestions[i].toString())
+        }
+        return result
     }
 
     override fun addWord(

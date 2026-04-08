@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Resources
 import android.util.Log
+import dev.devkey.keyboard.BuildConfig
 import org.xmlpull.v1.XmlPullParserException
 import java.io.IOException
 import java.io.InputStream
@@ -104,7 +105,19 @@ class PluginManager(private val mIME: LatinIME) : BroadcastReceiver() {
 
         private val mPluginDicts = HashMap<String, DictPluginSpec>()
 
-        fun getSoftKeyboardDictionaries(packageManager: PackageManager) {
+        /**
+         * GH #4: plugin loading is disabled in release builds. Debug builds
+         * retain the current behavior so local development and dictionary
+         * plugin authors can keep testing.
+         *
+         * Compile-time gate via BuildConfig.DEBUG. A re-signed APK with
+         * debuggable=true cannot flip this flag — strictly stronger than
+         * the runtime ApplicationInfo.FLAG_DEBUGGABLE check used by
+         * KeyMapGenerator.isDebugBuild.
+         */
+        private fun arePluginsEnabled(): Boolean = BuildConfig.DEBUG
+
+        private fun getSoftKeyboardDictionaries(packageManager: PackageManager) {
             val dictIntent = Intent(SOFTKEYBOARD_INTENT_DICT)
             val dictPacks = packageManager.queryBroadcastReceivers(
                 dictIntent, PackageManager.GET_META_DATA
@@ -172,7 +185,7 @@ class PluginManager(private val mIME: LatinIME) : BroadcastReceiver() {
             }
         }
 
-        fun getLegacyDictionaries(packageManager: PackageManager) {
+        private fun getLegacyDictionaries(packageManager: PackageManager) {
             val dictIntent = Intent(LEGACY_INTENT_DICT)
             val dictPacks = packageManager.queryIntentActivities(dictIntent, 0)
             for (ri in dictPacks) {
@@ -218,6 +231,15 @@ class PluginManager(private val mIME: LatinIME) : BroadcastReceiver() {
         }
 
         fun getPluginDictionaries(context: Context) {
+            // WHY: GH #4 — plugins load untrusted foreign-package resources
+            // into the native dictionary via BinaryDictionary without signature
+            // verification. Per spec §2.4(b), disable the load path entirely in
+            // release builds. Full signature verification is a v1.1 target.
+            if (!arePluginsEnabled()) {
+                Log.i(TAG, "Plugin dictionaries disabled in release build (GH #4)")
+                mPluginDicts.clear()
+                return
+            }
             mPluginDicts.clear()
             val packageManager = context.packageManager
             getSoftKeyboardDictionaries(packageManager)
@@ -225,6 +247,9 @@ class PluginManager(private val mIME: LatinIME) : BroadcastReceiver() {
         }
 
         fun getDictionary(context: Context, lang: String): BinaryDictionary? {
+            // WHY: GH #4 — defense in depth. Refuse to hand back any plugin
+            // dictionary in release builds even if mPluginDicts is somehow populated.
+            if (!arePluginsEnabled()) return null
             var spec = mPluginDicts[lang]
             if (spec == null && lang.length >= 2) spec = mPluginDicts[lang.substring(0, 2)]
             if (spec == null) {

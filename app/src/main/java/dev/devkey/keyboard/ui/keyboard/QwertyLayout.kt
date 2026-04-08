@@ -7,10 +7,15 @@ import dev.devkey.keyboard.Keyboard
  *
  * Supports three layout modes:
  * - FULL: 6-row layout with number row, QWERTY, home, Z, space, and utility rows
- * - COMPACT: 4-row clean SwiftKey layout with no long-press on letter keys
- * - COMPACT_DEV: 4-row layout with numbers/symbols on long-press
+ * - COMPACT: 4-row layout with digit long-press + accented vowel popups (option A)
+ * - COMPACT_DEV: 4-row layout with hacker shift-symbol long-press
  *
  * Uses keycodes from [Keyboard] for standard keys, and [KeyCodes] for special keys.
+ *
+ * Long-press data added per plan Phase 5.2 + spec §4.2.
+ * Templates are the default; SwiftKey reference screenshots for pixel-match
+ * tuning land in Phase 6 (see .claude/test-flows/swiftkey-reference/).
+ * Phase 5 decision: option A — COMPACT letter keys DO get long-press.
  */
 object QwertyLayout {
 
@@ -67,17 +72,49 @@ object QwertyLayout {
             )
         )
 
+        // FULL qwerty row: existing shift-symbol long-press preserved;
+        // vowels (e, u, i, o, y) get accented longPressCodes overlaid.
         val qwertyRow = KeyRowData(
             keys = listOf(
                 KeyData("q", 'q'.code, longPressLabel = "!", longPressCode = '!'.code),
                 KeyData("w", 'w'.code, longPressLabel = "@", longPressCode = '@'.code),
-                KeyData("e", 'e'.code, longPressLabel = "#", longPressCode = '#'.code),
+                KeyData(
+                    primaryLabel = "e",
+                    primaryCode = 'e'.code,
+                    longPressLabel = "è",
+                    longPressCode = 'è'.code,
+                    longPressCodes = listOf('è'.code, 'é'.code, 'ê'.code, 'ë'.code, 'ē'.code)
+                ),
                 KeyData("r", 'r'.code, longPressLabel = "$", longPressCode = '$'.code),
                 KeyData("t", 't'.code, longPressLabel = "%", longPressCode = '%'.code),
-                KeyData("y", 'y'.code, longPressLabel = "^", longPressCode = '^'.code),
-                KeyData("u", 'u'.code, longPressLabel = "&", longPressCode = '&'.code),
-                KeyData("i", 'i'.code, longPressLabel = "*", longPressCode = '*'.code),
-                KeyData("o", 'o'.code, longPressLabel = "(", longPressCode = '('.code),
+                KeyData(
+                    primaryLabel = "y",
+                    primaryCode = 'y'.code,
+                    longPressLabel = "ý",
+                    longPressCode = 'ý'.code,
+                    longPressCodes = listOf('ý'.code, 'ÿ'.code)
+                ),
+                KeyData(
+                    primaryLabel = "u",
+                    primaryCode = 'u'.code,
+                    longPressLabel = "ù",
+                    longPressCode = 'ù'.code,
+                    longPressCodes = listOf('ù'.code, 'ú'.code, 'û'.code, 'ü'.code, 'ū'.code)
+                ),
+                KeyData(
+                    primaryLabel = "i",
+                    primaryCode = 'i'.code,
+                    longPressLabel = "ì",
+                    longPressCode = 'ì'.code,
+                    longPressCodes = listOf('ì'.code, 'í'.code, 'î'.code, 'ï'.code, 'ī'.code)
+                ),
+                KeyData(
+                    primaryLabel = "o",
+                    primaryCode = 'o'.code,
+                    longPressLabel = "ò",
+                    longPressCode = 'ò'.code,
+                    longPressCodes = listOf('ò'.code, 'ó'.code, 'ô'.code, 'õ'.code, 'ö'.code, 'ø'.code, 'œ'.code)
+                ),
                 KeyData("p", 'p'.code, longPressLabel = ")", longPressCode = ')'.code)
             )
         )
@@ -92,10 +129,20 @@ object QwertyLayout {
                 ),
                 KeyData("z", 'z'.code, longPressLabel = ";", longPressCode = ';'.code),
                 KeyData("x", 'x'.code, longPressLabel = ":", longPressCode = ':'.code),
-                KeyData("c", 'c'.code, longPressLabel = "/", longPressCode = '/'.code),
+                KeyData(
+                    primaryLabel = "c",
+                    primaryCode = 'c'.code,
+                    longPressLabel = "ç",
+                    longPressCode = 'ç'.code
+                ),
                 KeyData("v", 'v'.code, longPressLabel = "?", longPressCode = '?'.code),
                 KeyData("b", 'b'.code, longPressLabel = "<", longPressCode = '<'.code),
-                KeyData("n", 'n'.code, longPressLabel = ">", longPressCode = '>'.code),
+                KeyData(
+                    primaryLabel = "n",
+                    primaryCode = 'n'.code,
+                    longPressLabel = "ñ",
+                    longPressCode = 'ñ'.code
+                ),
                 KeyData("m", 'm'.code, longPressLabel = "_", longPressCode = '_'.code),
                 KeyData(
                     primaryLabel = "\u232B",  // ⌫ erase to the left symbol
@@ -168,40 +215,83 @@ object QwertyLayout {
         )
 
         return KeyboardLayoutData(
-            rows = listOf(numberRow, qwertyRow, buildHomeRow(), zRow, spaceRow, utilityRow)
+            rows = listOf(numberRow, qwertyRow, buildFullHomeRow(), zRow, spaceRow, utilityRow)
         )
     }
 
     /**
-     * Builds the 4-row COMPACT layout (clean SwiftKey, NO long-press on letter keys).
+     * Builds the 4-row COMPACT layout.
+     *
+     * Long-press data RETUNED from SwiftKey reference capture
+     * (.claude/test-flows/swiftkey-reference/compact-dark-findings.md).
+     * Reference wins over Phase 5.2 digit template per plan rule.
+     * Vowels (a, e, i, o, u) KEEP their accent popups — richer than the
+     * SwiftKey single-char default; additive §4.2 coverage.
+     * Z-row corrected from cropped image re-read: z→_, x→$, c→", v→', b→:, n→;, m→/
      */
     private fun buildCompactLayout(): KeyboardLayoutData {
         val qwertyRow = KeyRowData(
             keys = listOf(
-                KeyData("q", 'q'.code),
-                KeyData("w", 'w'.code),
-                KeyData("e", 'e'.code),
-                KeyData("r", 'r'.code),
-                KeyData("t", 't'.code),
-                KeyData("y", 'y'.code),
-                KeyData("u", 'u'.code),
-                KeyData("i", 'i'.code),
-                KeyData("o", 'o'.code),
-                KeyData("p", 'p'.code)
+                KeyData("q", 'q'.code, longPressLabel = "%", longPressCode = '%'.code),
+                KeyData("w", 'w'.code, longPressLabel = "^", longPressCode = '^'.code),
+                // e — KEEP vowel accent popup (additive over SwiftKey ~ single-char)
+                KeyData(
+                    primaryLabel = "e",
+                    primaryCode = 'e'.code,
+                    longPressLabel = "è",
+                    longPressCode = 'è'.code,
+                    longPressCodes = listOf('è'.code, 'é'.code, 'ê'.code, 'ë'.code, 'ē'.code)
+                ),
+                KeyData("r", 'r'.code, longPressLabel = "|", longPressCode = '|'.code),
+                KeyData("t", 't'.code, longPressLabel = "[", longPressCode = '['.code),
+                // y — SwiftKey shows ]; drop ý/ÿ popup per reference
+                KeyData("y", 'y'.code, longPressLabel = "]", longPressCode = ']'.code),
+                // u — KEEP vowel accent popup
+                KeyData(
+                    primaryLabel = "u",
+                    primaryCode = 'u'.code,
+                    longPressLabel = "ù",
+                    longPressCode = 'ù'.code,
+                    longPressCodes = listOf('ù'.code, 'ú'.code, 'û'.code, 'ü'.code, 'ū'.code)
+                ),
+                // i — KEEP vowel accent popup
+                KeyData(
+                    primaryLabel = "i",
+                    primaryCode = 'i'.code,
+                    longPressLabel = "ì",
+                    longPressCode = 'ì'.code,
+                    longPressCodes = listOf('ì'.code, 'í'.code, 'î'.code, 'ï'.code, 'ī'.code)
+                ),
+                // o — KEEP vowel accent popup
+                KeyData(
+                    primaryLabel = "o",
+                    primaryCode = 'o'.code,
+                    longPressLabel = "ò",
+                    longPressCode = 'ò'.code,
+                    longPressCodes = listOf('ò'.code, 'ó'.code, 'ô'.code, 'õ'.code, 'ö'.code, 'ø'.code, 'œ'.code)
+                ),
+                KeyData("p", 'p'.code, longPressLabel = "}", longPressCode = '}'.code)
             )
         )
 
         val homeRow = KeyRowData(
             keys = listOf(
-                KeyData("a", 'a'.code),
-                KeyData("s", 's'.code),
-                KeyData("d", 'd'.code),
-                KeyData("f", 'f'.code),
-                KeyData("g", 'g'.code),
-                KeyData("h", 'h'.code),
-                KeyData("j", 'j'.code),
-                KeyData("k", 'k'.code),
-                KeyData("l", 'l'.code)
+                // a — KEEP vowel accent popup
+                KeyData(
+                    primaryLabel = "a",
+                    primaryCode = 'a'.code,
+                    longPressLabel = "à",
+                    longPressCode = 'à'.code,
+                    longPressCodes = listOf('à'.code, 'á'.code, 'â'.code, 'ã'.code, 'ä'.code, 'å'.code, 'æ'.code)
+                ),
+                KeyData("s", 's'.code, longPressLabel = "#", longPressCode = '#'.code),
+                KeyData("d", 'd'.code, longPressLabel = "&", longPressCode = '&'.code),
+                KeyData("f", 'f'.code, longPressLabel = "*", longPressCode = '*'.code),
+                KeyData("g", 'g'.code, longPressLabel = "-", longPressCode = '-'.code),
+                KeyData("h", 'h'.code, longPressLabel = "+", longPressCode = '+'.code),
+                KeyData("j", 'j'.code, longPressLabel = "=", longPressCode = '='.code),
+                KeyData("k", 'k'.code, longPressLabel = "(", longPressCode = '('.code),
+                KeyData("l", 'l'.code, longPressLabel = ")", longPressCode = ')'.code)
             )
         )
 
@@ -213,13 +303,13 @@ object QwertyLayout {
                     type = KeyType.MODIFIER,
                     weight = 1.5f
                 ),
-                KeyData("z", 'z'.code),
-                KeyData("x", 'x'.code),
-                KeyData("c", 'c'.code),
-                KeyData("v", 'v'.code),
-                KeyData("b", 'b'.code),
-                KeyData("n", 'n'.code),
-                KeyData("m", 'm'.code),
+                KeyData("z", 'z'.code, longPressLabel = "_", longPressCode = '_'.code),
+                KeyData("x", 'x'.code, longPressLabel = "\$", longPressCode = '$'.code),
+                KeyData("c", 'c'.code, longPressLabel = "\"", longPressCode = '"'.code),
+                KeyData("v", 'v'.code, longPressLabel = "'", longPressCode = '\''.code),
+                KeyData("b", 'b'.code, longPressLabel = ":", longPressCode = ':'.code),
+                KeyData("n", 'n'.code, longPressLabel = ";", longPressCode = ';'.code),
+                KeyData("m", 'm'.code, longPressLabel = "/", longPressCode = '/'.code),
                 KeyData(
                     primaryLabel = "Del",
                     primaryCode = Keyboard.KEYCODE_DELETE,
@@ -236,21 +326,36 @@ object QwertyLayout {
     }
 
     /**
-     * Builds the 4-row COMPACT_DEV layout (numbers + symbols on long-press).
+     * Builds the 4-row COMPACT_DEV layout (hacker shift-symbol long-press on every letter key).
+     * Vowels get shift-symbols (NOT accents) — COMPACT_DEV philosophy is developer shortcuts.
      */
     private fun buildCompactDevLayout(): KeyboardLayoutData {
         val qwertyRow = KeyRowData(
             keys = listOf(
-                KeyData("q", 'q'.code, longPressLabel = "1", longPressCode = '1'.code),
-                KeyData("w", 'w'.code, longPressLabel = "2", longPressCode = '2'.code),
-                KeyData("e", 'e'.code, longPressLabel = "3", longPressCode = '3'.code),
-                KeyData("r", 'r'.code, longPressLabel = "4", longPressCode = '4'.code),
-                KeyData("t", 't'.code, longPressLabel = "5", longPressCode = '5'.code),
-                KeyData("y", 'y'.code, longPressLabel = "6", longPressCode = '6'.code),
-                KeyData("u", 'u'.code, longPressLabel = "7", longPressCode = '7'.code),
-                KeyData("i", 'i'.code, longPressLabel = "8", longPressCode = '8'.code),
-                KeyData("o", 'o'.code, longPressLabel = "9", longPressCode = '9'.code),
-                KeyData("p", 'p'.code, longPressLabel = "0", longPressCode = '0'.code)
+                KeyData("q", 'q'.code, longPressLabel = "!", longPressCode = '!'.code),
+                KeyData("w", 'w'.code, longPressLabel = "@", longPressCode = '@'.code),
+                KeyData("e", 'e'.code, longPressLabel = "#", longPressCode = '#'.code),
+                KeyData("r", 'r'.code, longPressLabel = "$", longPressCode = '$'.code),
+                KeyData("t", 't'.code, longPressLabel = "%", longPressCode = '%'.code),
+                KeyData("y", 'y'.code, longPressLabel = "^", longPressCode = '^'.code),
+                KeyData("u", 'u'.code, longPressLabel = "&", longPressCode = '&'.code),
+                KeyData("i", 'i'.code, longPressLabel = "*", longPressCode = '*'.code),
+                KeyData("o", 'o'.code, longPressLabel = "(", longPressCode = '('.code),
+                KeyData("p", 'p'.code, longPressLabel = ")", longPressCode = ')'.code)
+            )
+        )
+
+        val homeRow = KeyRowData(
+            keys = listOf(
+                KeyData("a", 'a'.code, longPressLabel = "~", longPressCode = '~'.code),
+                KeyData("s", 's'.code, longPressLabel = "`", longPressCode = '`'.code),
+                KeyData("d", 'd'.code, longPressLabel = "-", longPressCode = '-'.code),
+                KeyData("f", 'f'.code, longPressLabel = "_", longPressCode = '_'.code),
+                KeyData("g", 'g'.code, longPressLabel = "=", longPressCode = '='.code),
+                KeyData("h", 'h'.code, longPressLabel = "+", longPressCode = '+'.code),
+                KeyData("j", 'j'.code, longPressLabel = "{", longPressCode = '{'.code),
+                KeyData("k", 'k'.code, longPressLabel = "}", longPressCode = '}'.code),
+                KeyData("l", 'l'.code, longPressLabel = "|", longPressCode = '|'.code)
             )
         )
 
@@ -262,13 +367,13 @@ object QwertyLayout {
                     type = KeyType.MODIFIER,
                     weight = 1.5f
                 ),
-                KeyData("z", 'z'.code, longPressLabel = ";", longPressCode = ';'.code),
-                KeyData("x", 'x'.code, longPressLabel = ":", longPressCode = ':'.code),
-                KeyData("c", 'c'.code, longPressLabel = "/", longPressCode = '/'.code),
-                KeyData("v", 'v'.code, longPressLabel = "?", longPressCode = '?'.code),
-                KeyData("b", 'b'.code, longPressLabel = "<", longPressCode = '<'.code),
-                KeyData("n", 'n'.code, longPressLabel = ">", longPressCode = '>'.code),
-                KeyData("m", 'm'.code, longPressLabel = "_", longPressCode = '_'.code),
+                KeyData("z", 'z'.code, longPressLabel = "[", longPressCode = '['.code),
+                KeyData("x", 'x'.code, longPressLabel = "]", longPressCode = ']'.code),
+                KeyData("c", 'c'.code, longPressLabel = "\\", longPressCode = '\\'.code),
+                KeyData("v", 'v'.code, longPressLabel = ":", longPressCode = ':'.code),
+                KeyData("b", 'b'.code, longPressLabel = ";", longPressCode = ';'.code),
+                KeyData("n", 'n'.code, longPressLabel = "<", longPressCode = '<'.code),
+                KeyData("m", 'm'.code, longPressLabel = ">", longPressCode = '>'.code),
                 KeyData(
                     primaryLabel = "\u232B",  // ⌫ erase to the left symbol
                     primaryCode = KeyCodes.SMART_BACK_ESC,
@@ -282,17 +387,23 @@ object QwertyLayout {
         )
 
         return KeyboardLayoutData(
-            rows = listOf(qwertyRow, buildHomeRow(), zRow, buildSpaceRow())
+            rows = listOf(qwertyRow, homeRow, zRow, buildSpaceRow())
         )
     }
 
     /**
-     * Builds the home row (A-L keys with symbol long-press assignments).
-     * Shared between the Full and Compact Dev layouts.
+     * Builds the home row for the FULL layout (A-L with symbol long-press assignments).
+     * 'a' gets accented vowel longPressCodes; others retain their existing symbol long-press.
      */
-    private fun buildHomeRow(): KeyRowData = KeyRowData(
+    private fun buildFullHomeRow(): KeyRowData = KeyRowData(
         keys = listOf(
-            KeyData("a", 'a'.code, longPressLabel = "~", longPressCode = '~'.code),
+            KeyData(
+                primaryLabel = "a",
+                primaryCode = 'a'.code,
+                longPressLabel = "à",
+                longPressCode = 'à'.code,
+                longPressCodes = listOf('à'.code, 'á'.code, 'â'.code, 'ã'.code, 'ä'.code, 'å'.code, 'æ'.code)
+            ),
             KeyData("s", 's'.code, longPressLabel = "|", longPressCode = '|'.code),
             KeyData("d", 'd'.code, longPressLabel = "\\", longPressCode = '\\'.code),
             KeyData("f", 'f'.code, longPressLabel = "{", longPressCode = '{'.code),
@@ -307,6 +418,7 @@ object QwertyLayout {
     /**
      * Builds the space row: 123 emoji , Space . Enter
      * Shared across all layout modes.
+     * The period key carries a multi-char long-press popup per Phase 5.2.
      */
     private fun buildSpaceRow(): KeyRowData = KeyRowData(
         keys = listOf(
@@ -337,6 +449,9 @@ object QwertyLayout {
             KeyData(
                 primaryLabel = ".",
                 primaryCode = '.'.code,
+                longPressLabel = ",",
+                longPressCode = ','.code,
+                longPressCodes = listOf(','.code, ';'.code, ':'.code, '!'.code, '?'.code),
                 type = KeyType.LETTER,
                 weight = 0.8f
             ),

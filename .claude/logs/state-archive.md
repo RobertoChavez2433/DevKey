@@ -4,7 +4,29 @@ Archived session entries from `_state.md` rotation.
 
 ---
 
+## April 2026
+
+### Session 36 (2026-03-17) — Archived from _state.md (Session 41 rotation)
+**Work**: Audited DevKey + Field Guide App .claude/ directories with 4 Sonnet agents. Brainstormed restructure via `/brainstorming`. Wrote 6-phase implementation plan mirroring Field Guide patterns: systematic-debug skill (10-phase, HTTP server, DevKeyLogger), specialist agents, rules extraction, hooks, writing-plans separation.
+**Decisions**: Scaled to DevKey (not full Field Guide mirror). HTTP debug server + DevKeyLogger class. 7 concern-area defect files. 3 specialist agents + code-review + security. Split brainstorming/writing-plans with adversarial review only in writing-plans. block-orchestrator-writes + pre-agent-dispatch hooks.
+**Next**: Execute restructure plan via `/implement`, commit all changes, on-device verification.
+
+### Session 35 (2026-03-05) — Archived from _state.md (Session 39 rotation)
+**Work**: Implemented dead code cleanup Phases 1-5 via `/implement` skill. Orchestrator dispatched Sonnet agents per phase, build-verified after each. 33 files modified, 1 deleted (LatinIMEUtil.kt). All quality gates pass.
+**Decisions**: Created fontVoiceMic=18.sp token (preserves mic emoji size). Kept @JvmField on Keyboard.Key, SettingsRepository, KeyboardSwitcher (perf-sensitive). Deleted LatinIMEUtil.kt entirely. Standardized TAG to DevKey/<ClassName>.
+**Next**: Commit all changes (one commit per phase), on-device verification, fix Symbols mode wasted space.
+
+### Session 33 (2026-03-04) — Archived from _state.md (Session 37 rotation)
+**Work**: Ran /test --full (partial). Wave 0 + Wave 1 all PASS (ime-setup, typing, modifier-states, mode-switching). Identified fundamental test skill design flaws: agents too slow, don't write docs, too expensive for mechanical ADB. Documented redesign plan.
+**Decisions**: Test skill needs full redesign. Orchestrator should do ADB directly; agents only for vision. Broadcast-verified coords from S32 are wrong (~100px low); key-coordinates.md calibrated values are correct.
+**Next**: Redesign test skill, commit all uncommitted work, fix Symbols mode wasted space.
+
 ## March 2026
+
+### Session 32 (2026-03-04) — Archived from _state.md (Session 36 rotation)
+**Work**: Ran /test --full. DevKeyMap broadcast calibration verified ON-DEVICE (53 keys). Haiku wave agent failed (wrong sleep, confused by Symbols mode). Fixed 4 test skill issues: Sonnet agents, ADB batching, orchestrator-side calibration, Normal mode reset. Added "wasted space in Symbols mode" blocker.
+**Decisions**: Wave agents use Sonnet not Haiku. Orchestrator owns calibration and passes coordinate table to agents. ADB commands batched in single Bash calls. ime-setup force-stops IME for clean Normal mode start.
+**Next**: Re-run /test --full with fixed skill, commit all uncommitted work, fix Symbols mode wasted space.
 
 ### Session 30 (2026-03-04)
 **Work**: Ran /test --full on emulator. Discovered pre-computed coordinates ~130px off. Recalibrated via Y-scan. 7/8 flows PASS (rapid-stress incomplete). Dispatched wave agents with corrected coordinates — modifier-combos (5/5) and layout-modes (8/8 including all 4 arrow keys) both PASS via background agents.

@@ -16,10 +16,10 @@
     "compile_sdk": 34
   },
   "current_phase": {
-    "name": "Dead Code Cleanup + Kotlin Quality",
-    "status": "phases_1_5_implemented",
-    "progress_percent": 85,
-    "details": "Phases 1-5 implemented via /implement skill. 33 files modified, 1 deleted. Build + tests pass. Phase 6 (DRY refactoring) deferred. Not yet committed."
+    "name": "v1.0 Pre-Release Execution — Phase 1",
+    "status": "plan_complete_ready_for_implement",
+    "progress_percent": 30,
+    "details": "Session 41 ran /writing-plans against the Session 40 tailor. Plan at .claude/plans/2026-04-08-pre-release-phase1.md — 8 phases / 14 sub-phases covering spec §6 items 1.1–1.8. Reviewed by code-review + security + completeness agents in parallel; cycle 1 REJECT (20 findings), plan-fixer-agent applied all fixes, cycle 2 APPROVE from all 3. Key plan decisions: compile-time BuildConfig.DEBUG plugin gate (new Sub-phase 3.0 enables buildFeatures.buildConfig = true), Suggest.getNextWordSuggestions with full state reset + collectGarbage + shared mEmptyComposer, load-bearing voice-log privacy policy, no escape hatches for multi-char popups or light-theme deferral. Hard user-escalation gate at Phase 5 for COMPACT letter-key scope blocks /implement. Reviews saved to .claude/plans/review_sweeps/2026-04-08-pre-release-phase1-2026-04-08/."
   },
   "phases": [
     {"name": "Research & Brainstorming", "status": "complete", "progress_percent": 100},
@@ -35,18 +35,27 @@
     {"name": "Code Review & Hardening", "status": "complete", "progress_percent": 100},
     {"name": "E2E Testing + Test Skill Fixes", "status": "blocked", "progress_percent": 87},
     {"name": "Test Skill Redesign + Commit Backlog", "status": "in_progress", "progress_percent": 40},
-    {"name": "Dead Code Cleanup + Kotlin Quality", "status": "phases_1_5_implemented", "progress_percent": 85}
+    {"name": "Dead Code Cleanup + Kotlin Quality", "status": "complete", "progress_percent": 100},
+    {"name": ".claude Directory Restructure", "status": "plan_revised_ready_for_implement", "progress_percent": 15},
+    {"name": "Pre-Release Architecture Audit & Brainstorming", "status": "complete", "progress_percent": 100},
+    {"name": "v1.0 Pre-Release Execution — Phase 1", "status": "plan_complete_ready_for_implement", "progress_percent": 30}
   ],
   "active_blockers": [
-    "Large uncommitted backlog (Sessions 27, 31-35)",
-    "Wasted space in Symbols/other keyboard modes — layout doesn't fill available area",
-    "Whisper model files (whisper-tiny.en.tflite + filters_vocab_en.bin) need to be downloaded",
-    "Compose UI test deps incompatible with API 36 (Espresso InputManager.getInstance reflection)",
-    "Test skill design fundamentally flawed — needs redesign before further E2E testing"
+    "COMPACT letter-key long-press scope decision — Session 41 plan has hard user-escalation gate at Phase 5; blocks /implement until user picks (A) follow spec §4.2 or (B) spec amendment",
+    "Spec §9 Q1 distribution channel + Q2 min API target OPEN — plan tracks both as blocking Phase 1 close",
+    "Whisper model files (whisper-tiny.en.tflite + filters_vocab_en.bin) need sourcing — Phase 1 of plan has provenance scaffold; human operator sources binaries + SHA256 + license audit",
+    "SwiftKey reference screenshots not yet captured — Phase 2 of plan has scaffold ready",
+    "BinaryDictionary.getBigrams zero-length WordComposer tolerance — Phase 4.1 Step 0 prerequisite: must be verified before editing Suggest.kt; escalation path documented",
+    "GH #4 plugin security — fix in plan (Phase 3: compile-time BuildConfig.DEBUG gate via new Sub-phase 3.0); not yet implemented",
+    "400-line rule violations in 9 files — final release gate (Phase 4 of umbrella spec); tracked via GH #9",
+    "jcodemunch Kotlin import resolver broken for DevKey repo — find_importers, get_blast_radius, find_dead_code, get_dependency_graph return no-signal; fallback to search_text documented",
+    "Uncommitted state/docs backlog: Sessions 36/37/38/39/40/41 DevKey-side changes not yet committed",
+    "Wasted space in Symbols/other keyboard modes — addressed during Phase 6 layout fidelity work",
+    "Compose UI test deps incompatible with API 36 (Espresso InputManager.getInstance reflection)"
   ],
   "metadata": {
-    "session_count": 35,
-    "last_updated": "2026-03-05",
-    "session_notes": "Session 35: Implemented dead code cleanup Phases 1-5 via /implement skill. 33 files modified, 1 deleted (LatinIMEUtil.kt). All quality gates pass. Not yet committed."
+    "session_count": 41,
+    "last_updated": "2026-04-08",
+    "session_notes": "Session 41: Ran /writing-plans against .claude/tailor/2026-04-08-pre-release-phase1/. Main-agent wrote the plan directly (under 2000 lines). Plan: 8 phases / 14 sub-phases covering spec §6 Phase 1 items 1.1–1.8 in dependency order. Dispatched 3 reviewers (code-review, security, completeness) in parallel — all REJECT in cycle 1 with 20 total findings. Dispatched plan-fixer-agent with consolidated list; 20 surgical edits applied. Re-ran all 3 reviewers in parallel — all APPROVE in cycle 2. Key plan decisions: (1) Compile-time BuildConfig.DEBUG plugin gate via new Sub-phase 3.0 that enables buildFeatures.buildConfig = true (stricter than runtime FLAG_DEBUGGABLE; re-signed debuggable APK cannot reopen GH #4). (2) Suggest.getNextWordSuggestions with full state reset (mIsFirstCharCapitalized/mIsAllUpperCase/mLowerOriginalWord/mOriginalWord/mNextLettersFrequencies), collectGarbage for StringBuilder pool hygiene, shared mEmptyComposer for GC efficiency. (3) LatinIME.getLastCommittedWordBeforeCursor with 64-char lookback and letter-or-digit-or-apostrophe word boundary. (4) Load-bearing voice-log privacy policy at Phase 7.1 forbidding transcript/audio/InputConnection text content in DevKeyLogger.voice payloads. (5) SwiftKey reference .gitignore ships with ACTIVE *.png exclusion (fail-closed per spec §8). (6) Hard user-escalation gate blocking Phase 5 until COMPACT letter-key scope is decided — plan will not silently deviate from spec §4.2. (7) No escape hatches for multi-char popup UX (5.4) or light-theme deferral (6.1) — both required by spec. (8) Fn/Phone layouts documented as variants inside existing QwertyLayout/SymbolsLayout builders. (9) Spec §9 Q1 distribution channel, Q2 min API, Q4 multilingual voice tracked in plan header with Q3 SSIM>0.95 default. Reviews saved under .claude/plans/review_sweeps/2026-04-08-pre-release-phase1-2026-04-08/ (6 files, 2 cycles × 3 agents). Next session: resolve user escalation items (COMPACT scope, §9 Q1/Q2, Whisper source, SwiftKey captures, BinaryDictionary JNI tolerance check), then run /implement."
   }
 }

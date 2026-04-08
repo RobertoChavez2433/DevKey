@@ -1,3 +1,16 @@
+# Defects Archive (FINAL)
+
+**ARCHIVED 2026-04-08.** All defects migrated to GitHub Issues on
+`RobertoChavez2433/DevKey` under the `defect` label. This file is a
+historical snapshot only — do NOT add new defects here. Use:
+
+    gh issue create --repo RobertoChavez2433/DevKey \
+      --title "[CATEGORY] YYYY-MM-DD: Brief title" \
+      --label "defect,category:<CAT>,area:<AREA>,priority:<P>" \
+      --body "**Pattern**: ...\n**Prevention**: ...\n**Ref**: file:line"
+
+<original _defects.md content below for history>
+
 # Active Defects
 
 Max 7 active. Oldest rotates to `.claude/logs/defects-archive.md`.

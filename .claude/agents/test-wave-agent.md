@@ -3,7 +3,7 @@ name: test-wave-agent
 description: Executes a wave of keyboard test flows on an ADB-connected Android device. Uses coordinate-based tapping for key interaction, logcat for state verification, and Claude vision for screenshot verification.
 tools: Bash, Read, Write, Edit
 permissionMode: acceptEdits
-model: haiku
+model: sonnet
 specialization:
   primary_features:
     - testing
@@ -42,8 +42,8 @@ The orchestrator provides:
 3. **Device serial**: e.g., `emulator-5554`
 4. **IME component**: `dev.devkey.keyboard/.LatinIME`
 5. **Screenshot dir**: Where to save captured screenshots
-6. **Y offset**: Coordinate calibration offset (e.g., -153 for emulator-5554)
-7. **Key coordinates**: Either from DevKeyMap logcat or from the flow definition
+6. **Coordinate table**: Calibrated row Y coordinates from `.claude/skills/test/references/ime-testing-patterns.md`
+7. **Key coordinates**: Either from the coordinate table or from the flow definition
 
 ---
 
@@ -87,7 +87,7 @@ For each step in the flow:
 
 Based on the step instruction, tap keys at their known coordinates:
 
-- **Tap key**: `adb -s $SERIAL shell input tap X Y` (coordinates from key map, Y offset applied)
+- **Tap key**: `adb -s $SERIAL shell input tap X Y` (coordinates from calibrated coordinate table)
 - **Long press key**: `adb -s $SERIAL shell input swipe X Y X Y 500`
 - **Rapid taps**: Multiple `input tap` commands with minimal delay between them
 
@@ -186,41 +186,37 @@ Write per-flow report to `{run_dir}/flows/{flow}.md`:
 
 ### Phase F: File Defects on Failure (MANDATORY)
 
-If flow FAILed, immediately file defect to `.claude/autoload/_defects.md`:
+If flow FAILed, immediately file a GitHub issue to `RobertoChavez2433/DevKey`:
 
-```markdown
-### [IME] {date}: {flow-name} flow failure (auto-test)
+```bash
+gh issue create --repo RobertoChavez2433/DevKey \
+  --title "[IME] {YYYY-MM-DD}: {flow-name} flow failure (auto-test)" \
+  --label "defect,category:IME,area:ime-lifecycle,priority:medium" \
+  --body "$(cat <<'EOF'
 **Pattern**: {failure description}
 **Prevention**: {suggested fix}
-**Ref**: @{relevant source file}
+**Ref**: {relevant source file:line}
+**Test run**: {run directory path}
+EOF
+)"
 ```
 
 Rules:
-- Check for existing duplicate defects before filing
-- Max 7 active — archive oldest to `defects-archive.md` if full
+- Before filing, search for existing open duplicates: `gh issue list --repo RobertoChavez2433/DevKey --label defect --search "{flow-name}" --state open`
+- If a matching open issue exists, add a comment to it with the new failure details instead of opening a new issue: `gh issue comment <number> --body "New occurrence in run {run-id}: ..."`
 - File immediately, do not batch
 
 ---
 
 ## Key Coordinate Loading
 
-### Option 1: From DevKeyMap logcat (preferred)
+### Option 1: From coordinate table (preferred)
 
-After keyboard is visible, dump the key map:
-```bash
-adb -s $SERIAL logcat -d -s DevKeyMap
-```
-
-Parse output lines:
-```
-DevKeyMap: key=a code=97 cx=54 cy=1592 row=1
-```
-
-Apply Y offset to all `cy` values.
+The orchestrator provides calibrated row Y coordinates from `.claude/skills/test/references/ime-testing-patterns.md`. Use these directly — no offset calculation needed.
 
 ### Option 2: From flow definition
 
-The orchestrator may provide pre-computed coordinates for known layouts. Use these if DevKeyMap logcat is not available.
+The orchestrator may provide pre-computed coordinates for known layouts. Use these if the coordinate table does not cover the needed key.
 
 ### Option 3: From key-coordinates.md reference
 
@@ -271,5 +267,5 @@ Return results to the orchestrator in this exact format:
 - **Screenshot naming**: Use `{flow-name}-step-{N}.png` and `{flow-name}-final.png` consistently.
 - **Timeout**: Respect the per-flow timeout from the registry. If a flow exceeds its timeout, mark as FAIL.
 - **State preservation**: After each flow, keyboard state carries forward. If a modifier is LOCKED after one flow, the next flow must account for it. Consider tapping modifier keys to reset to known OFF state at flow start.
-- **Y offset is critical**: Forgetting to apply the Y offset will cause all key taps to miss. Always verify the first tap produces expected logcat output.
+- **Coordinates are absolute**: Use the calibrated coordinate table from the orchestrator directly. Always verify the first tap produces expected logcat output.
 - **Logcat is the primary oracle**: Screenshots are supplementary. Logcat assertions are deterministic; vision is probabilistic.

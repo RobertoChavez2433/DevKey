@@ -31,28 +31,18 @@ Fields:
 - `cx`, `cy`: Center coordinates in pixels (within keyboard view)
 - `row`: Row index (0 = top)
 
-### Y Offset Calibration
+### Calibrated Row Y Coordinates (FULL mode, emulator-5554)
 
-The `cy` values from `DevKeyMap` are relative to the keyboard view's internal coordinate space. The actual screen position depends on:
-- Status bar height
-- Navigation bar
-- Text field / app content above the keyboard
+Coordinates are absolute screen pixel positions, calibrated via the coordinate calibration system. Use these directly — no offset needed.
 
-On `emulator-5554` (1080x2400, density 2.625), the empirical Y offset is **-153px**. This means:
-```
-actual_screen_Y = DevKeyMap_cy - 153
-```
-
-### Corrected Row Y Coordinates (FULL mode, emulator-5554)
-
-| Row | Content | Corrected Y |
-|-----|---------|-------------|
-| 0 | Number row (1-0) | 1446 |
-| 1 | QWERTY row | 1592 |
-| 2 | Home row (ASDF...) | 1746 |
-| 3 | Z row (Shift, Z-M, Backspace) | 1899 |
-| 4 | Space row (123, Ctrl, Alt, Space, ...) | 2053 |
-| 5 | Utility row (Esc, Tab, arrows) | 2190 |
+| Row | Content | Screen Y |
+|-----|---------|----------|
+| 0 | Number row (1-0) | 1475 |
+| 1 | QWERTY row | 1605 |
+| 2 | Home row (ASDF...) | 1775 |
+| 3 | Z row (Shift, Z-M, Backspace) | 1925 |
+| 4 | Space row (123, Ctrl, Alt, Space, ...) | 2090 |
+| 5 | Utility row (Esc, Tab, arrows) | 2225 |
 
 ### Layout Modes
 

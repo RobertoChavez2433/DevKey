@@ -1,0 +1,5 @@
+debug-sessions/
+test-results/*/screenshots/
+test-results/*/logs/
+test-results/*/*.xml
+state/implement-checkpoint.json

@@ -1,3 +1,5 @@
+**Status:** IMPLEMENTED AND COMMITTED (22a3050)
+
 # Kotlin Migration Implementation Plan
 
 **Design doc:** `docs/plans/2026-03-02-kotlin-migration-design.md`

@@ -1,3 +1,5 @@
+**Status:** IMPLEMENTED AND COMMITTED (31d33f7)
+
 # Coordinate Calibration Implementation Plan
 
 **Design**: `docs/plans/2026-03-04-coordinate-calibration-design.md`

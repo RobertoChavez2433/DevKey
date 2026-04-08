@@ -182,5 +182,5 @@ For reference, these are the existing test tiers (not run by this skill, but con
 |------|--------|-------|---------|
 | JVM Unit Tests | JUnit 4 + Robolectric | ~361 | `./gradlew test` |
 | Compose UI Tests | ComposeTestRule | ~14 | `./gradlew connectedAndroidTest` (blocked on API 36) |
-| ADB E2E (Python) | Custom harness | ~14 | `python tools/e2e/run.py` |
+| ADB E2E (Python) | Custom harness | ~14 | `python tools/e2e/e2e_runner.py` |
 | ADB E2E (this skill) | Claude agents | flows above | `/test` |

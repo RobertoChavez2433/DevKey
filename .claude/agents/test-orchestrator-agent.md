@@ -124,7 +124,7 @@ Wave 2: [modifier-combos, rapid-stress]                (dep: modifier-states / t
    ```bash
    adb -s $SERIAL shell am start -a android.intent.action.INSERT -t vnd.android.cursor.dir/contact
    sleep 2
-   adb -s $SERIAL shell input tap 350 650
+   adb -s $SERIAL shell input tap 540 1356
    sleep 1
    ```
 
@@ -143,7 +143,7 @@ For each wave (in order):
    - App package: `dev.devkey.keyboard`
    - IME component: `dev.devkey.keyboard/.LatinIME`
    - Screenshot output directory: `.claude/test-results/YYYY-MM-DD-HHmm-run/screenshots/`
-   - Y offset for coordinate calibration (default: -153 for emulator-5554)
+   - Coordinate table: provide calibrated Y coordinates from `.claude/skills/test/references/ime-testing-patterns.md`
    - Reference: point agent to `.claude/skills/test/references/adb-commands.md` and `.claude/skills/test/references/ime-testing-patterns.md`
 
 3. Collect wave results from agent return.
@@ -185,22 +185,27 @@ Create report at `.claude/test-results/YYYY-MM-DD-HHmm-run.md`:
 - {list of all screenshot paths}
 ```
 
-### Step 7: Defect Auto-Filing
+### Step 7: Defect Auto-Filing (GitHub Issues)
 
 For each FAILed flow:
 
-1. Read `.claude/autoload/_defects.md`
-2. Check for existing open defects with matching symptoms (avoid duplicates)
-3. If no duplicate found and fewer than 7 active defects, append:
+1. Search for an existing open duplicate:
+   ```bash
+   gh issue list --repo RobertoChavez2433/DevKey --label defect --state open --search "{flow-name}"
+   ```
+2. If no match, create a new issue:
+   ```bash
+   gh issue create --repo RobertoChavez2433/DevKey \
+     --title "[IME] {YYYY-MM-DD}: {flow-name} flow failure (auto-test)" \
+     --label "defect,category:IME,area:ime-lifecycle,priority:medium" \
+     --body "**Pattern**: {failure description}\n**Prevention**: {suggested fix from agent assessment}\n**Ref**: {relevant source file:line}\n**Test run**: {run-id}"
+   ```
+3. If a matching open issue exists, append a comment with new occurrence details:
+   ```bash
+   gh issue comment <number> --body "New occurrence in run {run-id}: {details}"
+   ```
 
-```markdown
-### [IME] {date}: {flow-name} flow failure (auto-test)
-**Pattern**: {failure description}
-**Prevention**: {suggested fix from agent assessment}
-**Ref**: @{relevant source file}
-```
-
-4. If 7 defects already exist, archive oldest to `.claude/logs/defects-archive.md` first.
+No max count, no archival — GitHub handles issue lifecycle.
 
 ### Step 8: Chat Summary
 
@@ -244,7 +249,6 @@ Defects filed: N new
 | Max test runs retained | 5 |
 | Report dir | `.claude/test-results/` |
 | Flow registry | `.claude/test-flows/registry.md` |
-| Default Y offset | -153 (emulator-5554) |
 | Logcat tags | `DevKeyPress`, `DevKeyMode`, `DevKeyMap`, `DevKeyBridge` |
 
 ---

@@ -1,3 +1,5 @@
+**Status:** IMPLEMENTED AND COMMITTED (386a25b)
+
 # Implementation Plan: 123 Mode Switch Fix + E2E Test Harness
 
 **Design doc**: `docs/plans/2026-03-03-123-fix-e2e-harness-design.md`

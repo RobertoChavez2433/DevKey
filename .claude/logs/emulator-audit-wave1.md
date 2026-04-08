@@ -175,6 +175,12 @@ The dark-themed Compose settings page renders properly, sliders and toggles work
 
 ---
 
+## Resolution
+
+All 8 bugs reported in this audit were fixed in Sessions 16-17. BUG-02 (123 mode switch) and BUG-03 (dynamic height) were addressed in the 123-fix-e2e-harness implementation (commit 386a25b). Remaining UI and UX bugs were resolved through the Kotlin migration and dead-code cleanup phases.
+
+---
+
 ## Recommended Fix Waves
 
 ### Wave 1 — Critical Function (BUG-02, BUG-03)

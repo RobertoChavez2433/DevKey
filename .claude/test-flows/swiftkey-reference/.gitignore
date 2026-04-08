@@ -1,0 +1,9 @@
+# Internal-use-only per spec §8 risk register.
+# Screenshots of third-party UI are excluded by default. If the internal
+# team decides to version-control references for review, move them to a
+# private submodule — do not remove this exclusion.
+*.png
+*.jpg
+*.jpeg
+*.webp
+!README.md

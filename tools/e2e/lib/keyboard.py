@@ -24,29 +24,48 @@ def load_key_map(serial: Optional[str] = None) -> Dict[str, Tuple[int, int]]:
     """
     Load the key coordinate map from DevKey's KeyMapGenerator logcat output.
 
-    The app dumps key positions to logcat with tag 'DevKeyMap' on startup
-    (debug builds only). Format per line:
-        DevKeyMap: key_label=x,y
+    The app dumps key positions to logcat with tag 'DevKeyMap' in response to
+    a broadcast (debug builds only). Format per line:
+        DevKeyMap: KEY label=<label> code=<code> x=<x> y=<y>
 
-    Returns the parsed key map and caches it globally.
+    Returns a dict keyed by both label and "code_<code>" for flexible lookup.
     """
     global _key_map
 
-    # Clear and wait for KeyMapGenerator to dump
+    # WHY: DevKeyMap only dumps on demand. Prior version (pre-Phase 2) relied on the
+    #      dump happening at IME boot, which was unreliable and format-incompatible.
+    # FROM SPEC: §6 Phase 2 item 2.4 — reliable calibration across FULL/COMPACT/COMPACT_DEV.
     adb.clear_logcat(serial)
-    time.sleep(1.0)
+    cmd = ["shell", "am", "broadcast", "-a", "dev.devkey.keyboard.DUMP_KEY_MAP"]
+    if serial:
+        cmd = ["-s", serial] + cmd
+    import subprocess
+    subprocess.run(["adb"] + cmd, check=True, capture_output=True)
+    # WHY: Replace the legacy `time.sleep(0.3)` with a proper wave-gate on the
+    #     `keymap_dump_complete` event emitted from KeyMapGenerator.dumpToLogcat
+    #     (added in Phase 1 sub-phase 1.7).
+    from lib import driver as _driver
+    try:
+        _driver.wait_for("DevKey/IME", "keymap_dump_complete", timeout_ms=3000)
+    except _driver.DriverError:
+        # Driver may not be enabled for this run — fall back to a bounded poll
+        # against logcat itself (the subsequent capture_logcat call handles it).
+        pass
 
-    lines = adb.capture_logcat("DevKeyMap", timeout=3.0, serial=serial)
+    lines = adb.capture_logcat("DevKeyMap", timeout=2.0, serial=serial)
 
-    key_map = {}
+    # Parse format: "KEY label=<label> code=<code> x=<x> y=<y>"
+    key_map: Dict[str, Tuple[int, int]] = {}
+    pattern = re.compile(r"KEY label=(\S+) code=(-?\d+) x=(\d+) y=(\d+)")
     for line in lines:
-        # Parse "key_label=x,y" or "code_-2=x,y" patterns
-        match = re.search(r"(\S+)=(\d+),(\d+)", line)
-        if match:
-            name = match.group(1)
-            x = int(match.group(2))
-            y = int(match.group(3))
-            key_map[name] = (x, y)
+        m = pattern.search(line)
+        if m:
+            label = m.group(1)
+            code = int(m.group(2))
+            x = int(m.group(3))
+            y = int(m.group(4))
+            key_map[label] = (x, y)
+            key_map[f"code_{code}"] = (x, y)
 
     _key_map = key_map
     return key_map
@@ -55,6 +74,21 @@ def load_key_map(serial: Optional[str] = None) -> Dict[str, Tuple[int, int]]:
 def get_key_map() -> Dict[str, Tuple[int, int]]:
     """Return the cached key map. Call load_key_map() first."""
     return _key_map
+
+
+def clear_key_map_cache() -> None:
+    """
+    Clear the cached key map so the next load_key_map() re-dumps from the IME.
+
+    WHY: Phase 3 defect #21 — callers that switch layout modes (via
+         `set_layout_mode()`) had no way to invalidate the stale module-level
+         cache from an earlier tier. Without this, `get_key_map()` returns
+         a key map whose coordinates belong to the previous layout, causing
+         taps to miss and tests to error with "key code not found".
+    """
+    global _key_map, _y_offset
+    _key_map = {}
+    _y_offset = 0
 
 
 def calibrate_y_offset(serial: Optional[str] = None) -> int:
@@ -135,3 +169,56 @@ def tap_sequence(keys: str, delay: float = 0.1,
     for char in keys:
         tap_key(char, serial)
         time.sleep(delay)
+
+
+def set_layout_mode(mode: str, serial: Optional[str] = None) -> None:
+    """
+    Switch the running IME to the given layout mode via debug broadcast.
+
+    Valid values: "full", "compact", "compact_dev".
+    FROM SPEC: §6 Phase 2 item 2.4 — programmatic layout-mode switching.
+
+    WARNING: Blocks ~3s while the broadcast dispatches, Compose recomposes,
+             and the key map is reloaded. Callers driving tight assertions
+             should broadcast directly via `driver.broadcast(...)` + `driver.wait_for(...)`
+             rather than calling this helper.
+    """
+    if mode not in ("full", "compact", "compact_dev"):
+        raise ValueError(f"invalid layout mode: {mode}")
+
+    import subprocess
+    cmd = ["adb"]
+    if serial:
+        cmd += ["-s", serial]
+    cmd += [
+        "shell", "am", "broadcast",
+        "-a", "dev.devkey.keyboard.SET_LAYOUT_MODE",
+        "--es", "mode", mode,
+    ]
+    subprocess.run(cmd, check=True, capture_output=True)
+    # WHY: Phase 3 defect #21 — after a layout switch the cached _key_map
+    #      holds stale coordinates from the previous mode. Subsequent
+    #      `get_key_map()` callers would tap the wrong positions. Clear here
+    #      and let the next explicit `load_key_map()` re-dump for the new
+    #      layout. We don't force a load here because some callers want to
+    #      batch the wait-for-recompose step with their own key-map load.
+    clear_key_map_cache()
+
+    # WHY: Wave-gate on the `layout_mode_recomposed` event emitted from
+    #      DevKeyKeyboard.kt's LaunchedEffect(layoutMode) block (added in
+    #      Phase 1 sub-phase 1.8) — zero sleeps.
+    from lib import driver as _driver
+    try:
+        _driver.wait_for(
+            "DevKey/IME",
+            "layout_mode_recomposed",
+            match={"mode": mode},
+            timeout_ms=5000,
+        )
+    except _driver.DriverError:
+        # Driver not available — callers running without HTTP forwarding
+        # must accept that this helper is best-effort. Log and continue.
+        pass
+
+    # Re-load key map for the new mode.
+    load_key_map(serial)

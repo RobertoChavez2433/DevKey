@@ -38,9 +38,12 @@ def test_tap_letter_produces_logcat():
     adb.clear_logcat(serial)
     keyboard.tap_key("a", serial)
 
+    # WHY: KeyPressLogger emits "TAP   label=a code=97" — uppercase TAP,
+    #      label= prefix, code= prefix. Match those exactly so the test
+    #      doesn't accidentally match unrelated lowercase "tap" text.
     adb.assert_logcat_contains(
         "DevKeyPress",
-        r"tap.*a.*97",
+        r"TAP\s+label=a\s+code=97",
         timeout=2.0,
         serial=serial
     )

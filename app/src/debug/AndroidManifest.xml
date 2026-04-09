@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     WHY: Debug-only manifest addition for the Phase 3 regression gate.
+          DevKeyLogger.sendToServer() opens an HttpURLConnection to the
+          host driver (tools/debug-server/server.js) so structured logs
+          can be queried via /logs and /wait during e2e runs. Without
+          INTERNET permission this POST silently fails on Android 9+.
+
+     SECURITY: This permission and the cleartext policy exist ONLY in
+               the debug variant. Release builds do not ship them —
+               verified by AGP manifest-merger at build time.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <application
+        android:usesCleartextTraffic="true"
+        tools:replace="android:usesCleartextTraffic" />
+</manifest>

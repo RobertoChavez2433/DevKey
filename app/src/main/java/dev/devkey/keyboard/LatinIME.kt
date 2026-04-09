@@ -57,6 +57,7 @@ import dev.devkey.keyboard.core.KeyboardActionListener
 import dev.devkey.keyboard.data.db.DevKeyDatabase
 import dev.devkey.keyboard.feature.clipboard.ClipboardRepository
 import dev.devkey.keyboard.feature.clipboard.DevKeyClipboardManager
+import dev.devkey.keyboard.debug.DevKeyLogger
 import dev.devkey.keyboard.debug.KeyMapGenerator
 import dev.devkey.keyboard.feature.command.CommandModeDetector
 import dev.devkey.keyboard.feature.command.CommandModeRepository
@@ -219,6 +220,11 @@ private var mAutoCorrectOn = false
     private var mPluginManager: PluginManager? = null
     private var mNotificationReceiver: NotificationReceiver? = null
     private var keyMapDumpReceiver: BroadcastReceiver? = null
+    // WHY: Holds the debug-only BroadcastReceiver so onDestroy can unregister it.
+    // NOTE: Mirrors the existing keyMapDumpReceiver field pattern (LatinIME.kt same area).
+    private var enableDebugServerReceiver: BroadcastReceiver? = null
+    // WHY: Holds the debug-only layout-mode switch receiver for unregistration.
+    private var setLayoutModeReceiver: BroadcastReceiver? = null
 
     /* package */ internal lateinit var mKeyEventSender: KeyEventSender
 
@@ -417,7 +423,71 @@ private var mAutoCorrectOn = false
             registerReceiver(
                 keyMapDumpReceiver,
                 IntentFilter("dev.devkey.keyboard.DUMP_KEY_MAP"),
-                Context.RECEIVER_NOT_EXPORTED
+                // WHY: Debug-only test broadcasts originate from the `adb shell` UID (2000),
+                //      which is a different UID than the IME (10xxx). Android 13+ silently
+                //      drops cross-UID broadcasts to NOT_EXPORTED receivers — observed on
+                //      API 36 during Phase 3 gate (BroadcastRecord stuck with dispatchTime=--).
+                //      The enclosing `isDebugBuild` gate ensures this is never live in release.
+                Context.RECEIVER_EXPORTED
+            )
+            // WHY: Test harness pushes the driver-server URL into the running IME via broadcast.
+            // FROM SPEC: §6 Phase 2 item 2.1 — "DevKeyLogger.enableServer(url) wired into /test harness"
+            // NOTE: Mirrors DUMP_KEY_MAP receiver exactly. Debug-only gate is the enclosing
+            //       isDebugBuild check — no additional gating needed.
+            // IMPORTANT: Extras: --es url http://10.0.2.2:3948 (emulator) or equivalent host loopback.
+            //            Passing no url extra OR an empty string calls disableServer() for cleanup.
+            enableDebugServerReceiver = object : BroadcastReceiver() {
+                override fun onReceive(context: Context, intent: Intent) {
+                    val url = intent.getStringExtra("url")
+                    if (url.isNullOrBlank()) {
+                        DevKeyLogger.disableServer()
+                        DevKeyLogger.ime("debug_server_disabled")
+                    } else {
+                        DevKeyLogger.enableServer(url)
+                        // NOTE: This ime() call runs BEFORE the server is actually reachable
+                        //       via the new URL on every subsequent event, so it serves as a
+                        //       handshake: the first log line the driver server receives is
+                        //       this one, confirming the broadcast landed.
+                        // SECURITY: Scrub the URL to scheme://host:port only so a malicious
+                        //           broadcaster cannot inject log-poisoning query strings.
+                        val scrubbed = try {
+                            java.net.URI(url).let { "${it.scheme}://${it.host}:${it.port}" }
+                        } catch (_: Exception) {
+                            "<invalid url>"
+                        }
+                        DevKeyLogger.ime("debug_server_enabled", mapOf("url" to scrubbed))
+                    }
+                }
+            }
+            registerReceiver(
+                enableDebugServerReceiver,
+                IntentFilter("dev.devkey.keyboard.ENABLE_DEBUG_SERVER"),
+                Context.RECEIVER_EXPORTED
+            )
+            // WHY: Test harness needs to flip between FULL/COMPACT/COMPACT_DEV without driving the Settings UI.
+            // FROM SPEC: §6 Phase 2 item 2.4 — "Existing tier stabilization — FULL + COMPACT + COMPACT_DEV to 100% green"
+            // NOTE: Writing the preference directly triggers the existing SharedPreferenceChangeListener
+            //       path in LatinIME (already wired — LatinIME is a SharedPreferences.OnSharedPreferenceChangeListener).
+            // IMPORTANT: Valid mode values are exactly "full", "compact", "compact_dev" — any other value is ignored.
+            //            These match the whitelist in the existing keyMapDumpReceiver at LatinIME.kt:407-413.
+            setLayoutModeReceiver = object : BroadcastReceiver() {
+                override fun onReceive(context: Context, intent: Intent) {
+                    val mode = intent.getStringExtra("mode") ?: return
+                    if (mode !in setOf("full", "compact", "compact_dev")) {
+                        DevKeyLogger.error("set_layout_mode_rejected", mapOf("mode" to mode))
+                        return
+                    }
+                    PreferenceManager.getDefaultSharedPreferences(context)
+                        .edit()
+                        .putString(SettingsRepository.KEY_LAYOUT_MODE, mode)
+                        .apply()
+                    DevKeyLogger.ime("layout_mode_set", mapOf("mode" to mode))
+                }
+            }
+            registerReceiver(
+                setLayoutModeReceiver,
+                IntentFilter("dev.devkey.keyboard.SET_LAYOUT_MODE"),
+                Context.RECEIVER_EXPORTED
             )
         }
     }
@@ -574,6 +644,19 @@ private var mAutoCorrectOn = false
         serviceScope.cancel()
         clipboardManager?.stopListening()
         keyMapDumpReceiver?.let { unregisterReceiver(it) }
+        // WHY: Prevent leak of the newly added receivers across IME process restarts.
+        try {
+            enableDebugServerReceiver?.let { unregisterReceiver(it) }
+        } catch (_: IllegalArgumentException) {
+            // Already unregistered — safe to ignore.
+        }
+        enableDebugServerReceiver = null
+        try {
+            setLayoutModeReceiver?.let { unregisterReceiver(it) }
+        } catch (_: IllegalArgumentException) {
+            // Already unregistered — safe to ignore.
+        }
+        setLayoutModeReceiver = null
         mUserDictionary?.close()
         unregisterReceiver(mReceiver)
         unregisterReceiver(mPluginManager)
@@ -1259,6 +1342,25 @@ private var mAutoCorrectOn = false
     override fun onKey(primaryCode: Int, keyCodes: IntArray?, x: Int, y: Int) {
         val eventTime = SystemClock.uptimeMillis()
         Log.d("DevKeyPress", "IME   code=$primaryCode x=$x y=$y")
+        // WHY: Phase 3 defect #15 — structured key_event observability for
+        //      the e2e harness. `onKey` is the highest-level IME callback
+        //      where primaryCode is still the semantic key code (ASCII for
+        //      letters, negative codes for special keys). Logging here
+        //      aligns with the `DevKeyPress IME code=N` line above and
+        //      gives the driver `/wait` endpoint a matchable event for
+        //      modifier-combo tests (code + ctrl/shift/alt/meta flags).
+        // IMPORTANT: No content leakage — primaryCode is a structural key
+        //            identifier, not typed text.
+        dev.devkey.keyboard.debug.DevKeyLogger.text(
+            "key_event",
+            mapOf(
+                "code" to primaryCode,
+                "shift" to (getShiftState() != Keyboard.SHIFT_OFF),
+                "ctrl" to mModCtrl,
+                "alt" to mModAlt,
+                "meta" to mModMeta
+            )
+        )
         if (primaryCode != Keyboard.KEYCODE_DELETE || eventTime > mLastKeyTime + QUICK_PRESS) {
             mDeleteCount = 0
         }
@@ -1935,27 +2037,64 @@ private var mAutoCorrectOn = false
         // path returns any candidates for the previously committed word,
         // show them in the candidate strip; otherwise fall back to the
         // punctuation list (the v0 behavior).
+        // WHY: Phase 2.3 next-word test flow gates on this signal instead of a sleep.
+        // FROM SPEC: §6 Phase 2 item 2.3 — "Predictive next-word (type word → space → verify candidate strip populated)"
+        // IMPORTANT: PRIVACY — prev_word content MUST NOT appear in the payload. Length only.
+        //            This mirrors the voice-instrumentation privacy contract from Session 42.
+        var emitSource: String = "no_prev_word"
+        var emitLen: Int = 0
+        var emitCount: Int = 0
+
         val suggestImpl = mSuggest
         if (suggestImpl != null && isPredictionOn()) {
             val prevWord = getLastCommittedWordBeforeCursor()
             if (prevWord != null) {
                 val nextWords = suggestImpl.getNextWordSuggestions(prevWord)
                 if (nextWords.isNotEmpty()) {
+                    emitSource = "bigram_hit"
+                    emitLen = prevWord.length
+                    emitCount = nextWords.size
                     setSuggestions(
                         nextWords,
                         completions = false,
                         typedWordValid = false,
                         haveMinimalSuggestion = false
                     )
-                    return
+                } else {
+                    emitSource = "bigram_miss"
+                    emitLen = prevWord.length
+                    emitCount = 0
+                    setSuggestions(
+                        mSuggestPuncList,
+                        completions = false,
+                        typedWordValid = false,
+                        haveMinimalSuggestion = false
+                    )
                 }
+            } else {
+                setSuggestions(
+                    mSuggestPuncList,
+                    completions = false,
+                    typedWordValid = false,
+                    haveMinimalSuggestion = false
+                )
             }
+        } else {
+            setSuggestions(
+                mSuggestPuncList,
+                completions = false,
+                typedWordValid = false,
+                haveMinimalSuggestion = false
+            )
         }
-        setSuggestions(
-            mSuggestPuncList,
-            completions = false,
-            typedWordValid = false,
-            haveMinimalSuggestion = false
+
+        DevKeyLogger.text(
+            "next_word_suggestions",
+            mapOf(
+                "prev_word_length" to emitLen,
+                "result_count" to emitCount,
+                "source" to emitSource
+            )
         )
     }
 

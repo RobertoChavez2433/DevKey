@@ -2,6 +2,7 @@ package dev.devkey.keyboard.core
 
 import android.os.SystemClock
 import androidx.annotation.MainThread
+import dev.devkey.keyboard.debug.DevKeyLogger
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -106,8 +107,9 @@ class ModifierStateManager(
         val now = timeProvider()
         val lastTap = getLastTapTime(type)
         val preDownState = getStateBeforeDown(type)
+        val fromState = flow.value
 
-        when (flow.value) {
+        when (fromState) {
             ModifierKeyState.OFF -> {
                 // Check if we were in ONE_SHOT before the down/up cycle reset us to OFF
                 if (preDownState == ModifierKeyState.ONE_SHOT && now - lastTap <= DOUBLE_TAP_WINDOW_MS) {
@@ -132,7 +134,44 @@ class ModifierStateManager(
             }
         }
 
+        if (flow.value != fromState) {
+            logTransition(type, "tap", fromState, flow.value)
+        }
         setLastTapTime(type, now)
+    }
+
+    /**
+     * Emit a structured modifier transition event to both the legacy
+     * `DevKeyPress` tag (format `ModifierTransition SHIFT tap ONE_SHOT` —
+     * harness regex compatible) AND the structured `DevKey/MOD` category so
+     * the driver `/wait` endpoint can gate on it.
+     *
+     * FROM SPEC: Phase 3 defect #17 (`.claude/plans/2026-04-09-pre-release-phase3.md`)
+     *            — Tests `test_modifiers.test_{shift,ctrl}_*` match on the
+     *            `ModifierTransition.*<TYPE>.*<action>.*<toState>` pattern.
+     * IMPORTANT: No content leakage — modifier types and states are structural.
+     */
+    private fun logTransition(
+        type: ModifierType,
+        action: String,
+        from: ModifierKeyState,
+        to: ModifierKeyState
+    ) {
+        // Legacy DevKeyPress tag for the capture_logcat harness path.
+        android.util.Log.d(
+            "DevKeyPress",
+            "ModifierTransition ${type.name} $action $from -> $to"
+        )
+        // Structured category for the driver-server /wait path.
+        DevKeyLogger.modifier(
+            "modifier_transition",
+            mapOf(
+                "type" to type.name,
+                "action" to action,
+                "from" to from.name,
+                "to" to to.name
+            )
+        )
     }
 
     /**
@@ -142,10 +181,12 @@ class ModifierStateManager(
     @MainThread
     fun onModifierDown(type: ModifierType, pointerId: Int) {
         val flow = getFlow(type)
-        setStateBeforeDown(type, flow.value)
+        val fromState = flow.value
+        setStateBeforeDown(type, fromState)
         // Only enter HELD if not already locked
-        if (flow.value != ModifierKeyState.LOCKED) {
+        if (fromState != ModifierKeyState.LOCKED) {
             flow.value = ModifierKeyState.HELD
+            logTransition(type, "down", fromState, ModifierKeyState.HELD)
         }
         setHeldPointerId(type, pointerId)
     }
@@ -158,8 +199,10 @@ class ModifierStateManager(
         val heldId = getHeldPointerId(type)
         if (heldId == pointerId) {
             val flow = getFlow(type)
-            if (flow.value == ModifierKeyState.HELD || flow.value == ModifierKeyState.CHORDING) {
+            val fromState = flow.value
+            if (fromState == ModifierKeyState.HELD || fromState == ModifierKeyState.CHORDING) {
                 flow.value = ModifierKeyState.OFF
+                logTransition(type, "up", fromState, ModifierKeyState.OFF)
             }
             setHeldPointerId(type, null)
         }
@@ -172,9 +215,15 @@ class ModifierStateManager(
      */
     @MainThread
     fun onOtherKeyPressed() {
-        for (flow in allModifierFlows) {
+        for ((idx, flow) in allModifierFlows.withIndex()) {
             if (flow.value == ModifierKeyState.HELD) {
                 flow.value = ModifierKeyState.CHORDING
+                logTransition(
+                    ModifierType.values()[idx],
+                    "other_key",
+                    ModifierKeyState.HELD,
+                    ModifierKeyState.CHORDING
+                )
             }
         }
     }
@@ -187,15 +236,19 @@ class ModifierStateManager(
     fun consumeOneShot() {
         if (_shiftState.value == ModifierKeyState.ONE_SHOT) {
             _shiftState.value = ModifierKeyState.OFF
+            logTransition(ModifierType.SHIFT, "consume", ModifierKeyState.ONE_SHOT, ModifierKeyState.OFF)
         }
         if (_ctrlState.value == ModifierKeyState.ONE_SHOT) {
             _ctrlState.value = ModifierKeyState.OFF
+            logTransition(ModifierType.CTRL, "consume", ModifierKeyState.ONE_SHOT, ModifierKeyState.OFF)
         }
         if (_altState.value == ModifierKeyState.ONE_SHOT) {
             _altState.value = ModifierKeyState.OFF
+            logTransition(ModifierType.ALT, "consume", ModifierKeyState.ONE_SHOT, ModifierKeyState.OFF)
         }
         if (_metaState.value == ModifierKeyState.ONE_SHOT) {
             _metaState.value = ModifierKeyState.OFF
+            logTransition(ModifierType.META, "consume", ModifierKeyState.ONE_SHOT, ModifierKeyState.OFF)
         }
     }
 

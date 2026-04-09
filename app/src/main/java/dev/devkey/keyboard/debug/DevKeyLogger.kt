@@ -107,13 +107,15 @@ object DevKeyLogger {
                 conn.requestMethod = "POST"
                 conn.setRequestProperty("Content-Type", "application/json")
                 conn.doOutput = true
-                conn.connectTimeout = 1000
-                conn.readTimeout = 1000
+                conn.connectTimeout = 5000
+                conn.readTimeout = 5000
                 conn.outputStream.use { it.write(json.toString().toByteArray()) }
                 conn.responseCode // trigger send
                 conn.disconnect()
-            } catch (_: Exception) {
-                // Silent fail — debug logging must never crash the IME
+            } catch (e: Exception) {
+                // Silent fail in release; debug surfaces the error to logcat so the
+                // Phase 3 gate can diagnose why forwarding isn't reaching the driver.
+                Log.w("DevKey/SRV", "sendToServer failed: ${e.javaClass.simpleName}: ${e.message}")
             }
         }
     }

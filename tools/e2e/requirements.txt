@@ -1,0 +1,14 @@
+# DevKey E2E Python test harness dependencies.
+# Phase 2 introduces visual-diff and image processing.
+
+scikit-image>=0.21
+Pillow>=10.0
+numpy>=1.24
+# WHY: pytest is imported lazily inside 8 test modules for the skip
+#      sentinel (test_voice.py, test_visual_diff.py, test_long_press.py,
+#      test_clipboard.py, test_macros.py, test_command_mode.py,
+#      test_plugins.py, test_modifier_combos.py). Without an explicit
+#      requirements entry a fresh venv ImportErrors on the first skip
+#      path and the entire Phase 3 gate becomes un-runnable.
+# FROM SPEC: §6 Phase 3 requires a green bar across tools/e2e/tests/.
+pytest>=7.0

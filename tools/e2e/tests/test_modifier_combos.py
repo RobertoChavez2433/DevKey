@@ -26,6 +26,12 @@ def _setup():
     # Ctrl/Alt/Tab utility row is omitted from COMPACT layouts. Also forces
     # a clean layout state so tests don't inherit symbols mode from prior runs.
     keyboard.set_layout_mode("full", serial)
+    # Retry key map load if first attempt returned empty — race between
+    # RESET_KEYBOARD_MODE recomposition and DUMP_KEY_MAP can yield 0 keys.
+    import time as _time
+    if not keyboard.get_key_map() or len(keyboard.get_key_map()) < 10:
+        _time.sleep(0.5)
+        keyboard.load_key_map(serial)
     return serial
 
 

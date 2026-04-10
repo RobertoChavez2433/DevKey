@@ -7,7 +7,7 @@ to catch race conditions and state corruption.
 
 import time
 
-from lib import adb, keyboard
+from lib import adb, driver, keyboard
 
 
 def test_rapid_letter_taps():
@@ -79,10 +79,11 @@ def test_rapid_shift_taps():
     """
     serial = adb.get_device_serial()
 
-    if not keyboard.get_key_map():
-        keyboard.load_key_map(serial)
+    # Ensure Normal mode — prior test_rapid_mode_toggles can leave the keyboard
+    # in symbols where SHIFT (-1) doesn't exist.
+    keyboard.set_layout_mode("compact_dev", serial)
 
-    adb.clear_logcat(serial)
+    driver.clear_logs()
 
     for _ in range(6):
         keyboard.tap_key_by_code(-1, serial)
@@ -90,12 +91,37 @@ def test_rapid_shift_taps():
 
     time.sleep(0.5)
 
-    # Verify modifier transitions were logged
-    lines = adb.capture_logcat("DevKeyPress", timeout=1.0, serial=serial)
-    modifier_lines = [l for l in lines if "ModifierTransition" in l and "SHIFT" in l]
-    assert len(modifier_lines) >= 3, (
-        f"Expected at least 3 Shift transitions, got {len(modifier_lines)}"
-    )
+    # Verify modifier transitions via driver — more reliable than logcat on
+    # physical devices where rapid log writes can be dropped.
+    try:
+        import urllib.request, json
+        url = f"{driver.DRIVER_URL}/logs?last=50&category=DevKey/MOD"
+        with urllib.request.urlopen(url, timeout=3) as resp:
+            body = resp.read().decode()
+        # Each line is a separate JSON object
+        lines = [l.strip() for l in body.strip().split("\n") if l.strip()]
+        entries = []
+        for line in lines:
+            try:
+                entries.append(json.loads(line))
+            except json.JSONDecodeError:
+                pass
+        shift_entries = [
+            e for e in entries
+            if e.get("message") == "modifier_transition"
+            and isinstance(e.get("data"), dict)
+            and e["data"].get("type") == "SHIFT"
+        ]
+        assert len(shift_entries) >= 3, (
+            f"Expected at least 3 Shift transitions, got {len(shift_entries)}"
+        )
+    except (urllib.error.URLError, OSError):
+        # Fallback: logcat assertion
+        lines = adb.capture_logcat("DevKeyPress", timeout=1.0, serial=serial)
+        modifier_lines = [l for l in lines if "ModifierTransition" in l and "SHIFT" in l]
+        assert len(modifier_lines) >= 3, (
+            f"Expected at least 3 Shift transitions, got {len(modifier_lines)}"
+        )
 
 
 def test_shift_then_rapid_letters():

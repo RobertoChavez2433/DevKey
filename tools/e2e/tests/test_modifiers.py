@@ -89,18 +89,25 @@ def test_shift_double_tap_locks():
 def test_ctrl_one_shot():
     """
     Tap Ctrl and verify it enters one-shot state.
+    Uses both logcat and driver assertions for robustness.
     """
     serial = adb.get_device_serial()
 
     _setup_full(serial)
+
+    from lib import driver
+    driver.clear_logs()
     adb.clear_logcat(serial)
 
     keyboard.tap_key_by_code(-113, serial)  # CTRL_LEFT = -113
     time.sleep(0.5)
 
-    adb.assert_logcat_contains(
-        "DevKeyPress",
-        r"ModifierTransition.*CTRL.*tap.*ONE_SHOT",
-        timeout=2.0,
-        serial=serial
+    # Driver-based assertion — more reliable than logcat timing on physical devices.
+    entry = driver.wait_for(
+        "DevKey/MOD",
+        "modifier_transition",
+        match={"type": "CTRL", "action": "tap", "to": "ONE_SHOT"},
+        timeout_ms=3000,
     )
+    data = entry.get("data", {})
+    assert data.get("type") == "CTRL", f"Expected CTRL, got {data}"

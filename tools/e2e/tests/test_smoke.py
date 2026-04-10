@@ -31,9 +31,10 @@ def test_tap_letter_produces_logcat():
     """Tap the 'a' key and verify logcat shows the key press."""
     serial = adb.get_device_serial()
 
-    # Ensure key map is loaded
-    if not keyboard.get_key_map():
-        keyboard.load_key_map(serial)
+    # WHY: Prior tests (test_rapid.test_rapid_mode_toggles) can leave the
+    #      keyboard in Symbols mode. A fresh key map load guarantees
+    #      coordinates match the rendered layout (RESET included in load flow).
+    keyboard.set_layout_mode("compact_dev", serial)
 
     adb.clear_logcat(serial)
     keyboard.tap_key("a", serial)

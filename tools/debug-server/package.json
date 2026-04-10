@@ -1,0 +1,13 @@
+{
+  "name": "devkey-debug-server",
+  "version": "0.2.0",
+  "description": "DevKey local debug + test driver server. Receives structured logs from DevKeyLogger over HTTP, dispatches ADB commands, and exposes wave-gating primitives for the Phase 2 regression harness.",
+  "main": "server.js",
+  "private": true,
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

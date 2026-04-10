@@ -76,7 +76,12 @@ const server = http.createServer((req, res) => {
   // POST /clear
   if (req.method === 'POST' && url.pathname === '/clear') {
     const count = logs.length;
-    logs = [];
+    // CRITICAL: Must preserve array identity — DO NOT reassign `logs = []`.
+    // waveGate.waitFor captures `logs` by reference, and /log pushes to the
+    // module-level `logs` binding. Reassigning the binding would leave the
+    // waitFor closure reading from a dead array that never gains new entries.
+    // In-place truncation keeps the reference stable for all code paths.
+    logs.length = 0;
     res.end(JSON.stringify({ cleared: count }));
     return;
   }

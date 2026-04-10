@@ -61,6 +61,12 @@ import dev.devkey.keyboard.debug.DevKeyLogger
 import dev.devkey.keyboard.debug.KeyMapGenerator
 import dev.devkey.keyboard.feature.command.CommandModeDetector
 import dev.devkey.keyboard.feature.command.CommandModeRepository
+import dev.devkey.keyboard.feature.prediction.AutocorrectEngine
+import dev.devkey.keyboard.feature.prediction.AutocorrectResult
+import dev.devkey.keyboard.feature.prediction.DictionaryProvider
+import dev.devkey.keyboard.feature.prediction.LearningEngine
+import dev.devkey.keyboard.feature.prediction.PredictionEngine
+import dev.devkey.keyboard.feature.prediction.TrieDictionary
 import dev.devkey.keyboard.ui.keyboard.ComposeKeyboardViewFactory
 import dev.devkey.keyboard.ui.keyboard.LayoutMode
 import dev.devkey.keyboard.ui.keyboard.KeyCodes
@@ -227,6 +233,8 @@ private var mAutoCorrectOn = false
     private var setLayoutModeReceiver: BroadcastReceiver? = null
     // WHY: Generic boolean-pref setter for test harness (e.g. devkey_show_toolbar).
     private var setBoolPrefReceiver: BroadcastReceiver? = null
+    // WHY: Lets E2E tests set autocorrect level via broadcast.
+    private var setAutocorrectLevelReceiver: BroadcastReceiver? = null
 
     /* package */ internal lateinit var mKeyEventSender: KeyEventSender
 
@@ -394,6 +402,17 @@ private var mAutoCorrectOn = false
         }
         registerReceiver(mPluginManager, pFilter, Context.RECEIVER_NOT_EXPORTED)
 
+        // WHY: Phase 3 E2E — plugin_scan_complete fires at boot before the debug
+        //      server is enabled, so the test can't observe it. RESCAN_PLUGINS lets
+        //      the harness re-trigger the scan after the driver is connected.
+        if (KeyMapGenerator.isDebugBuild(this)) {
+            registerReceiver(
+                mPluginManager,
+                IntentFilter("dev.devkey.keyboard.RESCAN_PLUGINS"),
+                Context.RECEIVER_EXPORTED
+            )
+        }
+
         try {
             initSuggest(inputLanguage)
         } catch (e: OutOfMemoryError) {
@@ -410,28 +429,11 @@ private var mAutoCorrectOn = false
 
         // Debug: register broadcast receiver for on-demand key map dump
         if (KeyMapGenerator.isDebugBuild(this)) {
-            keyMapDumpReceiver = object : BroadcastReceiver() {
-                override fun onReceive(context: Context, intent: Intent) {
-                    val modeStr = PreferenceManager.getDefaultSharedPreferences(context)
-                        .getString(SettingsRepository.KEY_LAYOUT_MODE, "full") ?: "full"
-                    val mode = when (modeStr) {
-                        "compact" -> LayoutMode.COMPACT
-                        "compact_dev" -> LayoutMode.COMPACT_DEV
-                        else -> LayoutMode.FULL
-                    }
-                    KeyMapGenerator.dumpToLogcat(context, null, mode)
-                }
-            }
-            registerReceiver(
-                keyMapDumpReceiver,
-                IntentFilter("dev.devkey.keyboard.DUMP_KEY_MAP"),
-                // WHY: Debug-only test broadcasts originate from the `adb shell` UID (2000),
-                //      which is a different UID than the IME (10xxx). Android 13+ silently
-                //      drops cross-UID broadcasts to NOT_EXPORTED receivers — observed on
-                //      API 36 during Phase 3 gate (BroadcastRecord stuck with dispatchTime=--).
-                //      The enclosing `isDebugBuild` gate ensures this is never live in release.
-                Context.RECEIVER_EXPORTED
-            )
+            // WHY: DUMP_KEY_MAP receiver moved to DevKeyKeyboard.kt (Compose layer)
+            //      so it has access to the actual View for precise on-screen coordinates.
+            //      The old LatinIME receiver passed null, causing estimated positions that
+            //      were wrong when the navigation bar was present.
+            keyMapDumpReceiver = null
             // WHY: Test harness pushes the driver-server URL into the running IME via broadcast.
             // FROM SPEC: §6 Phase 2 item 2.1 — "DevKeyLogger.enableServer(url) wired into /test harness"
             // NOTE: Mirrors DUMP_KEY_MAP receiver exactly. Debug-only gate is the enclosing
@@ -519,6 +521,30 @@ private var mAutoCorrectOn = false
             registerReceiver(
                 setBoolPrefReceiver,
                 IntentFilter("dev.devkey.keyboard.SET_BOOL_PREF"),
+                Context.RECEIVER_EXPORTED
+            )
+
+            // Autocorrect level setter for E2E harness
+            setAutocorrectLevelReceiver = object : BroadcastReceiver() {
+                override fun onReceive(context: Context, intent: Intent) {
+                    val level = intent.getStringExtra("level") ?: return
+                    if (level !in listOf("off", "mild", "aggressive")) {
+                        DevKeyLogger.error("set_autocorrect_level_rejected", mapOf("level" to level))
+                        return
+                    }
+                    PreferenceManager.getDefaultSharedPreferences(context)
+                        .edit()
+                        .putString(SettingsRepository.KEY_AUTOCORRECT_LEVEL, level)
+                        .apply()
+                    DevKeyLogger.ime(
+                        "autocorrect_level_set",
+                        mapOf("level" to level)
+                    )
+                }
+            }
+            registerReceiver(
+                setAutocorrectLevelReceiver,
+                IntentFilter("dev.devkey.keyboard.SET_AUTOCORRECT_LEVEL"),
                 Context.RECEIVER_EXPORTED
             )
         }
@@ -663,6 +689,26 @@ private var mAutoCorrectOn = false
         mSuggest!!.setUserDictionary(mUserDictionary)
         mSuggest!!.setAutoDictionary(mAutoDictionary)
         SessionDependencies.suggest = mSuggest
+
+        // Initialize the modern prediction pipeline
+        val db = DevKeyDatabase.getInstance(this)
+        val dictProvider = DictionaryProvider(mSuggest)
+        val acEngine = AutocorrectEngine(dictProvider)
+        val learnEngine = LearningEngine(db.learnedWordDao())
+        val predEngine = PredictionEngine(dictProvider, acEngine, learnEngine)
+        SessionDependencies.dictionaryProvider = dictProvider
+        SessionDependencies.autocorrectEngine = acEngine
+        SessionDependencies.learningEngine = learnEngine
+        SessionDependencies.predictionEngine = predEngine
+        serviceScope.launch(Dispatchers.IO) {
+            learnEngine.initialize()
+            // Load modern Kotlin trie dictionary
+            val trie = TrieDictionary()
+            trie.load(this@LatinIME, R.raw.en_us_wordfreq)
+            dictProvider.trieDictionary = trie
+            Log.i(TAG, "TrieDictionary loaded: ${trie.size} words")
+        }
+
         updateCorrectionMode()
         mWordSeparators = mResources!!.getString(R.string.word_separators)
         mSentenceSeparators = mResources!!.getString(R.string.sentence_separators)
@@ -691,6 +737,12 @@ private var mAutoCorrectOn = false
         }
         setLayoutModeReceiver = null
         setBoolPrefReceiver = null
+        try {
+            setAutocorrectLevelReceiver?.let { unregisterReceiver(it) }
+        } catch (_: IllegalArgumentException) {
+            // Already unregistered — safe to ignore.
+        }
+        setAutocorrectLevelReceiver = null
         mUserDictionary?.close()
         unregisterReceiver(mReceiver)
         unregisterReceiver(mPluginManager)
@@ -1199,7 +1251,20 @@ private var mAutoCorrectOn = false
                     TextEntryState.acceptedTyped(mComposing)
                 }
                 addToDictionaries(mComposing, AutoDictionary.FREQUENCY_FOR_TYPED)
+                // Feed the modern learning engine
+                val word = mComposing.toString()
+                SessionDependencies.learningEngine?.let { le ->
+                    serviceScope.launch(Dispatchers.IO) {
+                        le.onWordCommitted(
+                            word,
+                            isCommand = SessionDependencies.commandModeDetector?.isCommandMode() == true,
+                            contextApp = SessionDependencies.currentPackageName
+                        )
+                    }
+                }
             }
+            SessionDependencies.composingWord.value = ""
+            SessionDependencies.pendingCorrection.value = null
             updateSuggestions()
         }
     }
@@ -1548,6 +1613,7 @@ private var mAutoCorrectOn = false
                 if (mComposing.isEmpty()) {
                     mPredicting = false
                 }
+                SessionDependencies.composingWord.value = mComposing.toString()
                 postUpdateSuggestions()
             } else {
                 ic.deleteSurroundingText(1, 0)
@@ -1695,6 +1761,7 @@ private var mAutoCorrectOn = false
                 }
                 ic.setComposingText(mComposing, 1)
             }
+            SessionDependencies.composingWord.value = mComposing.toString()
             postUpdateSuggestions()
         } else {
             sendModifiableKeyChar(primaryCode.toChar())
@@ -1729,7 +1796,42 @@ private var mAutoCorrectOn = false
                     }
                 }
             } else {
-                commitTyped(ic, true)
+                // Modern autocorrect: when legacy is off but modern pipeline is active
+                val acEngine = SessionDependencies.autocorrectEngine
+                val learnEngine = SessionDependencies.learningEngine
+                if (acEngine != null && learnEngine != null
+                    && acEngine.aggressiveness != AutocorrectEngine.Aggressiveness.OFF
+                    && mComposing.isNotEmpty()
+                ) {
+                    val result = acEngine.getCorrection(
+                        mComposing.toString(), learnEngine.getLearnedWords()
+                    )
+                    if (result is AutocorrectResult.Suggestion && result.autoApply) {
+                        // Replace composing text with correction
+                        ic?.finishComposingText()
+                        ic?.deleteSurroundingText(mComposing.length, 0)
+                        ic?.commitText(result.correction, 1)
+                        mPredicting = false
+                        mCommittedLength = result.correction.length
+                        SessionDependencies.composingWord.value = ""
+                        SessionDependencies.pendingCorrection.value = null
+                        DevKeyLogger.text(
+                            "autocorrect_applied",
+                            mapOf(
+                                "action" to "applied",
+                                "level" to acEngine.aggressiveness.name.lowercase()
+                            )
+                        )
+                    } else if (result is AutocorrectResult.Suggestion) {
+                        // Mild: show pending correction in suggestion bar
+                        SessionDependencies.pendingCorrection.value = result
+                        commitTyped(ic, true)
+                    } else {
+                        commitTyped(ic, true)
+                    }
+                } else {
+                    commitTyped(ic, true)
+                }
             }
         }
         if (mJustAddedAutoSpace && primaryCode == ASCII_ENTER) {
@@ -1992,6 +2094,19 @@ private var mAutoCorrectOn = false
         saveWordInHistory(actualSuggestion)
         mPredicting = false
         mCommittedLength = actualSuggestion.length
+        // Feed the modern learning engine
+        val word = actualSuggestion.toString()
+        SessionDependencies.learningEngine?.let { le ->
+            serviceScope.launch(Dispatchers.IO) {
+                le.onWordCommitted(
+                    word,
+                    isCommand = SessionDependencies.commandModeDetector?.isCommandMode() == true,
+                    contextApp = SessionDependencies.currentPackageName
+                )
+            }
+        }
+        SessionDependencies.composingWord.value = ""
+        SessionDependencies.pendingCorrection.value = null
         if (!correcting) {
             setNextSuggestions()
         }
@@ -2396,6 +2511,16 @@ private var mAutoCorrectOn = false
                     sharedPreferences, PREF_VIBRATE_LEN, resources.getString(R.string.vibrate_duration_ms)
                 )
             }
+            SettingsRepository.KEY_AUTOCORRECT_LEVEL -> {
+                val level = sharedPreferences.getString(
+                    SettingsRepository.KEY_AUTOCORRECT_LEVEL, "mild"
+                ) ?: "mild"
+                SessionDependencies.autocorrectEngine?.aggressiveness = when (level) {
+                    "aggressive" -> AutocorrectEngine.Aggressiveness.AGGRESSIVE
+                    "off" -> AutocorrectEngine.Aggressiveness.OFF
+                    else -> AutocorrectEngine.Aggressiveness.MILD
+                }
+            }
         }
 
         updateKeyboardOptions()
@@ -2714,6 +2839,16 @@ private var mAutoCorrectOn = false
             mResources!!.getBoolean(R.bool.enable_autocorrect)
         ) && mShowSuggestions
         updateCorrectionMode()
+
+        // Wire KEY_AUTOCORRECT_LEVEL to the modern autocorrect engine
+        val autocorrectLevel = sp.getString(
+            SettingsRepository.KEY_AUTOCORRECT_LEVEL, "mild"
+        ) ?: "mild"
+        SessionDependencies.autocorrectEngine?.aggressiveness = when (autocorrectLevel) {
+            "aggressive" -> AutocorrectEngine.Aggressiveness.AGGRESSIVE
+            "off" -> AutocorrectEngine.Aggressiveness.OFF
+            else -> AutocorrectEngine.Aggressiveness.MILD
+        }
         updateAutoTextEnabled(mResources!!.configuration.locales[0])
         mLanguageSwitcher!!.loadLocales(sp)
         mAutoCapActive = mAutoCapPref && mLanguageSwitcher!!.allowAutoCap()

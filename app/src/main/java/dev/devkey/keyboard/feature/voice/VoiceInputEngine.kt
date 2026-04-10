@@ -1,27 +1,16 @@
 package dev.devkey.keyboard.feature.voice
 
-import android.Manifest
 import android.content.Context
-import android.content.pm.PackageManager
-import android.media.AudioFormat
-import android.media.AudioRecord
-import android.media.MediaRecorder
 import android.util.Log
-import androidx.core.content.ContextCompat
 import dev.devkey.keyboard.debug.DevKeyLogger
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.tensorflow.lite.Interpreter
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
-import kotlin.math.sqrt
 
 /**
  * Voice input engine using TF Lite Whisper for on-device speech-to-text.
@@ -29,6 +18,7 @@ import kotlin.math.sqrt
  * Manages the full voice input lifecycle: audio recording, silence detection,
  * speech recognition via Whisper, and state management.
  *
+ * Audio capture is delegated to [AudioCaptureManager].
  * Falls back gracefully when model files are not available.
  *
  * @param context Android context for accessing assets and permissions.
@@ -37,12 +27,6 @@ class VoiceInputEngine(private val context: Context) {
 
     companion object {
         private const val TAG = "DevKey/VoiceInputEngine"
-        private const val SAMPLE_RATE = 16000
-        private const val CHANNEL_CONFIG = AudioFormat.CHANNEL_IN_MONO
-        private const val AUDIO_FORMAT = AudioFormat.ENCODING_PCM_16BIT
-
-        /** Read 100ms of audio at a time (1600 samples at 16kHz). */
-        private const val CHUNK_SIZE = 1600
     }
 
     /** Current voice input state. */
@@ -60,9 +44,6 @@ class VoiceInputEngine(private val context: Context) {
     /** TF Lite interpreter for Whisper model, lazy initialized. */
     private var interpreter: Interpreter? = null
 
-    /** Audio recorder instance. */
-    private var audioRecord: AudioRecord? = null
-
     /** Silence detector for auto-stop. */
     private val silenceDetector = SilenceDetector()
 
@@ -73,147 +54,69 @@ class VoiceInputEngine(private val context: Context) {
     private val _state = MutableStateFlow(VoiceState.IDLE)
     val state: StateFlow<VoiceState> = _state.asStateFlow()
 
+    /** Audio capture manager — owns AudioRecord lifecycle and amplitude tracking. */
+    private val captureManager = AudioCaptureManager(
+        context = context,
+        silenceDetector = silenceDetector,
+        onSilenceDetected = {
+            Log.i(TAG, "Silence detected — auto-stopping")
+            _state.value = VoiceState.PROCESSING
+            DevKeyLogger.voice("state_transition", mapOf("state" to "PROCESSING", "source" to "recordingLoop", "trigger" to "silence_detected"))
+        }
+    )
+
     /** Observable audio amplitude for waveform visualization (0.0 to 1.0). */
-    private val _amplitude = MutableStateFlow(0f)
-    val amplitude: StateFlow<Float> = _amplitude.asStateFlow()
-
-    /** Accumulated audio samples during recording. */
-    private val audioBuffer = mutableListOf<Short>()
-
-    /** Active recording job. */
-    private var recordingJob: Job? = null
+    val amplitude: StateFlow<Float> = captureManager.amplitude
 
     /** Whether the model was loaded successfully. */
     private var modelLoaded = false
 
-    /**
-     * Initialize the TF Lite interpreter with the Whisper model.
-     *
-     * Called lazily on first [startListening] call.
-     */
+    /** Load the Whisper TF Lite interpreter lazily on first [startListening] call. */
     private fun initialize() {
         if (interpreter != null) return
-
         try {
-            val assetManager = context.assets
-            val modelFile = assetManager.open("whisper-tiny.en.tflite")
-            val modelBytes = modelFile.readBytes()
-            modelFile.close()
-
-            val modelBuffer = ByteBuffer.allocateDirect(modelBytes.size)
-                .order(ByteOrder.nativeOrder())
-            modelBuffer.put(modelBytes)
-            modelBuffer.rewind()
-
-            interpreter = Interpreter(modelBuffer)
+            val bytes = context.assets.open("whisper-tiny.en.tflite").use { it.readBytes() }
+            val buf = ByteBuffer.allocateDirect(bytes.size).order(ByteOrder.nativeOrder())
+            buf.put(bytes).rewind()
+            interpreter = Interpreter(buf)
             modelLoaded = true
-
-            // Also load processor resources
             processor.loadResources()
-
             Log.i(TAG, "Whisper model loaded successfully")
         } catch (e: Exception) {
             Log.w(TAG, "Whisper model not available — voice input will be limited", e)
             DevKeyLogger.voice("error", mapOf("kind" to "model_missing", "source" to "initialize"))
             modelLoaded = false
-            // Don't set ERROR state — allow recording to proceed, just skip inference
+            // Don't set ERROR state — allow recording to proceed, skip inference
         }
     }
 
     /**
      * Start recording audio for voice input.
      *
-     * Initializes the model (if needed), starts AudioRecord, and begins
-     * a coroutine loop that reads audio chunks, updates amplitude, and
-     * checks for silence.
+     * Initializes the model (if needed), starts [AudioCaptureManager], and
+     * suspends until the capture loop ends (silence detected or cancelled).
      *
      * @throws SecurityException if RECORD_AUDIO permission is not granted.
      */
     suspend fun startListening() {
         if (_state.value == VoiceState.LISTENING) return
 
-        // Check permission
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO)
-            != PackageManager.PERMISSION_GRANTED
-        ) {
+        if (!captureManager.hasPermission()) {
             Log.w(TAG, "RECORD_AUDIO permission not granted")
             _state.value = VoiceState.ERROR
             DevKeyLogger.voice("state_transition", mapOf("state" to "ERROR", "source" to "startListening", "reason" to "permission_denied"))
             return
         }
 
-        // Initialize model on first use
-        if (interpreter == null) {
-            initialize()
-        }
+        if (interpreter == null) initialize()
 
-        // Create AudioRecord
-        val minBufferSize = AudioRecord.getMinBufferSize(SAMPLE_RATE, CHANNEL_CONFIG, AUDIO_FORMAT)
-        val bufferSize = maxOf(minBufferSize, CHUNK_SIZE * 2)
-
-        try {
-            audioRecord = AudioRecord(
-                MediaRecorder.AudioSource.MIC,
-                SAMPLE_RATE,
-                CHANNEL_CONFIG,
-                AUDIO_FORMAT,
-                bufferSize
-            )
-
-            if (audioRecord?.state != AudioRecord.STATE_INITIALIZED) {
-                Log.e(TAG, "AudioRecord failed to initialize")
-                _state.value = VoiceState.ERROR
-                DevKeyLogger.voice("state_transition", mapOf("state" to "ERROR", "source" to "startListening", "reason" to "audiorecord_init_failed"))
-                return
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to create AudioRecord", e)
-            _state.value = VoiceState.ERROR
-            DevKeyLogger.voice("state_transition", mapOf("state" to "ERROR", "source" to "startListening", "reason" to "audiorecord_exception"))
-            return
-        }
-
-        // Clear state
-        audioBuffer.clear()
-        silenceDetector.reset()
-        _amplitude.value = 0f
         _state.value = VoiceState.LISTENING
         DevKeyLogger.voice("state_transition", mapOf("state" to "LISTENING", "source" to "startListening"))
 
-        // Start recording loop
-        audioRecord?.startRecording()
-
-        coroutineScope {
-            recordingJob = launch(Dispatchers.IO) {
-                val chunk = ShortArray(CHUNK_SIZE)
-                while (isActive && _state.value == VoiceState.LISTENING) {
-                    val read = audioRecord?.read(chunk, 0, CHUNK_SIZE) ?: -1
-                    if (read > 0) {
-                        // Accumulate audio
-                        synchronized(audioBuffer) {
-                            for (i in 0 until read) {
-                                audioBuffer.add(chunk[i])
-                            }
-                        }
-
-                        // Update amplitude (RMS normalized to 0-1 range)
-                        var sumOfSquares = 0.0
-                        for (i in 0 until read) {
-                            val sample = chunk[i].toDouble()
-                            sumOfSquares += sample * sample
-                        }
-                        val rms = sqrt(sumOfSquares / read)
-                        _amplitude.value = (rms / Short.MAX_VALUE).toFloat().coerceIn(0f, 1f)
-
-                        // Check for silence timeout
-                        if (silenceDetector.isSilent(chunk, read)) {
-                            Log.i(TAG, "Silence detected — auto-stopping")
-                            _state.value = VoiceState.PROCESSING
-                            DevKeyLogger.voice("state_transition", mapOf("state" to "PROCESSING", "source" to "recordingLoop", "trigger" to "silence_detected", "sample_count" to audioBuffer.size))
-                        }
-                    }
-                }
-            }
+        val started = captureManager.startCapture()
+        if (!started) {
+            _state.value = VoiceState.ERROR
+            DevKeyLogger.voice("state_transition", mapOf("state" to "ERROR", "source" to "startListening", "reason" to "capture_init_failed"))
         }
     }
 
@@ -225,98 +128,50 @@ class VoiceInputEngine(private val context: Context) {
     suspend fun stopListening(): String {
         _state.value = VoiceState.PROCESSING
         DevKeyLogger.voice("state_transition", mapOf("state" to "PROCESSING", "source" to "stopListening"))
-        val processingStartMs = System.currentTimeMillis()
 
-        // Stop recording
-        try {
-            audioRecord?.stop()
-            audioRecord?.release()
-        } catch (e: Exception) {
-            Log.w(TAG, "Error stopping AudioRecord", e)
-            DevKeyLogger.voice("error", mapOf("kind" to "audiorecord_stop_failed", "source" to "stopListening"))
-        }
-        audioRecord = null
-        recordingJob?.cancel()
-        recordingJob = null
-
-        // Get accumulated audio
-        val audioData: ShortArray
-        synchronized(audioBuffer) {
-            audioData = audioBuffer.toShortArray()
-            audioBuffer.clear()
-        }
-
+        val audioData = captureManager.stopCapture()
         if (audioData.isEmpty()) {
             _state.value = VoiceState.IDLE
             DevKeyLogger.voice("state_transition", mapOf("state" to "IDLE", "source" to "stopListening", "reason" to "empty_audio"))
             return ""
         }
 
-        // Process and transcribe
+        return runInference(audioData)
+    }
+
+    /** Run Whisper inference on [audioData] and return the transcription text. */
+    private suspend fun runInference(audioData: ShortArray): String {
+        val startMs = System.currentTimeMillis()
         return withContext(Dispatchers.Default) {
             try {
                 val interp = interpreter
                 if (interp == null || !modelLoaded) {
                     _state.value = VoiceState.IDLE
-                    DevKeyLogger.voice(
-                        "state_transition",
-                        mapOf("state" to "IDLE", "source" to "stopListening", "reason" to "model_unavailable")
-                    )
+                    DevKeyLogger.voice("state_transition", mapOf("state" to "IDLE", "source" to "stopListening", "reason" to "model_unavailable"))
                     return@withContext "[Voice model not available]"
                 }
 
-                // Preprocess audio
                 val input = processor.processAudio(audioData)
                 if (input == null) {
                     _state.value = VoiceState.IDLE
-                    DevKeyLogger.voice(
-                        "state_transition",
-                        mapOf("state" to "IDLE", "source" to "stopListening", "reason" to "audio_processing_failed")
-                    )
+                    DevKeyLogger.voice("state_transition", mapOf("state" to "IDLE", "source" to "stopListening", "reason" to "audio_processing_failed"))
                     return@withContext "[Audio processing failed]"
                 }
 
-                // Run inference
-                // Output shape depends on the model — typically token IDs
-                val outputTokens = IntArray(256) // Max output length
-                val inputBuffer = arrayOf<Any>(input)
-                val outputBuffer = HashMap<Int, Any>()
-                outputBuffer[0] = outputTokens
-
-                interp.runForMultipleInputsOutputs(inputBuffer, outputBuffer)
+                val outputTokens = IntArray(256)
+                val outputBuffer = hashMapOf<Int, Any>(0 to outputTokens)
+                interp.runForMultipleInputsOutputs(arrayOf<Any>(input), outputBuffer)
 
                 val transcription = processor.decodeTokens(outputTokens)
-
                 _state.value = VoiceState.IDLE
-                DevKeyLogger.voice(
-                    "processing_complete",
-                    mapOf(
-                        "result_length" to transcription.length,
-                        "duration_ms" to (System.currentTimeMillis() - processingStartMs),
-                        "source" to "stopListening"
-                    )
-                )
-                DevKeyLogger.voice(
-                    "state_transition",
-                    mapOf("state" to "IDLE", "source" to "stopListening", "reason" to "inference_complete")
-                )
+                DevKeyLogger.voice("processing_complete", mapOf("result_length" to transcription.length, "duration_ms" to (System.currentTimeMillis() - startMs), "source" to "stopListening"))
+                DevKeyLogger.voice("state_transition", mapOf("state" to "IDLE", "source" to "stopListening", "reason" to "inference_complete"))
                 transcription.ifEmpty { "[No speech detected]" }
             } catch (e: Exception) {
                 Log.e(TAG, "Whisper inference failed", e)
                 _state.value = VoiceState.IDLE
-                DevKeyLogger.voice(
-                    "error",
-                    mapOf("kind" to "inference_failed", "source" to "stopListening")
-                )
-                DevKeyLogger.voice(
-                    "state_transition",
-                    mapOf(
-                        "state" to "IDLE",
-                        "source" to "stopListening",
-                        "reason" to "inference_exception",
-                        "duration_ms" to (System.currentTimeMillis() - processingStartMs)
-                    )
-                )
+                DevKeyLogger.voice("error", mapOf("kind" to "inference_failed", "source" to "stopListening"))
+                DevKeyLogger.voice("state_transition", mapOf("state" to "IDLE", "source" to "stopListening", "reason" to "inference_exception", "duration_ms" to (System.currentTimeMillis() - startMs)))
                 "[Transcription error]"
             }
         }
@@ -326,29 +181,16 @@ class VoiceInputEngine(private val context: Context) {
      * Cancel recording without processing.
      */
     fun cancelListening() {
-        try {
-            audioRecord?.stop()
-            audioRecord?.release()
-        } catch (e: Exception) {
-            Log.w(TAG, "Error cancelling AudioRecord", e)
-        }
-        audioRecord = null
-        recordingJob?.cancel()
-        recordingJob = null
-        audioBuffer.clear()
-        _amplitude.value = 0f
+        captureManager.cancel()
         _state.value = VoiceState.IDLE
-        DevKeyLogger.voice(
-            "state_transition",
-            mapOf("state" to "IDLE", "source" to "cancelListening")
-        )
+        DevKeyLogger.voice("state_transition", mapOf("state" to "IDLE", "source" to "cancelListening"))
     }
 
     /**
      * Release all resources.
      */
     fun release() {
-        cancelListening()
+        captureManager.release()
         interpreter?.close()
         interpreter = null
     }

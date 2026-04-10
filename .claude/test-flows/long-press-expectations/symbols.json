@@ -24,6 +24,5 @@
   {"label": "`", "lp_codes": [163]},
   {"label": "|", "lp_codes": [165]},
   {"label": "\u2022", "lp_codes": [162]},
-  {"label": "\u221A", "lp_codes": [8361]},
-  {"label": ".", "lp_codes": [44, 59, 58, 33, 63, 8230]}
+  {"label": "\u221A", "lp_codes": [8361]}
 ]

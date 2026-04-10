@@ -18,6 +18,7 @@ The shared test harness lives in `tools/e2e/` and `tools/debug-server/`.
 - Keep coordinate lookup, driver communication, and artifact writing in the
   harness libraries when possible.
 - Do not duplicate protocol or navigation logic across multiple scripts.
+- The emulator IME reaches the host debug server via `10.0.2.2`, not `127.0.0.1`; the harness translates automatically — never send a `127.0.0.1` URL to the IME.
 
 ## Artifact Rules
 

@@ -22,6 +22,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -29,6 +30,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import dev.devkey.keyboard.data.db.entity.ClipboardHistoryEntity
+import dev.devkey.keyboard.debug.DevKeyLogger
 import dev.devkey.keyboard.ui.theme.DevKeyTheme
 
 /**
@@ -54,6 +56,12 @@ fun ClipboardPanel(
     onDelete: (Long) -> Unit,
     onClearAll: () -> Unit
 ) {
+    // Phase 4.6 — structural panel_opened emit for E2E smoke tests.
+    // PRIVACY: panel identifier only — NEVER log clipboard contents.
+    LaunchedEffect(Unit) {
+        DevKeyLogger.ui("panel_opened", mapOf("panel" to "clipboard"))
+    }
+
     var searchQuery by remember { mutableStateOf("") }
     var showClearAllDialog by remember { mutableStateOf(false) }
 

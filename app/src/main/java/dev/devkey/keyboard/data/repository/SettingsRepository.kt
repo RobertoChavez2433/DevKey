@@ -385,6 +385,16 @@ class SettingsRepository(
         const val KEY_VOICE_MODEL = "devkey_voice_model"
         const val KEY_VOICE_AUTO_STOP_TIMEOUT = "devkey_voice_auto_stop_timeout"
         const val KEY_COMMAND_AUTO_DETECT = "devkey_command_auto_detect"
+        // WHY: SwiftKey parity — default false hides the toolbar row above the keyboard
+        //      (clipboard/voice/123/⚡/⋯). Users who want DevKey power features visible can
+        //      flip this on in Settings. When hidden, those modes are still reachable via
+        //      the standard Android IME switcher and long-press menus.
+        const val KEY_SHOW_TOOLBAR = "devkey_show_toolbar"
+        // WHY: SwiftKey parity — default true shows the 1-0 number row at the top of
+        //      COMPACT / COMPACT_DEV layouts. Users who want the minimal 4-row compact
+        //      can flip this off in Settings. FULL layout always has its own number row
+        //      regardless of this flag.
+        const val KEY_SHOW_NUMBER_ROW = "devkey_show_number_row"
 
         // Popup keyboard content flags (used by Keyboard.kt)
         const val KEY_POPUP_CONTENT = "pref_popup_content"

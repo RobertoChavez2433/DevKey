@@ -147,7 +147,9 @@ object SymbolsLayout {
                     weight = 1.0f
                 ),
                 KeyData(
-                    primaryLabel = "\u263A",  // smiley face (emoji key)
+                    // WHY: SwiftKey parity — force text-style rendering via VS15 (U+FE0E)
+                    //      so the glyph paints with key text color instead of colored emoji.
+                    primaryLabel = "\u263A\uFE0E",  // smiley face — text-style variation
                     primaryCode = KeyCodes.EMOJI,
                     type = KeyType.TOGGLE,
                     weight = 0.8f

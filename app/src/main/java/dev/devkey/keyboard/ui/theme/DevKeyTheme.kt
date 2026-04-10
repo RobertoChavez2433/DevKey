@@ -167,6 +167,10 @@ object DevKeyTheme {
     // ── Dimensions ──
     val suggestionBarHeight: Dp = 40.dp
     val toolbarHeight: Dp = 36.dp
+    // Slim horizontal strip shown when the toolbar is hidden — lets users re-reveal
+    // the toolbar without entering Settings. SwiftKey parity (collapsible toolbar).
+    val chevronRowHeight: Dp = 14.dp
+    val chevronRowIconPad: Dp = 6.dp
 
     // ── Typography (non-key) ──
     val suggestionTextSize: TextUnit = 14.sp

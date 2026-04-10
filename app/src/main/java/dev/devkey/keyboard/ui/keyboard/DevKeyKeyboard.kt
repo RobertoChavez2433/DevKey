@@ -37,6 +37,7 @@ import dev.devkey.keyboard.feature.macro.MacroRepository
 import dev.devkey.keyboard.feature.macro.MacroSerializer
 import dev.devkey.keyboard.feature.macro.MacroStep
 import dev.devkey.keyboard.data.repository.SettingsRepository
+import dev.devkey.keyboard.debug.DevKeyLogger
 import dev.devkey.keyboard.debug.KeyMapGenerator
 import dev.devkey.keyboard.feature.voice.VoiceInputEngine
 import dev.devkey.keyboard.ui.clipboard.ClipboardPanel
@@ -44,6 +45,7 @@ import dev.devkey.keyboard.ui.macro.MacroChipStrip
 import dev.devkey.keyboard.ui.macro.MacroGridPanel
 import dev.devkey.keyboard.ui.macro.MacroNameDialog
 import dev.devkey.keyboard.ui.macro.MacroRecordingBar
+import dev.devkey.keyboard.ui.toolbar.ToolbarChevronBar
 import dev.devkey.keyboard.ui.toolbar.ToolbarRow
 import dev.devkey.keyboard.ui.voice.VoiceInputPanel
 import kotlinx.coroutines.launch
@@ -102,6 +104,14 @@ fun DevKeyKeyboard(
         if (KeyMapGenerator.isDebugBuild(context)) {
             KeyMapGenerator.dumpToLogcatWhenReady(context, currentView, layoutMode)
         }
+        // WHY: Phase 2 Python harness replaces `time.sleep(0.8)` after SET_LAYOUT_MODE broadcast
+        //      with a wait_for on this event — see tools/e2e/lib/keyboard.py set_layout_mode.
+        // NOTE: LaunchedEffect runs on a keyed-restart basis; emitting here means the observer
+        //       will see one event per layoutMode change after Compose has re-keyed the block.
+        DevKeyLogger.ime(
+            "layout_mode_recomposed",
+            mapOf("mode" to layoutMode.name.lowercase())
+        )
     }
 
     // Dynamic keyboard height from user preference
@@ -113,7 +123,12 @@ fun DevKeyKeyboard(
     val keyboardHeightPercent = rememberPreference(prefs, heightKey, heightDefault) { p, k, d -> p.getInt(k, d) }
 
     // Hint mode preference: "0" = Hidden, "1" = Visible (dim), "2" = Visible (bright)
-    val hintModeValue = rememberPreference(prefs, SettingsRepository.KEY_HINT_MODE, "0") { p, k, d -> p.getString(k, d) ?: d }
+    // WHY: Default "1" for SwiftKey parity — the reference keyboard shows a muted
+    //      long-press hint glyph on every key. Previously defaulted to "0" which
+    //      hid all hints and also mismatched `default_hint_mode` = 1 in
+    //      res/values/strings.xml. Users can flip to "0" in Settings > Input if
+    //      they want a cleaner look.
+    val hintModeValue = rememberPreference(prefs, SettingsRepository.KEY_HINT_MODE, "1") { p, k, d -> p.getString(k, d) ?: d }
     val showHints = hintModeValue.value != "0"
     val hintBright = hintModeValue.value == "2"
 
@@ -147,9 +162,35 @@ fun DevKeyKeyboard(
         modeManager.setMode(KeyboardMode.Normal)
     }
 
+    // SwiftKey parity — default hides the toolbar row; users can enable via
+    // Settings > Input > `devkey_show_toolbar`. See SettingsRepository.KEY_SHOW_TOOLBAR.
+    val showToolbar = rememberPreference(prefs, SettingsRepository.KEY_SHOW_TOOLBAR, false) {
+        p, k, d -> p.getBoolean(k, d)
+    }
+    // SwiftKey parity — number row on top of COMPACT / COMPACT_DEV, togglable via
+    // Settings > Input > `devkey_show_number_row`. Default true matches the reference.
+    val showNumberRow = rememberPreference(prefs, SettingsRepository.KEY_SHOW_NUMBER_ROW, true) {
+        p, k, d -> p.getBoolean(k, d)
+    }
+
     Column(modifier = Modifier.fillMaxWidth()) {
-        // 1. Toolbar (hidden during recording)
+        // 0. Toolbar chevron — a slim clickable bar that toggles `devkey_show_toolbar`.
+        //    Hidden during macro recording so the recording bar stays visually dominant.
+        //    WHY: Phase 3 parity task #30 — give users a way to reveal the toolbar
+        //    without entering Settings.
         if (keyboardMode !is KeyboardMode.MacroRecording) {
+            ToolbarChevronBar(
+                expanded = showToolbar.value,
+                onToggle = {
+                    prefs.edit()
+                        .putBoolean(SettingsRepository.KEY_SHOW_TOOLBAR, !showToolbar.value)
+                        .apply()
+                }
+            )
+        }
+
+        // 1. Toolbar (hidden during recording, and hidden by default for SwiftKey parity)
+        if (showToolbar.value && keyboardMode !is KeyboardMode.MacroRecording) {
             ToolbarRow(
                 onClipboard = { toggleMode(KeyboardMode.Clipboard) },
                 onVoice = {
@@ -272,7 +313,7 @@ fun DevKeyKeyboard(
 
             val activeLayout = when (keyboardMode) {
                 is KeyboardMode.Symbols -> SymbolsLayout.layout
-                else -> QwertyLayout.getLayout(layoutMode)
+                else -> QwertyLayout.getLayout(layoutMode, includeNumberRow = showNumberRow.value)
             }
             KeyboardView(
                 layout = activeLayout,

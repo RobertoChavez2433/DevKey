@@ -27,15 +27,27 @@ object QwertyLayout {
 
     private val fullLayout: KeyboardLayoutData by lazy { buildFullLayout() }
     private val compactLayout: KeyboardLayoutData by lazy { buildCompactLayout() }
+    private val compactLayoutNoNumbers: KeyboardLayoutData by lazy {
+        // Drop the first row (number row) from the full compact layout.
+        KeyboardLayoutData(rows = compactLayout.rows.drop(1))
+    }
     private val compactDevLayout: KeyboardLayoutData by lazy { buildCompactDevLayout() }
+    private val compactDevLayoutWithNumbers: KeyboardLayoutData by lazy {
+        // Prepend the compact layout's number row onto compact_dev.
+        KeyboardLayoutData(rows = listOf(compactLayout.rows.first()) + compactDevLayout.rows)
+    }
 
     /**
      * Returns the appropriate layout for the given [LayoutMode].
+     *
+     * @param includeNumberRow When true, COMPACT and COMPACT_DEV layouts include the
+     *        `1 2 3 4 5 6 7 8 9 0` number row at the top. FULL always has its own
+     *        number row regardless. Controlled by `SettingsRepository.KEY_SHOW_NUMBER_ROW`.
      */
-    fun getLayout(mode: LayoutMode): KeyboardLayoutData = when (mode) {
+    fun getLayout(mode: LayoutMode, includeNumberRow: Boolean = true): KeyboardLayoutData = when (mode) {
         LayoutMode.FULL -> fullLayout
-        LayoutMode.COMPACT -> compactLayout
-        LayoutMode.COMPACT_DEV -> compactDevLayout
+        LayoutMode.COMPACT -> if (includeNumberRow) compactLayout else compactLayoutNoNumbers
+        LayoutMode.COMPACT_DEV -> if (includeNumberRow) compactDevLayoutWithNumbers else compactDevLayout
     }
 
     /**
@@ -122,7 +134,8 @@ object QwertyLayout {
         val zRow = KeyRowData(
             keys = listOf(
                 KeyData(
-                    primaryLabel = "Shift",
+                    // SwiftKey parity — shift key uses a chevron-up glyph instead of "Shift" text.
+                    primaryLabel = "\u21E7",  // ⇧ upwards white arrow
                     primaryCode = Keyboard.KEYCODE_SHIFT,
                     type = KeyType.MODIFIER,
                     weight = 1.5f
@@ -220,70 +233,52 @@ object QwertyLayout {
     }
 
     /**
-     * Builds the 4-row COMPACT layout.
+     * Builds the COMPACT layout — now 5 rows matching SwiftKey reference:
+     *   number row + qwerty + home + shift-letters + space row.
      *
-     * Long-press data RETUNED from SwiftKey reference capture
+     * Long-press data tuned from SwiftKey reference capture
      * (.claude/test-flows/swiftkey-reference/compact-dark-findings.md).
-     * Reference wins over Phase 5.2 digit template per plan rule.
-     * Vowels (a, e, i, o, u) KEEP their accent popups — richer than the
-     * SwiftKey single-char default; additive §4.2 coverage.
-     * Z-row corrected from cropped image re-read: z→_, x→$, c→", v→', b→:, n→;, m→/
+     * Hint labels now show the plain shift-symbol SwiftKey glyph
+     * (~, <, >, {, @) directly — not accented vowels. Accented vowels remain
+     * reachable via FULL / COMPACT_DEV or a future dedicated accent mode.
      */
     private fun buildCompactLayout(): KeyboardLayoutData {
+        // SwiftKey parity — number row `1 2 3 4 5 6 7 8 9 0` at the very top.
+        val numberRow = KeyRowData(
+            keys = listOf(
+                KeyData("1", '1'.code, type = KeyType.NUMBER),
+                KeyData("2", '2'.code, type = KeyType.NUMBER),
+                KeyData("3", '3'.code, type = KeyType.NUMBER),
+                KeyData("4", '4'.code, type = KeyType.NUMBER),
+                KeyData("5", '5'.code, type = KeyType.NUMBER),
+                KeyData("6", '6'.code, type = KeyType.NUMBER),
+                KeyData("7", '7'.code, type = KeyType.NUMBER),
+                KeyData("8", '8'.code, type = KeyType.NUMBER),
+                KeyData("9", '9'.code, type = KeyType.NUMBER),
+                KeyData("0", '0'.code, type = KeyType.NUMBER)
+            )
+        )
+
         val qwertyRow = KeyRowData(
             keys = listOf(
                 KeyData("q", 'q'.code, longPressLabel = "%", longPressCode = '%'.code),
                 KeyData("w", 'w'.code, longPressLabel = "^", longPressCode = '^'.code),
-                // e — KEEP vowel accent popup (additive over SwiftKey ~ single-char)
-                KeyData(
-                    primaryLabel = "e",
-                    primaryCode = 'e'.code,
-                    longPressLabel = "è",
-                    longPressCode = 'è'.code,
-                    longPressCodes = listOf('è'.code, 'é'.code, 'ê'.code, 'ë'.code, 'ē'.code)
-                ),
+                // e — SwiftKey reference shows `~`. Accent popup deferred to FULL/COMPACT_DEV.
+                KeyData("e", 'e'.code, longPressLabel = "~", longPressCode = '~'.code),
                 KeyData("r", 'r'.code, longPressLabel = "|", longPressCode = '|'.code),
                 KeyData("t", 't'.code, longPressLabel = "[", longPressCode = '['.code),
-                // y — SwiftKey shows ]; drop ý/ÿ popup per reference
                 KeyData("y", 'y'.code, longPressLabel = "]", longPressCode = ']'.code),
-                // u — KEEP vowel accent popup
-                KeyData(
-                    primaryLabel = "u",
-                    primaryCode = 'u'.code,
-                    longPressLabel = "ù",
-                    longPressCode = 'ù'.code,
-                    longPressCodes = listOf('ù'.code, 'ú'.code, 'û'.code, 'ü'.code, 'ū'.code)
-                ),
-                // i — KEEP vowel accent popup
-                KeyData(
-                    primaryLabel = "i",
-                    primaryCode = 'i'.code,
-                    longPressLabel = "ì",
-                    longPressCode = 'ì'.code,
-                    longPressCodes = listOf('ì'.code, 'í'.code, 'î'.code, 'ï'.code, 'ī'.code)
-                ),
-                // o — KEEP vowel accent popup
-                KeyData(
-                    primaryLabel = "o",
-                    primaryCode = 'o'.code,
-                    longPressLabel = "ò",
-                    longPressCode = 'ò'.code,
-                    longPressCodes = listOf('ò'.code, 'ó'.code, 'ô'.code, 'õ'.code, 'ö'.code, 'ø'.code, 'œ'.code)
-                ),
+                KeyData("u", 'u'.code, longPressLabel = "<", longPressCode = '<'.code),
+                KeyData("i", 'i'.code, longPressLabel = ">", longPressCode = '>'.code),
+                KeyData("o", 'o'.code, longPressLabel = "{", longPressCode = '{'.code),
                 KeyData("p", 'p'.code, longPressLabel = "}", longPressCode = '}'.code)
             )
         )
 
         val homeRow = KeyRowData(
             keys = listOf(
-                // a — KEEP vowel accent popup
-                KeyData(
-                    primaryLabel = "a",
-                    primaryCode = 'a'.code,
-                    longPressLabel = "à",
-                    longPressCode = 'à'.code,
-                    longPressCodes = listOf('à'.code, 'á'.code, 'â'.code, 'ã'.code, 'ä'.code, 'å'.code, 'æ'.code)
-                ),
+                // a — SwiftKey reference shows `@`.
+                KeyData("a", 'a'.code, longPressLabel = "@", longPressCode = '@'.code),
                 KeyData("s", 's'.code, longPressLabel = "#", longPressCode = '#'.code),
                 KeyData("d", 'd'.code, longPressLabel = "&", longPressCode = '&'.code),
                 KeyData("f", 'f'.code, longPressLabel = "*", longPressCode = '*'.code),
@@ -298,7 +293,8 @@ object QwertyLayout {
         val zRow = KeyRowData(
             keys = listOf(
                 KeyData(
-                    primaryLabel = "Shift",
+                    // SwiftKey parity — chevron-up glyph instead of "Shift" text.
+                    primaryLabel = "\u21E7",  // ⇧
                     primaryCode = Keyboard.KEYCODE_SHIFT,
                     type = KeyType.MODIFIER,
                     weight = 1.5f
@@ -311,7 +307,8 @@ object QwertyLayout {
                 KeyData("n", 'n'.code, longPressLabel = ";", longPressCode = ';'.code),
                 KeyData("m", 'm'.code, longPressLabel = "/", longPressCode = '/'.code),
                 KeyData(
-                    primaryLabel = "Del",
+                    // SwiftKey parity — erase-to-left glyph instead of "Del" text.
+                    primaryLabel = "\u232B",  // ⌫
                     primaryCode = Keyboard.KEYCODE_DELETE,
                     type = KeyType.ACTION,
                     weight = 1.5f,
@@ -320,8 +317,11 @@ object QwertyLayout {
             )
         )
 
+        // SwiftKey parity — full 5-row layout. Callers that want the 4-row
+        // "no-number-row" look use `getLayout(COMPACT, includeNumberRow = false)`
+        // which is controlled by `SettingsRepository.KEY_SHOW_NUMBER_ROW`.
         return KeyboardLayoutData(
-            rows = listOf(qwertyRow, homeRow, zRow, buildSpaceRow())
+            rows = listOf(numberRow, qwertyRow, homeRow, zRow, buildSpaceRow())
         )
     }
 
@@ -362,7 +362,8 @@ object QwertyLayout {
         val zRow = KeyRowData(
             keys = listOf(
                 KeyData(
-                    primaryLabel = "Shift",
+                    // SwiftKey parity — chevron-up glyph instead of "Shift" text.
+                    primaryLabel = "\u21E7",  // ⇧
                     primaryCode = Keyboard.KEYCODE_SHIFT,
                     type = KeyType.MODIFIER,
                     weight = 1.5f
@@ -416,9 +417,14 @@ object QwertyLayout {
     )
 
     /**
-     * Builds the space row: 123 emoji , Space . Enter
+     * Builds the space row: 123 ☺ 🎤 , Space .?! Enter
      * Shared across all layout modes.
-     * The period key carries a multi-char long-press popup per Phase 5.2.
+     *
+     * SwiftKey parity:
+     *  - Microphone key between emoji and `,` (code = KEYCODE_VOICE, handled in
+     *    LatinIME.onKey → VoiceInputController).
+     *  - `.` key long-press tightened to `[, ! ?]` per Phase 3 parity task #29.
+     *    Hint label is `?` so the secondary is visible at a glance.
      */
     private fun buildSpaceRow(): KeyRowData = KeyRowData(
         keys = listOf(
@@ -429,9 +435,30 @@ object QwertyLayout {
                 weight = 1.0f
             ),
             KeyData(
-                primaryLabel = "\u263A",  // smiley face (emoji key)
+                // WHY: SwiftKey renders the emoji key as a monochrome outline glyph,
+                //      not a colored system emoji. The variation selector U+FE0E forces
+                //      text-style rendering so Android uses the sans-serif font's outline
+                //      smiley glyph (painted with the key text color) instead of the
+                //      colored EmojiCompat fallback.
+                primaryLabel = "\u263A\uFE0E",  // smiley face — text-style variation
                 primaryCode = KeyCodes.EMOJI,
                 type = KeyType.TOGGLE,
+                weight = 0.8f
+            ),
+            KeyData(
+                // WHY: SwiftKey has a dedicated microphone key in the bottom row.
+                //      Primary tap fires KEYCODE_VOICE (already wired into LatinIME
+                //      at LatinIME.kt:1404 → VoiceInputController.start).
+                //      Label uses a text-only "mic" string — Unicode microphone
+                //      glyphs (🎙 / 🎤) don't honor VS15 on Android 14 and render
+                //      in color, breaking the SwiftKey monochrome-icon aesthetic.
+                //      TODO: swap to a Material vector mic icon once KeyView accepts
+                //      painters. Until then, a short text label keeps us monochrome.
+                primaryLabel = "mic",
+                primaryCode = KeyCodes.KEYCODE_VOICE,
+                // UTILITY fontsize (10sp) so the "mic" label fits cleanly in a
+                // 0.8-weight bottom-row slot — LETTER/TOGGLE use 22sp and wrap.
+                type = KeyType.UTILITY,
                 weight = 0.8f
             ),
             KeyData(
@@ -444,19 +471,20 @@ object QwertyLayout {
                 primaryLabel = " ",
                 primaryCode = ' '.code,
                 type = KeyType.SPACEBAR,
-                weight = 4.0f
+                weight = 3.2f
             ),
             KeyData(
                 primaryLabel = ".",
                 primaryCode = '.'.code,
-                longPressLabel = ",",
-                longPressCode = ','.code,
-                longPressCodes = listOf(','.code, ';'.code, ':'.code, '!'.code, '?'.code),
+                longPressLabel = "?",
+                longPressCode = '?'.code,
+                longPressCodes = listOf(','.code, '!'.code, '?'.code),
                 type = KeyType.LETTER,
                 weight = 0.8f
             ),
             KeyData(
-                primaryLabel = "Enter",
+                // SwiftKey parity — return/enter glyph instead of "Enter" text.
+                primaryLabel = "\u23CE",  // ⏎ return symbol
                 primaryCode = KeyCodes.ENTER,
                 type = KeyType.ACTION,
                 weight = 1.6f

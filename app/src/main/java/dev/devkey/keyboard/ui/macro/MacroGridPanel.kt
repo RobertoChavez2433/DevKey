@@ -21,6 +21,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -29,6 +30,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import dev.devkey.keyboard.data.db.entity.MacroEntity
+import dev.devkey.keyboard.debug.DevKeyLogger
 import dev.devkey.keyboard.ui.theme.DevKeyTheme
 
 /**
@@ -53,6 +55,12 @@ fun MacroGridPanel(
     onEditMacro: (MacroEntity) -> Unit,
     onDeleteMacro: (MacroEntity) -> Unit
 ) {
+    // Phase 4.7 — structural panel_opened emit for E2E smoke tests.
+    // PRIVACY: panel identifier only — NEVER log macro names or bodies.
+    LaunchedEffect(Unit) {
+        DevKeyLogger.ui("panel_opened", mapOf("panel" to "macros"))
+    }
+
     var longPressedMacro by remember { mutableStateOf<MacroEntity?>(null) }
     var editDialogMacro by remember { mutableStateOf<MacroEntity?>(null) }
 

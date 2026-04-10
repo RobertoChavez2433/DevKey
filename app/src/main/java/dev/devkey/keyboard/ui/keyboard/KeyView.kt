@@ -168,10 +168,11 @@ fun KeyView(
         else -> null // use default
     }
 
-    // Display label (uppercase if shift is active and this is a letter key)
+    // Display label — SwiftKey parity: letter keys render uppercase at rest and
+    // lowercase only if some alternate composition ever requires it. Reference:
+    // .claude/test-flows/swiftkey-reference/compact-dark-cropped.png.
     val displayLabel = when {
-        key.type == KeyType.LETTER && shiftState != ModifierKeyState.OFF ->
-            key.primaryLabel.uppercase()
+        key.type == KeyType.LETTER -> key.primaryLabel.uppercase()
         key.type == KeyType.SPACEBAR -> ""
         else -> key.primaryLabel
     }
@@ -377,15 +378,18 @@ fun KeyView(
             )
         }
 
-        // Top-right hint for long-press (respects hint mode preference, hidden in Ctrl Mode for letter/number keys)
+        // Center-top hint for long-press (respects hint mode preference, hidden in Ctrl Mode for letter/number keys).
+        // WHY: SwiftKey renders the long-press hint glyph horizontally centered above the
+        //      primary letter (not top-left, not top-right). Direct pixel comparison against
+        //      .claude/test-flows/swiftkey-reference/compact-dark-cropped.png.
         if (showHints && key.longPressLabel != null && !(ctrlHeld && (key.type == KeyType.LETTER || key.type == KeyType.NUMBER))) {
             Text(
                 text = key.longPressLabel,
                 color = if (hintBright) DevKeyTheme.keyText.copy(alpha = 0.7f) else DevKeyTheme.keyHint,
                 fontSize = DevKeyTheme.fontKeyHint,
                 modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(end = DevKeyTheme.hintLabelPadEnd, top = DevKeyTheme.hintLabelPadTop)
+                    .align(Alignment.TopCenter)
+                    .padding(top = DevKeyTheme.hintLabelPadTop)
             )
         }
 
@@ -482,30 +486,14 @@ private fun LongPressPopup(
  * Get the background and text colors for a key based on its type and keycode.
  */
 private fun getKeyColors(key: KeyData): Pair<Color, Color> {
-    return when (key.type) {
-        KeyType.LETTER -> DevKeyTheme.keyBg to DevKeyTheme.keyText
-        KeyType.NUMBER -> DevKeyTheme.keyBg to DevKeyTheme.keyText
-        KeyType.SPACEBAR -> DevKeyTheme.keyBg to DevKeyTheme.keyText
-        KeyType.SPECIAL -> DevKeyTheme.keyBgSpecial to DevKeyTheme.keyTextSpecial
-        KeyType.MODIFIER -> DevKeyTheme.modBgShift to DevKeyTheme.modTextShift
-        KeyType.ACTION -> {
-            if (key.primaryCode == KeyCodes.ENTER) {
-                DevKeyTheme.modBgEnter to DevKeyTheme.modTextEnter
-            } else {
-                DevKeyTheme.modBgAction to DevKeyTheme.modTextAction
-            }
-        }
-        KeyType.TOGGLE -> DevKeyTheme.modBgToggle to DevKeyTheme.modTextToggle
-        KeyType.UTILITY -> {
-            // Navigation arrows use nav colors, system modifiers use sysmod
-            when (key.primaryCode) {
-                KeyCodes.CTRL_LEFT, KeyCodes.ALT_LEFT, KeyCodes.TAB ->
-                    DevKeyTheme.modBgSysmod to DevKeyTheme.modTextSysmod
-                else -> DevKeyTheme.modBgNav to DevKeyTheme.modTextNav
-            }
-        }
-        KeyType.ARROW -> DevKeyTheme.modBgNav to DevKeyTheme.modTextNav
-    }
+    // WHY: SwiftKey parity — compact-dark-findings.md §"Critical observation":
+    //      Utility/modifier keys (shift, backspace, 123, emoji, mic, comma, period,
+    //      enter) use the SAME fill color as letter keys — NOT a darker or distinct
+    //      "special" shade. All key types collapse to (keyBg, keyText) except the
+    //      active-state highlight which remains on modifiers via getActiveKeyColor.
+    //      Previous teal tint on modifier keys diverged from the SwiftKey reference
+    //      the rest of the theme is calibrated against.
+    return DevKeyTheme.keyBg to DevKeyTheme.keyText
 }
 
 /**

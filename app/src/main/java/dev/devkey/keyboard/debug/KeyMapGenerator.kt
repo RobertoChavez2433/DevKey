@@ -241,6 +241,10 @@ object KeyMapGenerator {
         val keyAreaHeightDp = rawHeightDp.coerceAtLeast(48f)
         val keyAreaHeightPx = keyAreaHeightDp * density
 
+        // WHY: DevKeyKeyboard renders Symbols with layoutMode=FULL, passing
+        //      FULL row weights to computeRowHeights. KeyBoundsCalculator now
+        //      takes the first N weights when there are more weights than rows,
+        //      matching the rendering behavior exactly.
         val bounds = computeKeyBounds(
             layout = SymbolsLayout.layout,
             keyboardWidthPx = keyboardWidthPx,
@@ -248,7 +252,7 @@ object KeyMapGenerator {
             horizontalPaddingPx = HORIZONTAL_PADDING_DP * density,
             rowGapPx = ROW_GAP_DP * density,
             keyGapPx = KEY_GAP_DP * density,
-            rowWeights = null
+            rowWeights = getRowWeightsForMode(LayoutMode.FULL)
         )
 
         val keyboardTopY = if (keyboardView != null) {

@@ -34,6 +34,10 @@ class KeyboardModeManager {
         val before = _mode.value
         _mode.value = if (_mode.value == target) KeyboardMode.Normal else target
         Log.d("DevKeyMode", "toggleMode: $before -> ${_mode.value} (post-write)")
+        dev.devkey.keyboard.debug.DevKeyLogger.ime(
+            "keyboard_mode_changed",
+            mapOf("from" to "$before", "to" to "${_mode.value}", "action" to "toggle")
+        )
     }
 
     /**
@@ -43,5 +47,9 @@ class KeyboardModeManager {
         val before = _mode.value
         _mode.value = mode
         Log.d("DevKeyMode", "setMode: $before -> ${_mode.value}")
+        dev.devkey.keyboard.debug.DevKeyLogger.ime(
+            "keyboard_mode_changed",
+            mapOf("from" to "$before", "to" to "${_mode.value}", "action" to "set")
+        )
     }
 }

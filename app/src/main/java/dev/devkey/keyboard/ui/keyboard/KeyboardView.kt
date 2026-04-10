@@ -96,12 +96,12 @@ private fun computeRowHeights(
 
     val weights = when (layoutMode) {
         LayoutMode.FULL -> listOf(
-            DevKeyTheme.rowNumberWeight,   // row 0: number
-            DevKeyTheme.rowLetterWeight,   // row 1: qwerty
-            DevKeyTheme.rowLetterWeight,   // row 2: home
-            DevKeyTheme.rowLetterWeight,   // row 3: z
-            DevKeyTheme.rowSpaceWeight,    // row 4: space
-            DevKeyTheme.rowUtilityWeight   // row 5: utility
+            DevKeyTheme.rowUtilityWeight,   // row 0: utility (Ctrl/Alt/Tab/arrows)
+            DevKeyTheme.rowNumberWeight,    // row 1: number
+            DevKeyTheme.rowLetterWeight,    // row 2: qwerty
+            DevKeyTheme.rowLetterWeight,    // row 3: home
+            DevKeyTheme.rowLetterWeight,    // row 4: z
+            DevKeyTheme.rowSpaceWeight      // row 5: space
         )
         LayoutMode.COMPACT, LayoutMode.COMPACT_DEV -> List(rowCount) {
             DevKeyTheme.rowCompactWeight

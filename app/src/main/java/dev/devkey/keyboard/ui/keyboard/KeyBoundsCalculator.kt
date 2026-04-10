@@ -55,10 +55,18 @@ fun computeKeyBounds(
     val availableHeight = keyboardHeightPx - totalRowGaps
     val availableWidth = keyboardWidthPx - (2 * horizontalPaddingPx)
 
-    // Compute per-row heights
-    val rowHeights = if (rowWeights != null && rowWeights.size == rowCount) {
-        val totalWeight = rowWeights.sum()
-        rowWeights.map { w -> availableHeight * (w / totalWeight) }
+    // Compute per-row heights.
+    // WHY: KeyboardView.computeRowHeights maps ALL weights (even if there are
+    //      more weights than rows) and uses getOrElse for the row indices.
+    //      Match that behavior: take first rowCount weights, fall back to equal.
+    val rowHeights = if (rowWeights != null && rowWeights.isNotEmpty()) {
+        val effectiveWeights = if (rowWeights.size >= rowCount) {
+            rowWeights.take(rowCount)
+        } else {
+            rowWeights + List(rowCount - rowWeights.size) { rowWeights.last() }
+        }
+        val totalWeight = effectiveWeights.sum()
+        effectiveWeights.map { w -> availableHeight * (w / totalWeight) }
     } else {
         List(rowCount) { availableHeight / rowCount }
     }
@@ -111,12 +119,12 @@ fun computeKeyBounds(
  */
 fun getRowWeightsForMode(mode: LayoutMode): List<Float> = when (mode) {
     LayoutMode.FULL -> listOf(
-        DevKeyTheme.rowNumberWeight,
-        DevKeyTheme.rowLetterWeight,
-        DevKeyTheme.rowLetterWeight,
-        DevKeyTheme.rowLetterWeight,
-        DevKeyTheme.rowSpaceWeight,
-        DevKeyTheme.rowUtilityWeight
+        DevKeyTheme.rowUtilityWeight,   // row 0: utility (Ctrl/Alt/Tab/arrows) — top
+        DevKeyTheme.rowNumberWeight,    // row 1: number
+        DevKeyTheme.rowLetterWeight,    // row 2: qwerty
+        DevKeyTheme.rowLetterWeight,    // row 3: home
+        DevKeyTheme.rowLetterWeight,    // row 4: z
+        DevKeyTheme.rowSpaceWeight      // row 5: space
     )
     LayoutMode.COMPACT, LayoutMode.COMPACT_DEV -> listOf(
         DevKeyTheme.rowCompactWeight,

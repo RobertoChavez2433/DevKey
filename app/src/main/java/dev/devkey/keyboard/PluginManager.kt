@@ -22,7 +22,9 @@ class PluginManager(private val mIME: LatinIME) : BroadcastReceiver() {
         Log.i(TAG, "Package information changed, updating dictionaries.")
         getPluginDictionaries(context)
         Log.i(TAG, "Finished updating dictionaries.")
-        mIME.toggleLanguage(true, true)
+        if (intent.action != "dev.devkey.keyboard.RESCAN_PLUGINS") {
+            mIME.toggleLanguage(true, true)
+        }
     }
 
     private abstract class DictPluginSpecBase : DictPluginSpec {

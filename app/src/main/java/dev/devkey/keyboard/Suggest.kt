@@ -292,7 +292,7 @@ class Suggest : Dictionary.WordCallback {
                 mHaveCorrection = false
             }
         }
-        if (mAutoTextEnabled) {
+        if (mAutoTextEnabled && view != null) {
             var i = 0
             var max = 6
             // Don't autotext the suggestions from the dictionaries

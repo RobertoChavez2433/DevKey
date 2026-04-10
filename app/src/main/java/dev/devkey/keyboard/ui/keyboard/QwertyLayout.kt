@@ -53,12 +53,12 @@ object QwertyLayout {
     /**
      * Builds the 6-row FULL layout.
      *
-     * Row 0: Number row (` 1 2 3 4 5 6 7 8 9 0)
-     * Row 1: QWERTY row with symbol long-press
-     * Row 2: Home row (A-L) with symbol long-press
-     * Row 3: Z row (Shift + letters + smart backspace/esc)
-     * Row 4: Space row (123 emoji , Space . Enter)
-     * Row 5: Utility row (Ctrl Alt Tab [spacer] arrows)
+     * Row 0: Utility row (Ctrl Alt Tab [spacer] arrows) — FULL-only top row
+     * Row 1: Number row (` 1 2 3 4 5 6 7 8 9 0)
+     * Row 2: QWERTY row with symbol long-press
+     * Row 3: Home row (A-L) with symbol long-press
+     * Row 4: Z row (Shift + letters + smart backspace/esc)
+     * Row 5: Space row (123 emoji , Space . Enter)
      */
     private fun buildFullLayout(): KeyboardLayoutData {
         val numberRow = KeyRowData(
@@ -191,12 +191,11 @@ object QwertyLayout {
                     type = KeyType.UTILITY,
                     weight = 1.5f
                 ),
-                // Spacer
                 KeyData(
-                    primaryLabel = "",
-                    primaryCode = 0,
-                    type = KeyType.SPECIAL,
-                    weight = 1.0f
+                    primaryLabel = "\u21E7",  // ⇧ shift
+                    primaryCode = Keyboard.KEYCODE_SHIFT,
+                    type = KeyType.MODIFIER,
+                    weight = 1.5f
                 ),
                 KeyData(
                     primaryLabel = "\u2190", // left arrow
@@ -228,7 +227,7 @@ object QwertyLayout {
         )
 
         return KeyboardLayoutData(
-            rows = listOf(numberRow, qwertyRow, buildFullHomeRow(), zRow, spaceRow, utilityRow)
+            rows = listOf(utilityRow, numberRow, qwertyRow, buildFullHomeRow(), zRow, spaceRow)
         )
     }
 
@@ -421,10 +420,9 @@ object QwertyLayout {
      * Shared across all layout modes.
      *
      * SwiftKey parity:
-     *  - Microphone key between emoji and `,` (code = KEYCODE_VOICE, handled in
-     *    LatinIME.onKey → VoiceInputController).
-     *  - `.` key long-press tightened to `[, ! ?]` per Phase 3 parity task #29.
-     *    Hint label is `?` so the secondary is visible at a glance.
+     *  - Bottom row: 123 ☺ , [Space] . ↵ — six keys.
+     *  - Comma long-press hint is 🎤 (mic), fires KEYCODE_VOICE.
+     *  - `.` key long-press shows `!?` hint per SwiftKey reference.
      */
     private fun buildSpaceRow(): KeyRowData = KeyRowData(
         keys = listOf(
@@ -446,24 +444,13 @@ object QwertyLayout {
                 weight = 0.8f
             ),
             KeyData(
-                // WHY: SwiftKey has a dedicated microphone key in the bottom row.
-                //      Primary tap fires KEYCODE_VOICE (already wired into LatinIME
-                //      at LatinIME.kt:1404 → VoiceInputController.start).
-                //      Label uses a text-only "mic" string — Unicode microphone
-                //      glyphs (🎙 / 🎤) don't honor VS15 on Android 14 and render
-                //      in color, breaking the SwiftKey monochrome-icon aesthetic.
-                //      TODO: swap to a Material vector mic icon once KeyView accepts
-                //      painters. Until then, a short text label keeps us monochrome.
-                primaryLabel = "mic",
-                primaryCode = KeyCodes.KEYCODE_VOICE,
-                // UTILITY fontsize (10sp) so the "mic" label fits cleanly in a
-                // 0.8-weight bottom-row slot — LETTER/TOGGLE use 22sp and wrap.
-                type = KeyType.UTILITY,
-                weight = 0.8f
-            ),
-            KeyData(
+                // SwiftKey parity: comma with mic long-press hint.
+                // The mic icon is the long-press indicator on the comma key,
+                // not a standalone button.
                 primaryLabel = ",",
                 primaryCode = ','.code,
+                longPressLabel = "\uD83C\uDFA4",  // 🎤 mic hint
+                longPressCode = KeyCodes.KEYCODE_VOICE,
                 type = KeyType.LETTER,
                 weight = 0.8f
             ),
@@ -476,15 +463,15 @@ object QwertyLayout {
             KeyData(
                 primaryLabel = ".",
                 primaryCode = '.'.code,
-                longPressLabel = "?",
+                longPressLabel = ",!?",
                 longPressCode = '?'.code,
                 longPressCodes = listOf(','.code, '!'.code, '?'.code),
                 type = KeyType.LETTER,
                 weight = 0.8f
             ),
             KeyData(
-                // SwiftKey parity — return/enter glyph instead of "Enter" text.
-                primaryLabel = "\u23CE",  // ⏎ return symbol
+                // SwiftKey parity — return/enter glyph ↵
+                primaryLabel = "\u21B5",  // ↵ downwards arrow with corner leftwards
                 primaryCode = KeyCodes.ENTER,
                 type = KeyType.ACTION,
                 weight = 1.6f

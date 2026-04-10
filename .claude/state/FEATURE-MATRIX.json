@@ -1,9 +1,9 @@
 {
   "summary": {
-    "total": 6,
+    "total": 7,
     "designed": 0,
     "in_progress": 0,
-    "complete": 6
+    "complete": 7
   },
   "features": [
     {
@@ -41,6 +41,12 @@
       "status": "complete",
       "session": 1,
       "details": "4 active tables (macros, learned_words, clipboard_history, command_apps), 4 DAOs with Flow queries, destructive migration (needs proper migrations before schema changes)"
+    },
+    {
+      "name": "v1.0 Pre-Release Phase 1 — Feature Completion",
+      "status": "complete",
+      "session": 42,
+      "details": "8-phase feature-completion wave for v1.0 pre-release: (1) voice asset dir + provenance scaffold + LFS rules, (2) SwiftKey reference dir + first captured reference (compact-dark) + findings doc, (3) plugin dictionary loading gated on BuildConfig.DEBUG closing GH #4, (4) predictive next-word after space — Suggest.getNextWordSuggestions with shared empty WordComposer + BinaryDictionary empty-composer guard + dictionary.cpp checkFirstCharacter bypass when mInputLength==0 (JNI scope expansion) + LatinIME.setNextSuggestions rewrite with getLastCommittedWordBeforeCursor, (5) KeyData.longPressCodes multi-char field + KeyView pointerInput drag-to-select Popup + LongPressPopup helper + SymbolsLayout long-press data, (6) DevKeyTheme dark palette retuned from SwiftKey COMPACT reference (keyBgSpecial=keyBg critical correction; light palette deferred per user) + comprehensive tokenize-everything sweep (100+ new semantic tokens, 18 UI files, zero Color(0x|.dp|.sp literals outside DevKeyTheme.kt), (7) VoiceInputEngine DevKeyLogger.voice instrumentation (16 call sites, integer-only payloads, privacy-audited clean) + voice E2E verification checklist, (8) regression smoke checklist + clean assembleDebug+lint quality gate. 11 logical commits on main (unpushed)."
     }
   ]
 }

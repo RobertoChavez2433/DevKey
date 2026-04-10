@@ -1,0 +1,74 @@
+
+Running 36 test(s)...
+
+======================================================================
+  [1/36] test_clipboard.test_clipboard_panel_opens ... SKIP (5.4s)
+         clipboard toolbar key not in current key map — layout may not expose clipboard at top level
+  [2/36] test_command_mode.test_command_mode_auto_enabled_on_terminal_focus ... SKIP (0.0s)
+         no terminal-class package installed — cannot exercise the command_mode auto-detect path. Install Termux or similar to activate this test.
+  [3/36] test_long_press.test_long_press_every_key_compact ... ERROR (8.1s)
+         DriverTimeout: {"matched":false,"error":"wait_for timeout after 2000ms — category=DevKey/TXT event=long_press_fired match={\"label\":\"q\"}"}
+  [4/36] test_long_press.test_long_press_every_key_compact_dev ... ERROR (8.0s)
+         DriverTimeout: {"matched":false,"error":"wait_for timeout after 2000ms — category=DevKey/TXT event=long_press_fired match={\"label\":\"q\"}"}
+  [5/36] test_long_press.test_long_press_every_key_full ... ERROR (8.0s)
+         DriverTimeout: {"matched":false,"error":"wait_for timeout after 2000ms — category=DevKey/TXT event=long_press_fired match={\"label\":\"`\"}"}
+  [6/36] test_long_press.test_long_press_every_key_symbols ... ERROR (0.0s)
+         ValueError: invalid layout mode: symbols
+  [7/36] test_macros.test_macros_panel_opens ... SKIP (0.0s)
+         macros toolbar key not in current key map
+  [8/36] test_modes.test_abc_returns_to_normal ... ERROR (6.0s)
+         KeyError: "Key code -200 not found in key map. Available keys: ['`', 'code_96', '1', 'code_49', '2', 'code_50', '3', 'code_51', '4', 'code_52', '5', 'code_53', '6', 'code_54', '7', 'code_55', '8', 'code_56', '9', 'code_57']..."
+  [9/36] test_modes.test_layout_mode_round_trip ... ERROR (3.2s)
+         DriverTimeout: {"matched":false,"error":"wait_for timeout after 3000ms — category=DevKey/IME event=layout_mode_set match={\"mode\":\"compact\"}"}
+  [10/36] test_modes.test_symbols_mode_switch ... FAIL (2.7s)
+         Expected logcat tag 'DevKeyMode' to contain pattern 'toggleMode.*Normal.*Symbols', but got 1 lines: ['04-09 15:13:58.718 10793 10793 D DevKeyMode: setMode: dev.devkey.keyboard.ui.keyboard.KeyboardMode$Symbols@10efd32 -> dev.devkey.keyboard.ui.keyboard.KeyboardMode$Normal@ef0713d']
+  [11/36] test_modes.test_symbols_toggle_back ... ERROR (0.5s)
+         KeyError: "Key code -200 not found in key map. Available keys: ['`', 'code_96', '1', 'code_49', '2', 'code_50', '3', 'code_51', '4', 'code_52', '5', 'code_53', '6', 'code_54', '7', 'code_55', '8', 'code_56', '9', 'code_57']..."
+  [12/36] test_modifier_combos.test_alt_tab_smoke ... PASS (2.2s)
+  [13/36] test_modifier_combos.test_ctrl_a_selects_all ... ERROR (2.2s)
+         DriverTimeout: {"matched":false,"error":"wait_for timeout after 2000ms — category=DevKey/TXT event=key_event match={\"code\":97,\"ctrl\":true}"}
+  [14/36] test_modifier_combos.test_ctrl_c_copies ... ERROR (2.2s)
+         DriverTimeout: {"matched":false,"error":"wait_for timeout after 2000ms — category=DevKey/TXT event=key_event match={\"code\":99,\"ctrl\":true}"}
+  [15/36] test_modifier_combos.test_ctrl_v_pastes ... ERROR (2.2s)
+         DriverTimeout: {"matched":false,"error":"wait_for timeout after 2000ms — category=DevKey/TXT event=key_event match={\"code\":118,\"ctrl\":true}"}
+  [16/36] test_modifiers.test_ctrl_one_shot ... FAIL (2.7s)
+         Expected logcat tag 'DevKeyPress' to contain pattern 'ModifierTransition.*CTRL.*tap.*ONE_SHOT', but got 0 lines: []
+  [17/36] test_modifiers.test_shift_double_tap_locks ... FAIL (2.9s)
+         Expected logcat tag 'DevKeyPress' to contain pattern 'ModifierTransition.*SHIFT.*tap.*LOCKED', but got 10 lines: ['04-09 15:14:13.382 10793 10793 D DevKeyPress: DOWN  label=~ code=126 type=SPECIAL', '04-09 15:14:13.383 10793 10793 D DevKeyPress: TAP   label=~ code=126', '04-09 15:14:13.383 10793 10793 D DevKeyPress: BRIDGE raw=126 eff=126 shift=false ctrl=false alt=false', '04-09 15:14:13.383 10793 10793 D DevKeyPress: IME   code=126 x=-1 y=-1', '04-09 15:14:13.385 10793 10793 D DevKeyPress: UP    label=~ code=126']
+  [18/36] test_modifiers.test_shift_one_shot ... FAIL (3.0s)
+         Expected logcat tag 'DevKeyPress' to contain pattern 'ModifierTransition.*SHIFT.*tap.*ONE_SHOT', but got 10 lines: ['04-09 15:14:16.249 10793 10793 D DevKeyPress: DOWN  label=~ code=126 type=SPECIAL', '04-09 15:14:16.250 10793 10793 D DevKeyPress: TAP   label=~ code=126', '04-09 15:14:16.250 10793 10793 D DevKeyPress: BRIDGE raw=126 eff=126 shift=false ctrl=false alt=false', '04-09 15:14:16.250 10793 10793 D DevKeyPress: IME   code=126 x=-1 y=-1', '04-09 15:14:16.253 10793 10793 D DevKeyPress: UP    label=~ code=126']
+  [19/36] test_next_word.test_next_word_bigram_hit_for_common_word ... ERROR (3.3s)
+         DriverTimeout: {"matched":false,"error":"wait_for timeout after 3000ms — category=DevKey/TXT event=next_word_suggestions match={}"}
+  [20/36] test_next_word.test_next_word_fires_after_space ... ERROR (3.2s)
+         DriverTimeout: {"matched":false,"error":"wait_for timeout after 3000ms — category=DevKey/TXT event=next_word_suggestions match={}"}
+  [21/36] test_next_word.test_next_word_privacy_payload_is_structural_only ... ERROR (3.2s)
+         DriverTimeout: {"matched":false,"error":"wait_for timeout after 3000ms — category=DevKey/TXT event=next_word_suggestions match={}"}
+  [22/36] test_plugins.test_plugin_scan_complete_event_fires ... SKIP (10.0s)
+         plugin_scan_complete not observed within 10s — either instrumentation not yet landed (plan sub-phase 4.9) or IME booted before the driver buffer started capturing.
+  [23/36] test_rapid.test_rapid_letter_taps ... PASS (3.1s)
+  [24/36] test_rapid.test_rapid_mode_toggles ... ERROR (0.4s)
+         KeyError: "Key code -200 not found in key map. Available keys: ['`', 'code_96', '1', 'code_49', '2', 'code_50', '3', 'code_51', '4', 'code_52', '5', 'code_53', '6', 'code_54', '7', 'code_55', '8', 'code_56', '9', 'code_57']..."
+  [25/36] test_rapid.test_rapid_shift_taps ... FAIL (2.8s)
+         Expected at least 3 Shift transitions, got 0
+  [26/36] test_rapid.test_shift_then_rapid_letters ... PASS (2.2s)
+  [27/36] test_smoke.test_calibration ... WARNING: No space key in key map, skipping calibration
+PASS (0.0s)
+  [28/36] test_smoke.test_key_map_loads ... PASS (5.2s)
+  [29/36] test_smoke.test_keyboard_visible ... PASS (0.0s)
+  [30/36] test_smoke.test_tap_letter_produces_logcat ... FAIL (2.2s)
+         Expected logcat tag 'DevKeyPress' to contain pattern 'tap.*a.*97', but got 5 lines: ['04-09 15:14:52.736 10793 10793 D DevKeyPress: DOWN  label=a code=97 type=LETTER', '04-09 15:14:52.738 10793 10793 D DevKeyPress: TAP   label=a code=97', '04-09 15:14:52.738 10793 10793 D DevKeyPress: BRIDGE raw=97 eff=97 shift=false ctrl=false alt=false', '04-09 15:14:52.738 10793 10793 D DevKeyPress: IME   code=97 x=-1 y=-1', '04-09 15:14:52.740 10793 10793 D DevKeyPress: UP    label=a code=97']
+  [31/36] test_visual_diff.test_visual_compact_dark ... FAIL (11.9s)
+         Visual diff FAIL for compact vs compact-dark.png: SSIM=0.4435 < threshold. Actual: C:\Users\rseba\Projects\Hackers_Keyboard_Fork\tools\e2e\tests\..\artifacts\compact-compact-dark.png  Reference: C:\Users\rseba\Projects\Hackers_Keyboard_Fork\tools\e2e\tests\..\..\..\.claude\test-flows\swiftkey-reference\compact-dark.png
+  [32/36] test_visual_diff.test_visual_compact_dev_dark ... SKIP (0.0s)
+         SwiftKey reference not captured yet: compact-dev-dark.png. See spec §4.4.1 for capture checklist.
+  [33/36] test_visual_diff.test_visual_full_dark ... SKIP (0.0s)
+         SwiftKey reference not captured yet: full-dark.png. See spec §4.4.1 for capture checklist.
+  [34/36] test_voice.test_voice_cancel_returns_to_idle ... FAIL (0.0s)
+         Voice key (code -102) not found in key map. Is the keyboard in a mode that shows it?
+  [35/36] test_voice.test_voice_round_trip_committed_text ... FAIL (0.0s)
+         Voice key (code -102) not found in key map. Is the keyboard in a mode that shows it?
+  [36/36] test_voice.test_voice_state_machine_to_listening ... FAIL (0.0s)
+         Voice key (code -102) not found in key map. Is the keyboard in a mode that shows it?
+======================================================================
+
+Results: 6 passed, 10 failed, 14 errors, 6 skipped (out of 36 tests)

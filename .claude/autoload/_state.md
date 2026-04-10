@@ -1,203 +1,112 @@
 # Session State
 
-**Last Updated**: 2026-04-08 | **Session**: 41
+**Last Updated**: 2026-04-09 | **Session**: 44
 
 ## Current Phase
-- **Phase**: v1.0 Pre-Release Execution — Phase 1 (Features)
-- **Status**: PLAN COMPLETE for Phase 1. Session 41 ran `/writing-plans` against the Session 40 tailor. Plan at `.claude/plans/2026-04-08-pre-release-phase1.md` passed all 3 reviewers (code/security/completeness) in cycle 2 after 20 surgical fixes from cycle 1. Ready for `/implement` in Session 42, subject to user escalation decisions on open items (COMPACT scope, §9 Q1/Q2/Q4, Whisper sourcing).
+- **Phase**: v1.0 Pre-Release Execution — Phase 2 (Regression Infrastructure) — **IMPLEMENTATION COMPLETE (working tree)**
+- **Status**: Session 44 ran `/implement` on the Phase 2 plan as main-agent orchestrator (Session 42 pattern — no `implement-orchestrator` subagent). All 5 phases / 25 sub-phases landed. Phase 1 via `ime-core-agent` (IME broadcasts + 5 instrumentation sites). Phases 2-5 via `general-purpose` agents (Node driver server extension, Python harness upgrade, 9 new test modules + 111 long-press JSON entries, tier stabilization docs + coverage matrix). Gradle build+lint PASS after every Kotlin-touching phase. Phase 4 required 1 correction cycle (F1 missing Kotlin emits for clipboard/macros/command/plugin + F2 speculative broadcast + cycle-2 R1 MacroChipStrip + R2 privacy payload). 5.2 tier stabilization DEFERRED to human-operator runtime (no emulator/Whisper/SwiftKey captures in this session). Nothing committed — working tree only. Phase 1 11 commits from Session 42 still unpushed.
 
 ## HOT CONTEXT - Resume Here
 
-### Where Session 41 Left Off
+### Where Session 44 Left Off
 
-User asked for `/writing-plans` against the latest tailor (`.claude/tailor/2026-04-08-pre-release-phase1/`). Skill executed in full: Phase 1 Accept, Phase 2 Load Tailor, Phase 3 Writer Strategy (main-agent direct — plan under 2000 lines), Phase 4 Write the Plan, Phase 5 Review Loop (cycle 1 REJECT → plan-fixer-agent → cycle 2 APPROVE).
+User asked to run `/implement` on the Phase 2 plan with main agent as orchestrator. Session executed all 5 phases end-to-end with single completeness-sweep-per-phase review policy and per-phase build+lint gate.
 
-**Deliverables**:
-- `.claude/plans/2026-04-08-pre-release-phase1.md` — 8-phase implementation plan for spec §6 Phase 1 items 1.1–1.8
-- `.claude/plans/review_sweeps/2026-04-08-pre-release-phase1-2026-04-08/` — 6 review reports (3 agents × 2 cycles)
+**Phase execution summary**:
+- **Phase 1** (IME broadcasts + instrumentation): `ime-core-agent` — 8 sub-phases (1.1-1.9 less 1.4 which doesn't exist). Added `ENABLE_DEBUG_SERVER` + `SET_LAYOUT_MODE` receivers + `enableDebugServerReceiver`/`setLayoutModeReceiver` fields + onDestroy unregister in `LatinIME.kt`. Restructured `setNextSuggestions` to single-emit `next_word_suggestions` with source∈{bigram_hit, bigram_miss, no_prev_word}. Added emits: `long_press_fired` (KeyPressLogger), `candidate_strip_rendered` (CandidateView), `keymap_dump_complete` (KeyMapGenerator), `layout_mode_recomposed` (DevKeyKeyboard). Created `DevKeyLoggerTest.kt`. Plan claim about pre-existing DevKeyLogger import in LatinIME was wrong — implementer added it. Completeness APPROVE (3 NITs). Build PASS.
+- **Phase 2** (Node driver server): 9 new endpoints (`GET /wait`, `POST /adb/tap`, `/swipe`, `/broadcast`, `GET /adb/logcat`, `POST /adb/logcat/clear`, `POST /wave/start`, `/finish`, `GET /wave/status`). New files: `wave-gate.js`, `adb-exec.js`, `package.json`, `README.md`. Fixed array-identity bug at `/log` handler (splice in place). Loopback bind preserved. `/clear` endpoint NOT touched — still has same anti-pattern — filed as GH defect. Completeness APPROVE (2 MINOR, 2 NIT).
+- **Phase 3** (Python harness): Fixed broken `load_key_map` regex to `r"KEY label=(\S+) code=(-?\d+) x=(\d+) y=(\d+)"` + wired DUMP_KEY_MAP broadcast trigger. New: `lib/driver.py` (stdlib urllib HTTP client), `lib/audio.py`, `lib/diff.py` (scikit-image SSIM, threshold 0.92 via `DEVKEY_SSIM_THRESHOLD`), `requirements.txt`, `fixtures/.gitkeep`. `set_layout_mode` co-located in `lib/keyboard.py`. `e2e_runner.py` auto-gate placed AFTER `--list` early-exit (not top-of-main) so `--list` stays driver-free. Completeness APPROVE (3 MINOR, 1 NIT).
+- **Phase 4** (test modules): Created `test_voice.py`, `test_next_word.py`, `test_long_press.py`, `test_visual_diff.py`, `test_clipboard.py`, `test_macros.py`, `test_command_mode.py`, `test_plugins.py`, `test_modifier_combos.py`. Created 4 long-press expectation JSON files covering 111 keys (full:29, compact:27, compact_dev:28, symbols:27). Updated `.claude/test-flows/registry.md`. **CYCLE 1 REJECT**: missing Kotlin emit sites for sub-phases 4.6-4.9 which were required by plan's `(modify)` annotations on the Kotlin file headers. **FIXER ADDED**: `panel_opened` emit in ClipboardPanel.kt + MacroGridPanel.kt + (erroneously) MacroChipStrip.kt; `command_mode_auto_enabled`/`command_mode_manual_enabled` in CommandModeDetector.kt; `plugin_scan_complete` (disabled=0, enabled=size) in PluginManager.kt both branches. Also rewrote test_command_mode.py to use Option A (terminal-package launch → auto-detect event) instead of invented TOGGLE_COMMAND_MODE broadcast. **CYCLE 2 REJECT (R1 MAJOR, R2 MINOR)**: R1 — MacroChipStrip is the always-visible suggestion chip strip, not the macros panel; its `LaunchedEffect` emit fires on every keyboard show making test_macros trivially pass. R2 — package name was added to command_mode_auto_enabled payload without plan update (silent privacy widening). **Fixed via direct Edit**: removed MacroChipStrip LaunchedEffect + unused imports; tightened CommandModeDetector emit to trigger-only; updated test_command_mode.py allowed={"trigger"} set. Build PASS.
+- **Phase 5** (tier stabilization + coverage matrix): 5.1 appended COMPACT/COMPACT_DEV coordinate rows to key-coordinates.md (both pre-existing uncalibrated section AND new Phase 5.1 "reference-emulator" values now coexist — MINOR doc coherence). 5.2 DEFERRED — created `.claude/test-flows/tier-stabilization-status.md` with preconditions list + exit criterion. 5.3 added `test_layout_mode_round_trip` to test_modes.py iterating compact→compact_dev→full via SET_LAYOUT_MODE broadcast + wait on `layout_mode_set` (correct choice vs `layout_mode_recomposed` — set fires on pref write, recomposed fires post-recomposition). 5.4 rewrote registry.md layout-modes notes dropping "FULL only". 5.5 created `.claude/test-flows/coverage-matrix.md` mapping clipboard/macros/command/plugin as REAL e2e modules (not manual-only). Completeness APPROVE. Final lint PASS.
 
-### Plan Structure (8 Phases, 14 Sub-phases)
+**Review policy used**: Single completeness-review-agent sweep per phase against plan+spec intent (not 3-agent adversarial). Matches Session 42 directive. User confirmed at start of session via AskUserQuestion.
 
-| Phase | Spec item | Key work |
-|---|---|---|
-| 1 | 1.1 Voice assets | assets/ dir + MODEL_PROVENANCE.md + LFS .gitattributes (human sources binaries) |
-| 2 | 1.2 SwiftKey refs | test-flows/swiftkey-reference/ + README + active `.gitignore` (fail-closed) |
-| 3 | 1.8 Plugin security | Sub-phase 3.0 enables `buildFeatures.buildConfig = true`; 3.1 uses compile-time `BuildConfig.DEBUG` gate on `PluginManager.getPluginDictionaries`/`getDictionary` + private helpers |
-| 4 | 1.5 Next-word | `Suggest.getNextWordSuggestions(prevWord)` with state reset (mIsFirstCharCapitalized/mIsAllUpperCase/mLowerOriginalWord/mOriginalWord/mNextLettersFrequencies) + `collectGarbage` + shared `mEmptyComposer`; `LatinIME.setNextSuggestions` rewrite + `getLastCommittedWordBeforeCursor` helper |
-| 5 | 1.4 Long-press | KeyData `longPressCodes: List<Int>?` field, QwertyLayout + SymbolsLayout data fill, KeyView multi-char popup (no escape hatch). **Hard user-escalation gate for COMPACT letter-key scope.** |
-| 6 | 1.3 Layout fidelity | DevKeyTheme token retune against SwiftKey refs; BOTH light + dark palette required |
-| 7 | 1.6 Voice E2E | DevKeyLogger.voice instrumentation with load-bearing privacy policy (no transcript/audio in payloads); Phase 7.2 manual checklist |
-| 8 | 1.7 Regression smoke | Manual checklist for clipboard/macros/command/plugins |
+**Build cadence**: Gradle build+lint after each Kotlin-touching phase (1 and 4); Node/Python syntax checks after the tooling-only phases (2, 3, 4-tests, 5).
 
-### OPEN ITEMS (block `/implement`)
+**Plan-inherent gaps discovered during implementation** (documented as follow-ups, not fixed):
+- `/clear` endpoint in server.js still reassigns `logs = []` — same anti-pattern as `/log`. Filed as GH defect.
+- `/screenshot` endpoint mentioned in plan overview (line 380) but omitted from detailed 2.3 steps. Plan-internal inconsistency.
+- `test_long_press.py` uses zero-distance `driver.swipe()` for long-press — plan code block specifies this. May need hold primitive at driver level. Filed as GH defect.
+- `DevKeyLogger.enableServer` defense-in-depth loopback-guard — out-of-scope per plan header.
 
-1. **COMPACT letter-key long-press scope** — Phase 5 has a hard escalation gate. User must choose:
-   - **(A)** Follow spec §4.2 literally (populate COMPACT letter-row long-press, override `KeyData.kt:22` design comment)
-   - **(B)** Spec amendment adding COMPACT scope exemption to §3 Non-Goals or scoping §4.2 to "full parity modes"
-2. **Spec §9 Q1** — Distribution channel (Play Store / F-Droid / both) — OPEN
-3. **Spec §9 Q2** — Min API target (26 vs 28/29) — OPEN
-4. **Spec §9 Q4** — Multilingual voice bundle — default English-only unless overridden
-5. **Whisper model sourcing** (human operator, out-of-band) — pick a canonical source, verify SHA256, license audit
-6. **SwiftKey reference capture** (human operator) — screenshots for all modes × 2 themes + long-press popups
-7. **BinaryDictionary.getBigrams tolerance for size()==0 WordComposer** — Phase 4.1 Step 0 prerequisite verification required before editing Suggest.kt
+### EXACTLY WHAT SESSION 45 MUST DO
 
-### Review Cycle Summary
-
-**Cycle 1 REJECT** (all 3 reviewers):
-- Code (2 HIGH, 3 MEDIUM, 1 LOW): Suggest state-reset missing, ambiguous insert-point, wrong comments, no BinaryDictionary JNI verification, wrong line ref
-- Security (3 MEDIUM, 2 LOW): Prefer BuildConfig.DEBUG over FLAG_DEBUGGABLE, `.gitignore` `*.png` not active, no voice privacy policy, helpers not private, password-field check missing
-- Completeness (4 CRITICAL, 4 MINOR): Fn/Phone missing, COMPACT scope baked in, 5.4 escape hatch, 6.1 light-theme deferral, §9 Q1/Q2/Q4 not tracked, APK escalation missing, action-key coverage partial, intermediate verification wording
-
-**Fixer applied 20 surgical edits.**
-
-**Cycle 2 APPROVE** (all 3 reviewers): all cycle-1 findings closed, no new concerns.
-
-### EXACTLY WHAT SESSION 42 MUST DO
-
-**Before running `/implement`**:
-1. Resolve COMPACT scope question (option A or B)
-2. Record §9 Q1/Q2 decisions; confirm Q4 default
-3. Ensure Whisper assets + SwiftKey refs are staged OR accept that Phase 1 / Phase 2 of the plan will be partial
-4. Run `/implement` on `.claude/plans/2026-04-08-pre-release-phase1.md`
-
-### Critical Tailor Findings (for plan author)
-
-1. **`LatinIME.setNextSuggestions` is a 3-line stub** (line 1895-1897) — only populates punctuation via `mSuggestPuncList`. The bigram read path in `Suggest.getSuggestions` + `Dictionary.getBigrams` is fully functional but gated on `wordComposer.size() == 1`. Phase 1.5 needs a NEW zero-char entry point (recommend: add `Suggest.getNextWordSuggestions(prevWord)`).
-2. **`VoiceInputEngine` is fully wired** into `DevKeyKeyboard.kt:81-249`. Phase 1.1 is PURE asset sourcing — zero code changes. Phase 1.6 E2E verification is ready as soon as assets land.
-3. **`KeyData.longPressCode/longPressLabel` already exist and dispatch end-to-end via `KeyView.kt:213-215`.** Phase 1.4 is mostly a data-fill task in `QwertyLayout.buildCompactLayout` / `buildCompactDevLayout` / `SymbolsLayout.buildLayout`. **Scope conflict**: spec §4.2 wants "every key" but `KeyData.kt:27` comment says COMPACT intentionally has no letter long-press. Plan author decision.
-4. **`PluginManager` loads unsigned external APK resources** via `getResourcesForApplication` — GH #4 is real. Minimal fix: gate `getPluginDictionaries` and `getDictionary` behind `ApplicationInfo.FLAG_DEBUGGABLE`. Exemplar: `KeyMapGenerator.isDebugBuild()` at KeyMapGenerator.kt:38. Consumers already handle null.
-5. **TF Lite 2.16.1** already wired in `gradle/libs.versions.toml` + `app/build.gradle.kts:110-111`. No dep work.
-6. **`app/src/main/assets/` dir missing** (verified via `ls`). Phase 1.1 must create it.
-7. **Possible `KeyData` extension**: `longPressCodes: List<Int>?` for multi-char SwiftKey popups (backward-compatible default).
-
-### Methodology Limitation Discovered
-
-**jcodemunch Kotlin import resolution is broken for this repo**. `get_dependency_graph`, `get_blast_radius`, `find_importers`, and `find_dead_code` all return no-signal output for Kotlin files (every file reports `importer_count = 0`, 362 files flagged as "dead"). Steps 3/4/5/7 of the prescribed tailor sequence required fallback to `search_text` for call-site analysis. Documented in tailor manifest. **Do NOT trust jcodemunch dead-code / blast-radius output on this repo until the Kotlin resolver is fixed upstream.**
-
-### EXACTLY WHAT SESSION 41 MUST DO
-
-**Run `/writing-plans` against the tailor directory**:
-
-- Tailor path: `.claude/tailor/2026-04-08-pre-release-phase1/`
-- Scope: Phase 1 ONLY — do not expand to phases 2-5
-- Open questions to resolve in plan:
-  1. Next-word entry point: new `Suggest.getNextWordSuggestions` method (recommended) vs direct `Dictionary.getBigrams` from LatinIME
-  2. Whisper model canonical source (with SHA256 capture)
-  3. COMPACT mode long-press scope (follow SwiftKey vs preserve current design)
-  4. Plugin gate: `BuildConfig.DEBUG` constant vs `ApplicationInfo.FLAG_DEBUGGABLE` runtime flag
-- Output: phased implementation plan for the 8 Phase 1 work items (1.1 through 1.8 per spec §6)
-
-### Locked Decisions from Session 39 Brainstorming
-
-| # | Decision | Lock status |
-|---|---|---|
-| 1 | Strict sequencing: Features → Tests → Refactor → Release | LOCKED — no parallel tracks |
-| 2 | SwiftKey parity = full (visual + structural + behavioral) | LOCKED |
-| 3 | Behavioral parity scoped to ONLY predictive next-word after space | LOCKED — no swipe-to-type, no cursor-swipe, no delete-swipe, no emoji swipe |
-| 4 | Voice: bundle `whisper-tiny.en.tflite` + `filters_vocab_en.bin` in APK | LOCKED — sourcing is Phase 1.1 work |
-| 5 | Regression bar B + HTTP debug server (`DevKeyLogger.enableServer`) + driver server integrated into test loop | LOCKED |
-| 6 | Out of scope: swipe-to-type, multi-lang voice, custom themes | LOCKED |
-| 7 | In scope (polish-only, no new features): clipboard, macros, command mode, plugins (with GH #4 security fix as Phase 1.8) | LOCKED |
-| 8 | 400-line rule is the FINAL gate before release (Phase 4), not post-release | LOCKED — user's exact words |
-
-### Preliminary Audit Findings (frozen — see audit report for detail)
-
-**9 files violate the 400-line hard rule:**
-
-| # | File | Lines | Worst hotspot inside |
-|---|---|---:|---|
-| 1 | LatinIME.kt | 2,679 | 141 methods, 12 responsibilities, 10 of top 25 project hotspots |
-| 2 | ComposeSequence.kt | 1,144 | `reset` cyclo 42 + ~1000 lines of static data |
-| 3 | Keyboard.kt | 1,004 | `Key.getPopupKeyboardContent` cyclo 43; `loadKeyboard` nesting 9 |
-| 4 | LatinKeyboard.kt | 956 | `isInside` cyclo 38 nesting 9 |
-| 5 | ExpandableDictionary.kt | 707 | `getWordsRec` cyclo 40 nesting 9 **9 params** |
-| 6 | Suggest.kt | 533 | `getSuggestions` cyclo 52 |
-| 7 | KeyboardSwitcher.kt | 528 | `getKeyboardId` cyclo 27 + singleton god |
-| 8 | core/KeyEventSender.kt | 481 | `sendModifiableKeyChar` cyclo 55 |
-| 9 | CandidateView.kt | 473 | Legacy Android View — verify still used first |
-
-**Complexity hotspots (files under 400 but functions block release):**
-- `KeyView` composable: cyclo **78**, nesting **10** (#1 project hotspot)
-- `DevKeyKeyboard` composable: cyclo 42, churn **9** (#1 churn in project)
-
-All tracked in GH #9.
-
-### Key Testing Resumption Guide
-
-```bash
-# Install + force restart IME:
-adb -s emulator-5554 install -r app/build/outputs/apk/debug/app-debug.apk
-adb -s emulator-5554 shell "am force-stop dev.devkey.keyboard"
-adb -s emulator-5554 shell "ime enable dev.devkey.keyboard/.LatinIME"
-adb -s emulator-5554 shell "ime set dev.devkey.keyboard/.LatinIME"
-```
+1. **Review the working tree and commit Phase 2** — All 5 phases are on working tree. Suggest breaking into logical commits: (a) Phase 1 Kotlin instrumentation + broadcasts, (b) Phase 2 Node driver server, (c) Phase 3 Python harness lib, (d) Phase 4 Kotlin emits (clipboard/macros/command/plugin), (e) Phase 4 test modules + long-press JSON expectations, (f) Phase 5 docs + test_modes round-trip. Also still pending: 11 Phase 1 commits from Session 42 unpushed on main.
+2. **Phase 5.2 tier stabilization runtime verification** — HUMAN OPERATOR TASK. Preconditions in `.claude/test-flows/tier-stabilization-status.md`: (1) emulator up, (2) Phase 1 APK installed (`./gradlew installDebug`), (3) IME enabled + selected, (4) `node tools/debug-server/server.js` running, (5) `ENABLE_DEBUG_SERVER` broadcast + handshake verified, (6) Python `requirements.txt` installed, (7) SwiftKey reference captures populated (otherwise visual-diff SKIPs), (8) Whisper tflite/vocab models present (otherwise voice fails at load time), (9) `adb logcat -c` per run. Iterate FULL/COMPACT/COMPACT_DEV until all 3 green.
+3. **Phase 2 follow-up issues filed this session** — Review and triage (see GH Issues).
+4. **Open Phase 3 planning cycle** — v1.0 spec §8 says each post-Phase-2 phase gets its own `/tailor` + `/writing-plans` cycle. Phase 3 = regression gate (fix the 2.5 failing tests once 5.2 stabilization is complete).
 
 ## Blockers
 
-- **COMPACT long-press scope decision** — Phase 5 of the Session 41 plan has a hard user-escalation gate blocking `/implement`. User must pick (A) follow spec or (B) spec amendment.
-- **Spec §9 Q1/Q2 OPEN** — distribution channel + min API target. Plan header tracks these as blocking Phase 1 close.
-- **Whisper model files missing** — `app/src/main/assets/` still does not exist. Phase 1 of plan has provenance scaffold ready; human operator sources binaries.
-- **SwiftKey reference screenshots** not yet captured. Phase 2 of plan has directory + README + fail-closed `.gitignore` scaffold.
-- **GH #4 plugin security** — fix is in plan (Phase 3: BuildConfig.DEBUG compile-time gate). Not yet implemented.
-- **BinaryDictionary.getBigrams zero-length WordComposer tolerance** — Phase 4.1 Step 0 prerequisite: must be verified before editing Suggest.kt. Escalation path documented if native requires size() >= 1.
+- **Phase 2 working tree not committed** — 5 phases / ~30+ files modified or created across Kotlin (7 files), Node driver server (5 files), Python harness (6 files + 9 test modules), JSON expectations (4 files), docs (4 files), unit test (1 file). Needs logical commit split.
+- **11 Phase 1 commits unpushed** from Session 42 — `main` still 11 ahead of `origin/main`. User has not asked to push yet.
+- **Whisper model files missing** — `app/src/main/assets/` scaffold landed; human operator still needs to source `whisper-tiny.en.tflite` + `filters_vocab_en.bin` and record SHA256s. Blocks voice-round-trip e2e test activation.
+- **SwiftKey reference captures incomplete** — 1 of 12+ modes captured (COMPACT dark). Remaining: Qwerty/Full/Symbols/Fn/Phone dark. Light theme deferred per user. Blocks swiftkey-visual-diff e2e test activation.
+- **Phase 2 runtime verification pending** — 5.2 tier stabilization deferred; preconditions documented in `.claude/test-flows/tier-stabilization-status.md`. HUMAN OPERATOR TASK.
+- **Phase 1 manual verification checklists still un-run** — `phase1-voice-verification.md`, `phase1-regression-smoke.md` from Session 42.
 - **9 files over 400 lines** — final release gate (Phase 4 of umbrella spec). Tracked in GH #9.
-- **jcodemunch Kotlin import resolver broken** — `find_importers`, `get_blast_radius`, `find_dead_code`, `get_dependency_graph` return no-signal on Kotlin files in this repo. Fallback to `search_text` documented. Affects all future tailor runs on DevKey.
-- **Uncommitted backlog**: Sessions 36/37/38/39/40/41 DevKey-side changes not yet committed.
-- **Wasted space in Symbols/other keyboard modes** — addressed during Phase 6 layout fidelity work against SwiftKey reference.
+- **Lint backlog (203 errors + 555 warnings)** — pre-existing fork baggage. Spec §6 Phase 3.7 scope.
+- **jcodemunch Kotlin import resolver broken** — fallback to `search_text` documented.
 - **Compose UI tests blocked on API 36** (Espresso `InputManager.getInstance` reflection incompat).
 
 ## Recent Sessions
 
+### Session 44 (2026-04-09)
+**Work**: Ran `/implement` on `.claude/plans/2026-04-08-pre-release-phase2.md` as main-agent orchestrator (Session 42 pattern — no implement-orchestrator subagent). All 5 phases / 25 sub-phases landed on working tree. Phase 1 (ime-core-agent): LatinIME.kt receivers `ENABLE_DEBUG_SERVER` + `SET_LAYOUT_MODE` + onDestroy unregister, `setNextSuggestions` restructured to single-emit with source∈{bigram_hit, bigram_miss, no_prev_word}, emits added to KeyPressLogger/CandidateView/KeyMapGenerator/DevKeyKeyboard, new DevKeyLoggerTest.kt. Phase 2 (general-purpose): 9 new driver-server endpoints + wave-gate.js + adb-exec.js + package.json + README, `/log` handler array-identity splice fix. Phase 3 (general-purpose): `load_key_map` regex fix to `r"KEY label=(\S+) code=(-?\d+) x=(\d+) y=(\d+)"` + DUMP_KEY_MAP broadcast trigger, new lib/driver.py (stdlib urllib) + lib/audio.py + lib/diff.py (scikit-image SSIM 0.92 tunable), `set_layout_mode` co-located in lib/keyboard.py, requirements.txt, e2e_runner.py auto-gate placed AFTER `--list` early-exit. Phase 4 (general-purpose): 9 new test modules + 4 long-press expectation JSON files (111 keys total: full 29 / compact 27 / compact_dev 28 / symbols 27) + coverage-matrix.md updated; **CYCLE 1 REJECT** on F1 missing Kotlin emits for sub-phases 4.6-4.9 (fixer added panel_opened in ClipboardPanel + MacroGridPanel + MacroChipStrip, command_mode_auto/manual_enabled in CommandModeDetector, plugin_scan_complete both branches in PluginManager) + F2 speculative TOGGLE_COMMAND_MODE broadcast (rewrote test_command_mode to terminal-package auto-detect); **CYCLE 2 REJECT** on R1 MacroChipStrip always-visible emit (fixed directly — removed LaunchedEffect) + R2 package name leaked in auto-detect privacy payload (fixed directly — tightened to trigger-only). Phase 5 (general-purpose): key-coordinates.md COMPACT/COMPACT_DEV rows appended, test_modes.py round-trip test added waiting on `layout_mode_set` (not recomposed), registry.md "FULL only" removed, coverage-matrix.md created, tier-stabilization-status.md deferring 5.2 to human-operator runtime with preconditions + exit criteria. Gradle build+lint PASS after every Kotlin-touching phase. Nothing committed.
+**Decisions**: Main-agent orchestrator pattern (no implement-orchestrator subagent), single completeness-review-agent sweep per phase (not 3-cycle adversarial) per user directive matching Session 42. Per-phase build+lint gate cadence. Specialist routing: ime-core-agent for Phase 1, general-purpose for Phases 2-5. Phase 4 fixer ambiguity resolutions: PluginManager.scanPlugins() → getPluginDictionaries() (Kotlin equivalent with both disabled/enabled branches), macros emit added to both MacroGridPanel AND MacroChipStrip initially then MacroChipStrip removed in cycle 2. 5.2 DEFERRED (no emulator/Whisper/SwiftKey captures). Review: `layout_mode_set` vs `layout_mode_recomposed` choice — round-trip smoke uses `set` (pref write), long-press coverage uses `recomposed` (post-recomposition).
+**Next**: (1) Review and commit Phase 2 working tree in logical chunks, (2) Phase 5.2 tier stabilization runtime verification (human-operator), (3) Triage new GH defects #12 /clear array identity + #13 test_long_press zero-swipe, (4) Open Phase 3 planning cycle after stabilization complete.
+
+### Session 43 (2026-04-08)
+**Work**: Ran `/tailor` then `/writing-plans` for v1.0 pre-release Phase 2 (regression infrastructure, spec §6 items 2.1-2.5). Tailor produced 13-file output at `.claude/tailor/2026-04-08-pre-release-phase2/` resolving 7 open questions for plan author. Main-agent wrote the plan directly (`.claude/plans/2026-04-08-pre-release-phase2.md`, ~2270 lines final, 5 phases, 25 sub-phases after fixer additions). 3-cycle adversarial review: cycle 1 REJECT (code 1 blocker + 3 major + 10 minor; security APPROVE 1 medium + 2 low; completeness 7 critical + 4 minor = 22 total) → plan-fixer-agent applied all findings surgically adding new sub-phases 1.5-1.8 (KeyPressLogger/CandidateView/KeyMapGenerator/DevKeyKeyboard instrumentation), 3.7 (runner auto-enable HTTP), 4.6-4.10 (clipboard/macros/command/plugin/modifier-combos smoke modules), 5.2 (iterative tier stabilization). Cycle 2 code+security APPROVE, completeness REJECT with 2 minor doc drifts (stale coverage matrix + stale long-press registry entry) — fixed directly via Edit. Cycle 3 all three reviewers APPROVE. No application code changed this session — the plan is the deliverable. 6 review reports saved under `.claude/plans/review_sweeps/2026-04-08-pre-release-phase2-2026-04-08/`.
+**Decisions**: 7 design decisions locked by plan author: (1) `ENABLE_DEBUG_SERVER` broadcast mirroring `DUMP_KEY_MAP` for delivery mechanism, (2) extend `tools/e2e/` Python harness — NOT Claude wave agents per Session 33 memory, `/test` skill explicitly NOT the green-bar path going forward, (3) scikit-image SSIM threshold 0.92 env-tunable via `DEVKEY_SSIM_THRESHOLD` (justified vs spec §9 example 0.95 for anti-aliasing variance), (4) driver server `GET /wait?...` long-poll for wave gating, (5) per-session external daemon on `127.0.0.1:3947` extending existing `tools/debug-server/server.js`, (6) new `SET_LAYOUT_MODE` broadcast for COMPACT mode switching, (7) dual-source driver (HTTP logs + `adb logcat -d` scrape) deferring legacy `KeyPressLogger`/`KeyboardModeManager` `Log.d` tag migration. Plan-writer-agent subagents NOT dispatched (main-agent direct write). `DevKeyLogger.enableServer` defense-in-depth `BuildConfig.DEBUG` guard documented as out-of-scope follow-up.
+**Next**: Run `/implement` on the Phase 2 plan. Phase 1 Kotlin-heavy (IME broadcast receivers + 5 instrumentation sites); Phases 2-5 tooling-only (JS driver server extension, Python harness upgrade, test modules, docs). No JNI changes. Phase 1 follow-ups from Session 42 still pending (push commits, human-operator tasks) but not blocking Phase 2 implementation.
+
+### Session 42 (2026-04-08)
+**Work**: Implemented the v1.0 pre-release Phase 1 plan end-to-end as direct orchestrator (no implement-orchestrator subagent, no headless mode, single review sweeps per wave per user directive). All 8 plan phases landed: voice asset scaffold, SwiftKey reference scaffold, plugin `BuildConfig.DEBUG` gate (GH #4), predictive next-word wiring (Kotlin + C++ JNI scope expansion to patch `BinaryDictionary.getBigrams` empty-composer guard + `dictionary.cpp` `checkFirstCharacter` bypass when `mInputLength==0`), multi-char long-press popup UX with `pointerInput` drag-to-select + Compose `Popup`, QwertyLayout long-press data (COMPACT retuned to SwiftKey shift-symbols + vowel accent popups preserved, FULL/COMPACT_DEV templates), full theme retune against the `compact-dark.png` reference the user provided mid-session, comprehensive "tokenize everything" sweep (100+ new `DevKeyTheme` tokens, 18 UI files purged of hardcoded literals — zero `Color(0x`/`.dp`/`.sp` outside `DevKeyTheme.kt`), 16 `DevKeyLogger.voice` instrumentation sites in `VoiceInputEngine` (privacy-audited clean), Phase 1 manual verification checklists (voice E2E + regression smoke). Clean build + lint succeeds; 203 pre-existing lint errors are spec §6 Phase 3.7 scope, not Phase 1 drift. Working tree broken into 11 logical commits on `main` (unpushed). Zxcvbnm long-press row was initially mis-read from the full-screen capture and corrected after reviewing the cropped image.
+**Decisions**: Phase 4.1 → option B (expand to JNI patch). Phase 5 → option A (COMPACT letter keys get long-press). Light theme deferred (user does not use light). "Tokenize everything" load-bearing rule saved to memory as feedback. Single completeness-review-agent sweep per wave against spec intent, not 3-agent adversarial. Main agent as orchestrator, not `implement-orchestrator` subagent. Claude Code image-cache at `~/.claude/image-cache/<uuid>/<N>.png` learned as the source for user-pasted screenshots.
+**Next**: (1) Push 11 commits if user confirms, (2) human-operator tasks (Whisper binaries, remaining SwiftKey captures, run manual checklists on device), (3) start Phase 2 (regression infrastructure) via `/tailor` + `/writing-plans`.
+
 ### Session 41 (2026-04-08)
-**Work**: Ran `/writing-plans` against `.claude/tailor/2026-04-08-pre-release-phase1/`. Main-agent wrote the plan directly (scoped under 2000 lines). Plan structure: 8 phases / 14 sub-phases covering spec §6 Phase 1 items 1.1–1.8 in dependency order (voice assets → SwiftKey refs → plugin gate → next-word → long-press → layout fidelity → voice E2E → regression smoke). Dispatched 3 reviewers in parallel (code-review, security, completeness) — all REJECT in cycle 1 with 20 total findings. Dispatched plan-fixer-agent with consolidated list; fixer applied all 20 edits surgically. Re-dispatched 3 reviewers in parallel — all APPROVE in cycle 2. Key plan decisions: compile-time `BuildConfig.DEBUG` plugin gate (stricter than runtime `FLAG_DEBUGGABLE`) via new Sub-phase 3.0 enabling `buildFeatures.buildConfig = true`; `Suggest.getNextWordSuggestions` with full state reset (mIsFirstCharCapitalized/mIsAllUpperCase/mLowerOriginalWord/mOriginalWord/mNextLettersFrequencies) + `collectGarbage` + shared `mEmptyComposer`; `LatinIME.getLastCommittedWordBeforeCursor` 64-char lookback with letter-or-digit-or-apostrophe word boundary; load-bearing voice-log privacy policy at Phase 7.1 (no transcript/audio in payloads); hard user-escalation gate blocking Phase 5 until COMPACT letter-key scope is decided; no escape hatches for multi-char popups (5.4) or light-theme deferral (6.1); Spec §9 Q1/Q2/Q4 tracked. Saved 6 review reports under `.claude/plans/review_sweeps/2026-04-08-pre-release-phase1-2026-04-08/`.
+**Work**: Ran `/writing-plans` against `.claude/tailor/2026-04-08-pre-release-phase1/`. Main-agent wrote the plan directly (scoped under 2000 lines). Plan structure: 8 phases / 14 sub-phases covering spec §6 Phase 1 items 1.1–1.8 in dependency order. Dispatched 3 reviewers in parallel (code-review, security, completeness) — all REJECT in cycle 1 with 20 total findings. Dispatched plan-fixer-agent with consolidated list; fixer applied all 20 edits surgically. Re-dispatched 3 reviewers in parallel — all APPROVE in cycle 2. Saved 6 review reports under `.claude/plans/review_sweeps/2026-04-08-pre-release-phase1-2026-04-08/`.
 **Decisions**: Plan writing strategy = main-agent direct (under 2000 lines). Plugin gate = compile-time BuildConfig.DEBUG (not runtime FLAG_DEBUGGABLE). COMPACT letter-key scope → user escalation, NOT silent default. Multi-char popup UX + light theme → required, no escape hatch. Fn/Phone layouts → documented as variants inside existing QwertyLayout/SymbolsLayout builders (no separate files). BinaryDictionary JNI tolerance → prerequisite verification required before Phase 4.1 execution.
 **Next**: (1) Resolve user escalation items (COMPACT scope, §9 Q1/Q2, Whisper source, SwiftKey captures), (2) run `/implement` on the plan, (3) commit Session 36-41 backlog.
 
 ### Session 40 (2026-04-08)
-**Work**: Ran `/tailor` scoped to Phase 1 of the v1.0 pre-release spec (features only — voice sourcing, SwiftKey parity, long-press, next-word, plugin security). Flagged the umbrella spec covers 5 phases and got user confirmation to scope to Phase 1 only. Wrote 9-file tailor output under `.claude/tailor/2026-04-08-pre-release-phase1/`: manifest, dependency-graph, ground-truth, blast-radius, 6 patterns, 2 source-excerpt files. **Critical findings**: (1) `LatinIME.setNextSuggestions` line 1895 is a 3-line stub — bigram path exists but gated on `wordComposer.size() == 1`, needs new zero-char entry point. (2) `VoiceInputEngine` fully wired in `DevKeyKeyboard.kt:81-249` — Phase 1.1 is pure asset sourcing. (3) `KeyData.longPressCode/longPressLabel` already exist and dispatch; Phase 1.4 is data-fill only. (4) `PluginManager` loads unsigned external APKs — GH #4 confirmed real; `KeyMapGenerator.isDebugBuild()` at line 38 is the reusable exemplar. (5) TF Lite 2.16.1 already wired in gradle. **Methodology limitation discovered**: jcodemunch Kotlin import resolution broken for this repo — every Kotlin file reports 0 importers, 362 files flagged as false dead. Falling back to `search_text` for call-site analysis. Documented in tailor manifest + added to blockers. `/writing-plans` deferred to Session 41 per user instruction.
+**Work**: Ran `/tailor` scoped to Phase 1 of the v1.0 pre-release spec (features only — voice sourcing, SwiftKey parity, long-press, next-word, plugin security). Wrote 9-file tailor output under `.claude/tailor/2026-04-08-pre-release-phase1/`: manifest, dependency-graph, ground-truth, blast-radius, 6 patterns, 2 source-excerpt files. **Critical findings**: `LatinIME.setNextSuggestions` is a 3-line stub; `VoiceInputEngine` fully wired in `DevKeyKeyboard.kt:81-249`; `KeyData.longPressCode/longPressLabel` already exist; `PluginManager` loads unsigned external APKs (GH #4 confirmed real); TF Lite 2.16.1 already wired. **Methodology limitation**: jcodemunch Kotlin import resolution broken for this repo — every Kotlin file reports 0 importers, 362 files flagged as false dead. Fallback to `search_text` documented.
 **Decisions**: Tailor scope limited to Phase 1 only — Phases 2-5 will each get their own tailor+plan cycle per spec §8. Fallback tool strategy for broken jcodemunch Kotlin resolver: `search_text` + `get_symbol_source` + direct `Read`. COMPACT mode long-press scope + next-word entry point + plugin gate mechanism + Whisper source all flagged as open questions for plan author.
 **Next**: (1) Run `/writing-plans` against `.claude/tailor/2026-04-08-pre-release-phase1/`. (2) Commit Session 36-40 backlog.
 
-
-### Session 39 (2026-04-08)
-**Work**: Executed the Session 38 intent. Verified jcodemunch Kotlin patches live in MCP (`handleCharacter` returned 3 AST callers). Ran pre-release architecture audit against full `app/src/main/java` — 9 files violate the new firm 400-line rule (LatinIME 2679, ComposeSequence 1144, Keyboard 1004, LatinKeyboard 956, ExpandableDictionary 707, Suggest 533, KeyboardSwitcher 528, KeyEventSender 481, CandidateView 473) plus 2 Compose complexity hotspots (`KeyView` cyclo 78 nesting 10, `DevKeyKeyboard` cyclo 42 churn 9). 10 of top 25 project hotspots inside LatinIME. Wrote audit report `.claude/research/2026-04-08-pre-release-architecture-audit.md`. Filed umbrella GH issue **#9** — pre-release decomposition with Phase A/B/C/D roadmap + 8-collaborator LatinIME extraction order (SwipeActionHandler → FeedbackManager → DictionaryWriter → PunctuationHeuristics → PreferenceObserver → SuggestionCoordinator → InputDispatcher → ShiftStateMachine → ImeLifecycleController). Commented on #8 as superseded. Ran `/brainstorming` — 6 scoped Q rounds locking 6 decisions. Produced validated spec `.claude/specs/2026-04-08-pre-release-vision-spec.md` with 5 phases, strict sequencing, release criteria, non-goals, risk register.
-**Decisions**: Features → Tests → 400-line refactor → Release (strict, no parallel). SwiftKey full parity. Behavioral parity = next-word only (swipe-to-type deferred). Voice bundled in APK (sourcing is prerequisite Phase 1.1 work). Regression bar B + HTTP debug server + driver server integrated into test loop. Out: swipe-to-type / multi-lang voice / custom themes. In (polish-only): clipboard / macros / command mode / plugins (with #4 security gate). 400-line rule is the FINAL release gate.
-**Next**: (1) Run `/tailor` on the spec, (2) run `/writing-plans` to produce the phased implementation plan, (3) commit the DevKey-side backlog (Sessions 36-39).
-
-### Session 38 (2026-04-08)
-**Work**: Tooling rabbit hole — pivoted from the user's intended pre-release codebase audit to fix jcodemunch Kotlin support, which was producing a broken index that made the audit impossible. Rebased local jcodemunch fork onto upstream `v1.23.5` (97 commits) preserving the Dart commit. Applied 3 local patches: (1) `extractor.py:_extract_symbol` error-tolerant for `has_error` nodes with extractable names — recovers `LatinIME` (lines 87-2679, 146 methods) and `LatinKeyboard` from being silently dropped, (2) `extractor.py:_extract_call_name` Kotlin support for `simple_identifier` + `navigation_expression` — populates 4,295 Kotlin call references across 982 of 1455 symbols (67%), (3) `imports.py` dedup of auto-merge-introduced duplicate `_extract_dart_imports`. Full jcodemunch test suite: 2334/2334 passing. Rebuilt DevKey index from scratch — verified `LatinIME.handleCharacter` has 2 captured callers (`onKey`, `onText`) via call graph methodology. Documented architectural limit: import-based tools cannot see same-package Kotlin/Java refs by language design.
-**Decisions**: jcodemunch fork is local-only — never push to either remote (saved to memory). Always use `index_folder` not `index_repo` (saved to memory). Backup branch `backup/feat-dart-pre-rebase-2026-04-08` left in place. Did NOT execute the user's original audit intent — handed off to Session 39 (which completed it).
-**Next**: → Session 39 completed the audit + brainstorming + spec.
-
-### Session 37 (2026-04-08)
-**Work**: Plan-revision + live-skill-update session. Staleness-audited the 2026-03-17 restructure plan against current repo (4 committed plans need moving, P0 refs still broken minus one). Rescoped plan (938 → 1545 lines) to add full tailor + writing-plans pipeline adapted from Field Guide for Kotlin/Android/jcodemunch, including plan-writer/plan-fixer/completeness-review agents. Rewrote implement pipeline to drop headless mode entirely (Agent tool only) and restructure reviews: one completeness-review-agent per phase, full 3-sweep + fixer loop only at end of plan. Eliminated per-concern defect files: all defect tracking now GitHub Issues. Updated 8 live files to use `gh` CLI interim.
-**Decisions**: No headless `claude --bare` anywhere. Per-phase review is completeness-only (spec intent vs phase); 3-agent adversarial sweep moved to end of plan. Defects = GH Issues, no file-based tracking. Plan serves as its own spec. `.claude/plans/completed/` already exists.
-**Next**: (1) Create GH labels + file 7 existing defects as issues, (2) re-index jcodemunch with source_root, (3) run `/implement` on the restructure plan, (4) commit Sessions 27/31-37 backlog.
-
 ## Active Plans
 
-- **v1.0 Pre-Release Execution — Phase 1** — PLAN COMPLETE + REVIEWED (Session 41). Plan file: `.claude/plans/2026-04-08-pre-release-phase1.md`. 8 phases / 14 sub-phases. Reviewers: APPROVE in cycle 2 (all 3). Session 42 runs `/implement` after resolving user escalation items (COMPACT scope, §9 Q1/Q2/Q4, Whisper source, SwiftKey captures). Reviews: `.claude/plans/review_sweeps/2026-04-08-pre-release-phase1-2026-04-08/`. This is P1.
-- **v1.0 Pre-Release Execution — Phases 2-5** — SPEC APPROVED (Session 39), NOT YET TAILORED. Each phase gets its own tailor+plan cycle after Phase 1 lands. Phases: Regression infra → Regression gate → 400-line refactor → Release.
-- **Pre-Release Architecture Audit & Brainstorming** — COMPLETE (Session 39). Outputs: audit report `.claude/research/2026-04-08-pre-release-architecture-audit.md`, GH umbrella issue #9, spec `.claude/specs/2026-04-08-pre-release-vision-spec.md`. Roll into Phase 1 plan via `/writing-plans` (Session 41).
+- **v1.0 Pre-Release Execution — Phase 2 (Regression Infrastructure)** — **IMPLEMENTATION COMPLETE ON WORKING TREE (Session 44)**. Plan: `.claude/plans/2026-04-08-pre-release-phase2.md`. All 5 phases / 25 sub-phases landed via main-agent orchestrator. 1 correction cycle on Phase 4 (Kotlin emits for clipboard/macros/command/plugin + MacroChipStrip rollback + privacy payload tightening). Build+lint PASS. Sub-phase 5.2 tier stabilization DEFERRED to human-operator runtime. Nothing committed — working tree only.
+- **v1.0 Pre-Release Execution — Phase 1** — **COMPLETE (Session 42)**. Plan file: `.claude/plans/2026-04-08-pre-release-phase1.md`. All 8 sub-phases implemented and committed (11 commits on `main`, unpushed). Reviews PASS. Manual checklists created (`phase1-voice-verification.md`, `phase1-regression-smoke.md`) awaiting human-operator runs.
+- **v1.0 Pre-Release Execution — Phases 3-5** — SPEC APPROVED (Session 39), NOT YET TAILORED. After Phase 2 implementation, Phase 3 (regression gate) → Phase 4 (architecture refactor) → Phase 5 (release) each get their own tailor+plan cycle per spec §8.
+- **Pre-Release Architecture Audit & Brainstorming** — COMPLETE (Session 39). Outputs: audit report, GH umbrella #9, spec.
 - **.claude Directory Restructure** — PLAN REVISED (Session 37), NOT YET IMPLEMENTED. 6 phases, 1545 lines. P2 behind v1.0 release work.
-- **E2E Testing** — IN PROGRESS (FULL mode 7/8 PASS Session 30, COMPACT/COMPACT_DEV pending). Subsumed into Phase 2 of v1.0 spec.
+- **E2E Testing** — IN PROGRESS. Subsumed into Phase 2 of v1.0 spec.
 - **Dead Code Cleanup** — COMPLETE + COMMITTED (73e211b, Session 35).
 - **Coordinate Calibration** — COMPLETE + COMMITTED (31d33f7, Sessions 31-32).
 - **123 Fix + E2E Harness** — COMPLETE + COMMITTED (386a25b, Session 27).
 - **Kotlin Migration** — FULLY COMPLETE + COMMITTED (22a3050, Session 25).
 
 ## Reference
-- **v1.0 Pre-Release Phase 1 Plan**: `.claude/plans/2026-04-08-pre-release-phase1.md` (Session 41 — reviewed APPROVE cycle 2)
-- **v1.0 Pre-Release Phase 1 Reviews**: `.claude/plans/review_sweeps/2026-04-08-pre-release-phase1-2026-04-08/` (6 reports, 2 cycles)
+- **v1.0 Pre-Release Phase 2 Plan**: `.claude/plans/2026-04-08-pre-release-phase2.md` (Session 43 — ~2270 lines, ready for `/implement`)
+- **v1.0 Pre-Release Phase 2 Reviews**: `.claude/plans/review_sweeps/2026-04-08-pre-release-phase2-2026-04-08/` (9 reports, 3 cycles — all APPROVE)
+- **v1.0 Pre-Release Phase 2 Tailor**: `.claude/tailor/2026-04-08-pre-release-phase2/` (Session 43 — 13 files)
+- **v1.0 Pre-Release Phase 1 Plan**: `.claude/plans/2026-04-08-pre-release-phase1.md` (Session 41 — implemented Session 42)
+- **v1.0 Pre-Release Phase 1 Reviews (pre-implementation)**: `.claude/plans/review_sweeps/2026-04-08-pre-release-phase1-2026-04-08/` (6 reports, 2 cycles)
 - **v1.0 Pre-Release Phase 1 Tailor**: `.claude/tailor/2026-04-08-pre-release-phase1/` (Session 40 — 9 files)
-- **v1.0 Pre-Release Spec**: `.claude/specs/2026-04-08-pre-release-vision-spec.md` (approved Session 39)
+- **v1.0 Pre-Release Spec**: `.claude/specs/2026-04-08-pre-release-vision-spec.md` (approved Session 39, amended §4.1/§4.4.1 Session 42)
 - **Pre-Release Audit Report**: `.claude/research/2026-04-08-pre-release-architecture-audit.md` (Session 39)
+- **SwiftKey Reference Findings**: `.claude/test-flows/swiftkey-reference/compact-dark-findings.md` (Session 42 — first captured reference)
+- **Phase 1 Voice Verification Checklist**: `.claude/test-flows/phase1-voice-verification.md` (Session 42)
+- **Phase 1 Regression Smoke Checklist**: `.claude/test-flows/phase1-regression-smoke.md` (Session 42)
 - **GH Umbrella Refactor Issue**: #9 (https://github.com/RobertoChavez2433/DevKey/issues/9)
 - **Restructure plan**: `.claude/plans/2026-03-17-claude-directory-restructure.md`
 - **Dead code cleanup plan**: `.claude/plans/completed/dead-code-cleanup-plan.md`
 - **Test skill redesign**: `.claude/memory/test-skill-redesign.md`
-- **Key coordinate map**: `.claude/logs/key-coordinates.md` (UPDATED Session 31)
+- **Key coordinate map**: `.claude/logs/key-coordinates.md`
 - **Calibration design**: `docs/plans/2026-03-04-coordinate-calibration-design.md`
 - **Architecture**: `docs/ARCHITECTURE.md`
 - **jcodemunch local-patch record**: `.claude/memory/project_jcodemunch_kotlin_patches.md` (Session 38)
-- **DevKey index repo key**: `local/Hackers_Keyboard_Fork-e04f25e5` (rebuilt Session 38, Kotlin first-class)
+- **DevKey index repo key**: `local/Hackers_Keyboard_Fork-e04f25e5`

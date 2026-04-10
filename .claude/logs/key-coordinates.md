@@ -605,3 +605,42 @@ View position on screen via `getLocationOnScreen()`.
 adb logcat -s DevKeyMap:D | grep "^.*KEY " | \
   sed 's/.*KEY label=\([^ ]*\).*x=\([0-9]*\) y=\([0-9]*\)/\1 \2 \3/'
 ```
+
+---
+
+## COMPACT mode (4-row SwiftKey layout)
+
+Calibrated via `adb shell am broadcast -a dev.devkey.keyboard.DUMP_KEY_MAP` after
+switching via `SET_LAYOUT_MODE` broadcast.
+
+> NOTE: Exact Y coordinates are device-specific — the values below are the pre-calibrated
+> reference for emulator-5554 at 1080x2340 density=3.0. For runtime coordinates use the
+> broadcast cascade via `keyboard.load_key_map()` in the Python harness.
+
+| Row | Content | Screen Y (reference emulator) |
+|-----|---------|-------------------------------|
+| 0 | QWERTY row (q-p) | ~1605 |
+| 1 | Home row (a-l) | ~1775 |
+| 2 | Z row (Shift, z-m, Backspace) | ~1925 |
+| 3 | Space row (123, Comma, Space, Period, Enter) | ~2090 |
+
+**TO-DO before release**: capture runtime-measured values on both the CI emulator
+and the developer reference emulator, commit the resulting `calibration.json`
+per mode if the cache is revived as a committed artifact.
+
+---
+
+## COMPACT_DEV mode (COMPACT with long-press digits)
+
+Same row layout as COMPACT. The only behavioral difference is that the QWERTY row
+keys have a number long-press (q→1, w→2, e→3, r→4, t→5, y→6, u→7, i→8, o→9, p→0).
+
+| Row | Content | Screen Y (reference emulator) |
+|-----|---------|-------------------------------|
+| 0 | QWERTY row with number long-press (q-p) | ~1605 |
+| 1 | Home row (a-l) | ~1775 |
+| 2 | Z row | ~1925 |
+| 3 | Space row | ~2090 |
+
+**Test strategy**: long-press coverage flow in Phase 2.3 covers both the letter
+primary tap AND the digit long-press for this mode.

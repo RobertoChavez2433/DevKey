@@ -6,6 +6,21 @@ Archived session entries from `_state.md` rotation.
 
 ## April 2026
 
+### Session 39 (2026-04-08) — Archived from _state.md (Session 44 rotation)
+**Work**: Executed the Session 38 intent. Verified jcodemunch Kotlin patches live in MCP (`handleCharacter` returned 3 AST callers). Ran pre-release architecture audit against full `app/src/main/java` — 9 files violate the new firm 400-line rule plus 2 Compose complexity hotspots (`KeyView` cyclo 78 nesting 10, `DevKeyKeyboard` cyclo 42 churn 9). 10 of top 25 project hotspots inside LatinIME. Wrote audit report `.claude/research/2026-04-08-pre-release-architecture-audit.md`. Filed umbrella GH issue **#9** — pre-release decomposition with Phase A/B/C/D roadmap + 8-collaborator LatinIME extraction order. Ran `/brainstorming` — 6 scoped Q rounds locking 6 decisions. Produced validated spec `.claude/specs/2026-04-08-pre-release-vision-spec.md`.
+**Decisions**: Features → Tests → 400-line refactor → Release (strict, no parallel). SwiftKey full parity. Behavioral parity = next-word only. Voice bundled in APK. Regression bar B + HTTP debug server. Out: swipe-to-type / multi-lang voice / custom themes. In (polish-only): clipboard / macros / command mode / plugins (with #4 security gate). 400-line rule is the FINAL release gate.
+**Next**: → Session 40 ran tailor, Session 41 wrote plan, Sessions 42-44 implemented Phases 1-2.
+
+### Session 38 (2026-04-08) — Archived from _state.md (Session 43 rotation)
+**Work**: Tooling rabbit hole — pivoted from the user's intended pre-release codebase audit to fix jcodemunch Kotlin support. Rebased local jcodemunch fork onto upstream `v1.23.5` (97 commits) preserving the Dart commit. Applied 3 local patches: error-tolerant `has_error` extraction, Kotlin `navigation_expression` call-name support (populating 4,295 call refs), dedup of merged Dart imports. Full jcodemunch test suite: 2334/2334 passing. Rebuilt DevKey index — `handleCharacter` has 2 captured callers. Documented architectural limit: import-based tools cannot see same-package Kotlin/Java refs.
+**Decisions**: jcodemunch fork is local-only — never push. Always use `index_folder` not `index_repo`. Did NOT execute the user's original audit intent — handed off to Session 39.
+**Next**: → Session 39 completed the audit + brainstorming + spec.
+
+### Session 37 (2026-04-08) — Archived from _state.md (Session 42 rotation)
+**Work**: Plan-revision + live-skill-update session. Staleness-audited the 2026-03-17 restructure plan against current repo (4 committed plans need moving, P0 refs still broken minus one). Rescoped plan (938 → 1545 lines) to add full tailor + writing-plans pipeline adapted from Field Guide for Kotlin/Android/jcodemunch, including plan-writer/plan-fixer/completeness-review agents. Rewrote implement pipeline to drop headless mode entirely (Agent tool only) and restructure reviews: one completeness-review-agent per phase, full 3-sweep + fixer loop only at end of plan. Eliminated per-concern defect files: all defect tracking now GitHub Issues. Updated 8 live files to use `gh` CLI interim.
+**Decisions**: No headless `claude --bare` anywhere. Per-phase review is completeness-only (spec intent vs phase); 3-agent adversarial sweep moved to end of plan. Defects = GH Issues, no file-based tracking. Plan serves as its own spec. `.claude/plans/completed/` already exists.
+**Next**: (1) Create GH labels + file 7 existing defects as issues, (2) re-index jcodemunch with source_root, (3) run `/implement` on the restructure plan, (4) commit Sessions 27/31-37 backlog.
+
 ### Session 36 (2026-03-17) — Archived from _state.md (Session 41 rotation)
 **Work**: Audited DevKey + Field Guide App .claude/ directories with 4 Sonnet agents. Brainstormed restructure via `/brainstorming`. Wrote 6-phase implementation plan mirroring Field Guide patterns: systematic-debug skill (10-phase, HTTP server, DevKeyLogger), specialist agents, rules extraction, hooks, writing-plans separation.
 **Decisions**: Scaled to DevKey (not full Field Guide mirror). HTTP debug server + DevKeyLogger class. 7 concern-area defect files. 3 specialist agents + code-review + security. Split brainstorming/writing-plans with adversarial review only in writing-plans. block-orchestrator-writes + pre-agent-dispatch hooks.

@@ -16,10 +16,10 @@
     "compile_sdk": 34
   },
   "current_phase": {
-    "name": "v1.0 Pre-Release Execution — Phase 1",
-    "status": "plan_complete_ready_for_implement",
-    "progress_percent": 30,
-    "details": "Session 41 ran /writing-plans against the Session 40 tailor. Plan at .claude/plans/2026-04-08-pre-release-phase1.md — 8 phases / 14 sub-phases covering spec §6 items 1.1–1.8. Reviewed by code-review + security + completeness agents in parallel; cycle 1 REJECT (20 findings), plan-fixer-agent applied all fixes, cycle 2 APPROVE from all 3. Key plan decisions: compile-time BuildConfig.DEBUG plugin gate (new Sub-phase 3.0 enables buildFeatures.buildConfig = true), Suggest.getNextWordSuggestions with full state reset + collectGarbage + shared mEmptyComposer, load-bearing voice-log privacy policy, no escape hatches for multi-char popups or light-theme deferral. Hard user-escalation gate at Phase 5 for COMPACT letter-key scope blocks /implement. Reviews saved to .claude/plans/review_sweeps/2026-04-08-pre-release-phase1-2026-04-08/."
+    "name": "v1.0 Pre-Release Execution — Phase 2 (Regression Infrastructure)",
+    "status": "implementation_complete_working_tree",
+    "progress_percent": 95,
+    "details": "Session 44 ran /implement on the Phase 2 plan as main-agent orchestrator (Session 42 pattern — no implement-orchestrator subagent). All 5 phases / 25 sub-phases landed: Phase 1 (IME broadcasts + 5 instrumentation sites via ime-core-agent), Phase 2 (Node driver server extension — 9 new endpoints + wave-gate + adb-exec modules + array-identity splice fix), Phase 3 (Python harness upgrade — driver HTTP client, audio, SSIM, regex fix, layout-mode helper, auto-enable gate), Phase 4 (9 new test modules + 4 long-press JSON expectation files covering 111 keys + coverage matrix update — required 1 correction cycle for F1 missing Kotlin emits in clipboard/macros/command/plugin + F2 speculative broadcast + R1 MacroChipStrip always-visible emit + R2 privacy payload tightening), Phase 5 (key-coordinates COMPACT/COMPACT_DEV rows + test_modes round-trip + registry updates + coverage matrix + 5.2 tier stabilization deferred to human-operator runtime). Gradle build+lint PASS after every phase that touched Kotlin. Completeness review policy: single-sweep per phase against plan+spec intent (not 3-cycle adversarial). Working tree only — nothing committed. Phase 1 11 commits from Session 42 still unpushed. Ready for review + commit."
   },
   "phases": [
     {"name": "Research & Brainstorming", "status": "complete", "progress_percent": 100},
@@ -34,28 +34,26 @@
     {"name": "Kotlin Migration", "status": "complete", "progress_percent": 100},
     {"name": "Code Review & Hardening", "status": "complete", "progress_percent": 100},
     {"name": "E2E Testing + Test Skill Fixes", "status": "blocked", "progress_percent": 87},
-    {"name": "Test Skill Redesign + Commit Backlog", "status": "in_progress", "progress_percent": 40},
+    {"name": "Test Skill Redesign + Commit Backlog", "status": "in_progress", "progress_percent": 60},
     {"name": "Dead Code Cleanup + Kotlin Quality", "status": "complete", "progress_percent": 100},
     {"name": ".claude Directory Restructure", "status": "plan_revised_ready_for_implement", "progress_percent": 15},
     {"name": "Pre-Release Architecture Audit & Brainstorming", "status": "complete", "progress_percent": 100},
-    {"name": "v1.0 Pre-Release Execution — Phase 1", "status": "plan_complete_ready_for_implement", "progress_percent": 30}
+    {"name": "v1.0 Pre-Release Execution — Phase 1", "status": "complete", "progress_percent": 100},
+    {"name": "v1.0 Pre-Release Execution — Phase 2 (Regression Infrastructure)", "status": "implementation_complete_working_tree", "progress_percent": 95}
   ],
   "active_blockers": [
-    "COMPACT letter-key long-press scope decision — Session 41 plan has hard user-escalation gate at Phase 5; blocks /implement until user picks (A) follow spec §4.2 or (B) spec amendment",
-    "Spec §9 Q1 distribution channel + Q2 min API target OPEN — plan tracks both as blocking Phase 1 close",
-    "Whisper model files (whisper-tiny.en.tflite + filters_vocab_en.bin) need sourcing — Phase 1 of plan has provenance scaffold; human operator sources binaries + SHA256 + license audit",
-    "SwiftKey reference screenshots not yet captured — Phase 2 of plan has scaffold ready",
-    "BinaryDictionary.getBigrams zero-length WordComposer tolerance — Phase 4.1 Step 0 prerequisite: must be verified before editing Suggest.kt; escalation path documented",
-    "GH #4 plugin security — fix in plan (Phase 3: compile-time BuildConfig.DEBUG gate via new Sub-phase 3.0); not yet implemented",
+    "Whisper model files (whisper-tiny.en.tflite + filters_vocab_en.bin) still need sourcing — Phase 1 scaffold landed (app/src/main/assets/ + MODEL_PROVENANCE.md + LFS .gitattributes); human operator sources binaries + records SHA256s",
+    "SwiftKey reference captures incomplete — 1 of 12+ modes captured (COMPACT dark, saved as compact-dark.png and compact-dark-cropped.png). Remaining dark-mode captures: Qwerty/Full/Symbols/Fn/Phone. Light theme deferred per user.",
+    "11 Phase 1 commits unpushed on main — awaiting user confirmation to push to origin",
+    "Phase 1 manual verification checklists created but not yet run on device (phase1-voice-verification.md, phase1-regression-smoke.md)",
     "400-line rule violations in 9 files — final release gate (Phase 4 of umbrella spec); tracked via GH #9",
+    "Lint backlog: 203 errors + 555 warnings, all pre-existing fork baggage (translation/namespace/unused-resources). Spec §6 Phase 3.7 scope, not Phase 1.",
     "jcodemunch Kotlin import resolver broken for DevKey repo — find_importers, get_blast_radius, find_dead_code, get_dependency_graph return no-signal; fallback to search_text documented",
-    "Uncommitted state/docs backlog: Sessions 36/37/38/39/40/41 DevKey-side changes not yet committed",
-    "Wasted space in Symbols/other keyboard modes — addressed during Phase 6 layout fidelity work",
     "Compose UI test deps incompatible with API 36 (Espresso InputManager.getInstance reflection)"
   ],
   "metadata": {
-    "session_count": 41,
-    "last_updated": "2026-04-08",
-    "session_notes": "Session 41: Ran /writing-plans against .claude/tailor/2026-04-08-pre-release-phase1/. Main-agent wrote the plan directly (under 2000 lines). Plan: 8 phases / 14 sub-phases covering spec §6 Phase 1 items 1.1–1.8 in dependency order. Dispatched 3 reviewers (code-review, security, completeness) in parallel — all REJECT in cycle 1 with 20 total findings. Dispatched plan-fixer-agent with consolidated list; 20 surgical edits applied. Re-ran all 3 reviewers in parallel — all APPROVE in cycle 2. Key plan decisions: (1) Compile-time BuildConfig.DEBUG plugin gate via new Sub-phase 3.0 that enables buildFeatures.buildConfig = true (stricter than runtime FLAG_DEBUGGABLE; re-signed debuggable APK cannot reopen GH #4). (2) Suggest.getNextWordSuggestions with full state reset (mIsFirstCharCapitalized/mIsAllUpperCase/mLowerOriginalWord/mOriginalWord/mNextLettersFrequencies), collectGarbage for StringBuilder pool hygiene, shared mEmptyComposer for GC efficiency. (3) LatinIME.getLastCommittedWordBeforeCursor with 64-char lookback and letter-or-digit-or-apostrophe word boundary. (4) Load-bearing voice-log privacy policy at Phase 7.1 forbidding transcript/audio/InputConnection text content in DevKeyLogger.voice payloads. (5) SwiftKey reference .gitignore ships with ACTIVE *.png exclusion (fail-closed per spec §8). (6) Hard user-escalation gate blocking Phase 5 until COMPACT letter-key scope is decided — plan will not silently deviate from spec §4.2. (7) No escape hatches for multi-char popup UX (5.4) or light-theme deferral (6.1) — both required by spec. (8) Fn/Phone layouts documented as variants inside existing QwertyLayout/SymbolsLayout builders. (9) Spec §9 Q1 distribution channel, Q2 min API, Q4 multilingual voice tracked in plan header with Q3 SSIM>0.95 default. Reviews saved under .claude/plans/review_sweeps/2026-04-08-pre-release-phase1-2026-04-08/ (6 files, 2 cycles × 3 agents). Next session: resolve user escalation items (COMPACT scope, §9 Q1/Q2, Whisper source, SwiftKey captures, BinaryDictionary JNI tolerance check), then run /implement."
+    "session_count": 44,
+    "last_updated": "2026-04-09",
+    "session_notes": "Session 44: Ran /implement on the Phase 2 plan as main-agent orchestrator (Session 42 pattern). All 5 phases / 25 sub-phases landed on working tree. Phase 1 via ime-core-agent (IME broadcasts + 5 instrumentation sites). Phases 2-5 via general-purpose agents (Node driver server extension, Python harness upgrade, 9 new test modules + 111 long-press JSON entries, tier stabilization docs + coverage matrix). Gradle build+lint PASS after every Kotlin-touching phase. Phase 4 required 1 correction cycle: completeness cycle-1 REJECT on F1 (missing Kotlin emits for clipboard/macros/command/plugin — emit sites ARE required by the plan's (modify) annotations), F2 (test_command_mode.py used speculative TOGGLE_COMMAND_MODE broadcast not sanctioned by plan), F3 (long-press JSON count mismatch — turned out to be stale finding, actual 111=111). Fixer added emits to ClipboardPanel/MacroGridPanel/MacroChipStrip/CommandModeDetector/PluginManager + rewrote test_command_mode to terminal-package auto-detect path. Cycle-2 REJECT on R1 (MacroChipStrip always-visible emit defeats test_macros) + R2 (package name leaked in auto-detect privacy payload) — fixed directly via Edit: removed the MacroChipStrip LaunchedEffect, tightened CommandModeDetector emit to trigger-only, updated test_command_mode allowed-keys set. Final build PASS. Two defects filed as GH issues. Review policy used: single completeness sweep per phase (not 3-cycle adversarial). 5.2 tier stabilization DEFERRED (needs emulator + driver server + Whisper models + SwiftKey captures). Nothing committed — working tree only."
   }
 }

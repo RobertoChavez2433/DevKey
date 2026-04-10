@@ -19,6 +19,18 @@ Thumbs.db
 # Kotlin compiler
 .kotlin/
 
+# Python
+__pycache__/
+*.pyc
+
+# E2E harness artifacts
+tools/e2e/artifacts/
+tools/e2e/.claude/
+tools/e2e/fixtures/
+
+# SwiftKey reference captures (local-only per spec §4.4.1)
+.claude/test-flows/swiftkey-reference/
+
 # Claude Code
 .claude/settings.local.json
 .claude/screenshots/

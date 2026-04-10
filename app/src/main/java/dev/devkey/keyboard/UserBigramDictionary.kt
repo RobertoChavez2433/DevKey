@@ -16,13 +16,7 @@
 
 package dev.devkey.keyboard
 
-import android.content.ContentValues
 import android.content.Context
-import android.database.Cursor
-import android.database.sqlite.SQLiteDatabase
-import android.database.sqlite.SQLiteOpenHelper
-import android.database.sqlite.SQLiteQueryBuilder
-import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -64,7 +58,7 @@ class UserBigramDictionary(
 
     init {
         if (sOpenHelper == null) {
-            sOpenHelper = DatabaseHelper(getContext())
+            sOpenHelper = BigramDbHelper(getContext())
         }
         if (mLocale.length > 1) {
             loadDictionary()
@@ -111,16 +105,12 @@ class UserBigramDictionary(
                 mPendingWrites.add(bi)
             }
         }
-
         return freq
     }
 
-    /**
-     * Schedules a background coroutine to write any pending words to the database.
-     */
+    /** Schedules a background coroutine to write any pending words to the database. */
     fun flushPendingWrites() {
         synchronized(mPendingWritesLock) {
-            // Nothing pending? Return
             if (mPendingWrites.isEmpty()) return
             val pendingWrites = mPendingWrites
             val locale = mLocale
@@ -128,7 +118,13 @@ class UserBigramDictionary(
             mPendingWrites = HashSet()
             dictScope.launch {
                 withContext(Dispatchers.IO) {
-                    updateDatabase(pendingWrites, locale)
+                    sUpdatingDB = true
+                    try {
+                        val helper = requireNotNull(sOpenHelper) { "DatabaseHelper not initialized" }
+                        writeBigramBatch(helper, pendingWrites, locale, sMaxUserBigrams, sDeleteUserBigrams)
+                    } finally {
+                        sUpdatingDB = false
+                    }
                 }
             }
         }
@@ -148,7 +144,8 @@ class UserBigramDictionary(
 
     override fun loadDictionaryAsync() {
         // Load the words that correspond to the current input locale
-        val cursor = query("$MAIN_COLUMN_LOCALE=?", arrayOf(mLocale))
+        val helper = requireNotNull(sOpenHelper) { "DatabaseHelper not initialized" }
+        val cursor = queryBigrams(helper, "$MAIN_COLUMN_LOCALE=?", arrayOf(mLocale))
         try {
             if (cursor.moveToFirst()) {
                 val word1Index = cursor.getColumnIndex(MAIN_COLUMN_WORD1)
@@ -171,115 +168,7 @@ class UserBigramDictionary(
         }
     }
 
-    /**
-     * Query the database
-     */
-    private fun query(selection: String, selectionArgs: Array<String>): Cursor {
-        val qb = SQLiteQueryBuilder()
-
-        // main INNER JOIN frequency ON (main._id=freq.pair_id)
-        qb.tables = "$MAIN_TABLE_NAME INNER JOIN $FREQ_TABLE_NAME ON (" +
-                "$MAIN_TABLE_NAME.$MAIN_COLUMN_ID=$FREQ_TABLE_NAME.$FREQ_COLUMN_PAIR_ID)"
-
-        qb.projectionMap = sDictProjectionMap
-
-        // Get the database and run the query
-        val db = requireNotNull(sOpenHelper) { "DatabaseHelper not initialized" }.readableDatabase
-        return qb.query(
-            db,
-            arrayOf(MAIN_COLUMN_WORD1, MAIN_COLUMN_WORD2, FREQ_COLUMN_FREQUENCY),
-            selection, selectionArgs, null, null, null
-        )
-    }
-
-    private fun updateDatabase(map: HashSet<Bigram>, locale: String) {
-        sUpdatingDB = true
-        try {
-            val db = requireNotNull(sOpenHelper) { "DatabaseHelper not initialized" }.writableDatabase
-            db.execSQL("PRAGMA foreign_keys = ON;")
-            // Write all the entries to the db wrapped in a single transaction to avoid N+1 commits
-            db.beginTransaction()
-            try {
-                for (bi in map) {
-                    // find pair id
-                    val c = db.query(
-                        MAIN_TABLE_NAME, arrayOf(MAIN_COLUMN_ID),
-                        "$MAIN_COLUMN_WORD1=? AND $MAIN_COLUMN_WORD2=? AND $MAIN_COLUMN_LOCALE=?",
-                        arrayOf(bi.word1, bi.word2, locale), null, null, null
-                    )
-
-                    val pairId: Int
-                    if (c.moveToFirst()) {
-                        // existing pair
-                        pairId = c.getInt(c.getColumnIndex(MAIN_COLUMN_ID))
-                        db.delete(
-                            FREQ_TABLE_NAME, "$FREQ_COLUMN_PAIR_ID=?",
-                            arrayOf(pairId.toString())
-                        )
-                    } else {
-                        // new pair
-                        val pairIdLong = db.insert(
-                            MAIN_TABLE_NAME, null,
-                            getContentValues(bi.word1, bi.word2, locale)
-                        )
-                        pairId = pairIdLong.toInt()
-                    }
-                    c.close()
-
-                    // insert new frequency
-                    db.insert(FREQ_TABLE_NAME, null, getFrequencyContentValues(pairId, bi.frequency))
-                }
-                db.setTransactionSuccessful()
-            } finally {
-                db.endTransaction()
-            }
-            checkPruneData(db)
-        } finally {
-            sUpdatingDB = false
-        }
-    }
-
-    /**
-     * This class helps open, create, and upgrade the database file.
-     */
-    private class DatabaseHelper(context: Context) :
-        SQLiteOpenHelper(context, DATABASE_NAME, null, DATABASE_VERSION) {
-
-        override fun onCreate(db: SQLiteDatabase) {
-            db.execSQL("PRAGMA foreign_keys = ON;")
-            db.execSQL(
-                "CREATE TABLE $MAIN_TABLE_NAME (" +
-                        "$MAIN_COLUMN_ID INTEGER PRIMARY KEY," +
-                        "$MAIN_COLUMN_WORD1 TEXT," +
-                        "$MAIN_COLUMN_WORD2 TEXT," +
-                        "$MAIN_COLUMN_LOCALE TEXT" +
-                        ");"
-            )
-            db.execSQL(
-                "CREATE TABLE $FREQ_TABLE_NAME (" +
-                        "$FREQ_COLUMN_ID INTEGER PRIMARY KEY," +
-                        "$FREQ_COLUMN_PAIR_ID INTEGER," +
-                        "$FREQ_COLUMN_FREQUENCY INTEGER," +
-                        "FOREIGN KEY($FREQ_COLUMN_PAIR_ID) REFERENCES $MAIN_TABLE_NAME" +
-                        "($MAIN_COLUMN_ID) ON DELETE CASCADE" +
-                        ");"
-            )
-        }
-
-        override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-            Log.w(
-                TAG, "Upgrading database from version $oldVersion to " +
-                        "$newVersion, which will destroy all old data"
-            )
-            db.execSQL("DROP TABLE IF EXISTS $MAIN_TABLE_NAME")
-            db.execSQL("DROP TABLE IF EXISTS $FREQ_TABLE_NAME")
-            onCreate(db)
-        }
-    }
-
     companion object {
-        private const val TAG = "DevKey/UserBigramDictionary"
-
         /** Any pair being typed or picked */
         private const val FREQUENCY_FOR_TYPED = 2
 
@@ -302,86 +191,9 @@ class UserBigramDictionary(
          */
         private var sDeleteUserBigrams = 1000
 
-        /**
-         * Database version should increase if the database structure changes
-         */
-        private const val DATABASE_VERSION = 1
-
-        private const val DATABASE_NAME = "userbigram_dict.db"
-
-        /** Name of the words table in the database */
-        private const val MAIN_TABLE_NAME = "main"
-        private const val MAIN_COLUMN_ID = android.provider.BaseColumns._ID
-        private const val MAIN_COLUMN_WORD1 = "word1"
-        private const val MAIN_COLUMN_WORD2 = "word2"
-        private const val MAIN_COLUMN_LOCALE = "locale"
-
-        /** Name of the frequency table in the database */
-        private const val FREQ_TABLE_NAME = "frequency"
-        private const val FREQ_COLUMN_ID = android.provider.BaseColumns._ID
-        private const val FREQ_COLUMN_PAIR_ID = "pair_id"
-        private const val FREQ_COLUMN_FREQUENCY = "freq"
-
-        private val sDictProjectionMap = HashMap<String, String>().apply {
-            put(MAIN_COLUMN_ID, MAIN_COLUMN_ID)
-            put(MAIN_COLUMN_WORD1, MAIN_COLUMN_WORD1)
-            put(MAIN_COLUMN_WORD2, MAIN_COLUMN_WORD2)
-            put(MAIN_COLUMN_LOCALE, MAIN_COLUMN_LOCALE)
-            put(FREQ_COLUMN_ID, FREQ_COLUMN_ID)
-            put(FREQ_COLUMN_PAIR_ID, FREQ_COLUMN_PAIR_ID)
-            put(FREQ_COLUMN_FREQUENCY, FREQ_COLUMN_FREQUENCY)
-        }
-
-        private var sOpenHelper: DatabaseHelper? = null
+        private var sOpenHelper: BigramDbHelper? = null
 
         @Volatile
         private var sUpdatingDB = false
-
-        /** Prune any old data if the database is getting too big. */
-        private fun checkPruneData(db: SQLiteDatabase) {
-            db.execSQL("PRAGMA foreign_keys = ON;")
-            val c = db.query(
-                FREQ_TABLE_NAME, arrayOf(FREQ_COLUMN_PAIR_ID),
-                null, null, null, null, null
-            )
-            try {
-                val totalRowCount = c.count
-                // prune out old data if we have too much data
-                if (totalRowCount > sMaxUserBigrams) {
-                    val numDeleteRows = (totalRowCount - sMaxUserBigrams) + sDeleteUserBigrams
-                    val pairIdColumnId = c.getColumnIndex(FREQ_COLUMN_PAIR_ID)
-                    c.moveToFirst()
-                    var count = 0
-                    while (count < numDeleteRows && !c.isAfterLast) {
-                        val pairId = c.getString(pairIdColumnId)
-                        // Deleting from MAIN table will delete the frequencies
-                        // due to FOREIGN KEY .. ON DELETE CASCADE
-                        db.delete(
-                            MAIN_TABLE_NAME, "$MAIN_COLUMN_ID=?",
-                            arrayOf(pairId)
-                        )
-                        c.moveToNext()
-                        count++
-                    }
-                }
-            } finally {
-                c.close()
-            }
-        }
-
-        private fun getContentValues(word1: String, word2: String, locale: String): ContentValues {
-            return ContentValues(3).apply {
-                put(MAIN_COLUMN_WORD1, word1)
-                put(MAIN_COLUMN_WORD2, word2)
-                put(MAIN_COLUMN_LOCALE, locale)
-            }
-        }
-
-        private fun getFrequencyContentValues(pairId: Int, frequency: Int): ContentValues {
-            return ContentValues(2).apply {
-                put(FREQ_COLUMN_PAIR_ID, pairId)
-                put(FREQ_COLUMN_FREQUENCY, frequency)
-            }
-        }
     }
 }

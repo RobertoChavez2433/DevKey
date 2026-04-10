@@ -18,9 +18,6 @@ package dev.devkey.keyboard
 
 import android.app.Activity
 import android.app.AlertDialog
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -32,7 +29,6 @@ import android.inputmethodservice.InputMethodService
 import android.media.AudioManager
 import android.os.Build
 import android.os.SystemClock
-import android.os.VibrationEffect
 import android.os.Vibrator
 import android.util.DisplayMetrics
 import android.util.Log
@@ -48,10 +44,12 @@ import android.view.inputmethod.InputConnection
 import android.view.inputmethod.InputMethodManager
 import android.widget.LinearLayout
 import android.widget.Toast
-import androidx.core.app.NotificationCompat
-import androidx.core.app.NotificationManagerCompat
 import androidx.preference.PreferenceManager
+import dev.devkey.keyboard.core.FeedbackManager
 import dev.devkey.keyboard.core.KeyEventSender
+import dev.devkey.keyboard.core.NotificationController
+import dev.devkey.keyboard.core.PunctuationHeuristics
+import dev.devkey.keyboard.core.SwipeActionHandler
 import dev.devkey.keyboard.data.repository.SettingsRepository
 import dev.devkey.keyboard.core.KeyboardActionListener
 import dev.devkey.keyboard.data.db.DevKeyDatabase
@@ -72,12 +70,9 @@ import dev.devkey.keyboard.ui.keyboard.LayoutMode
 import dev.devkey.keyboard.ui.keyboard.KeyCodes
 import dev.devkey.keyboard.ui.keyboard.SessionDependencies
 import dev.devkey.keyboard.ui.settings.DevKeySettingsActivity
-import org.xmlpull.v1.XmlPullParserException
 import java.io.FileDescriptor
-import java.io.IOException
 import java.io.PrintWriter
 import java.util.Locale
-import java.util.regex.Pattern
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -85,8 +80,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlin.math.min
-import kotlin.math.pow
 
 /**
  * Input method implementation for Qwerty'ish keyboard.
@@ -140,9 +133,6 @@ private var mAutoCorrectOn = false
     // Saved shift state when leaving alphabet mode, or when applying multitouch shift
     private var mSavedShiftState = 0
     private var mPasswordText = false
-    private var mVibrateOn = false
-    private var mVibrateLen = 0
-    private var mSoundOn = false
     private var mPopupOn = false
     private var mAutoCapPref = false
     private var mAutoCapActive = false
@@ -150,19 +140,13 @@ private var mAutoCorrectOn = false
     private var mQuickFixes = false
     private var mShowSuggestions = false
     private var mIsShowingHint = false
-    private var mConnectbotTabHack = false
+
     private var mFullscreenOverride = false
     private var mForceKeyboardOn = false
     private var mKeyboardNotification = false
     private var mSuggestionsInLandscape = false
     private var mSuggestionForceOn = false
     private var mSuggestionForceOff = false
-    private var mSwipeUpAction: String? = null
-    private var mSwipeDownAction: String? = null
-    private var mSwipeLeftAction: String? = null
-    private var mSwipeRightAction: String? = null
-    private var mVolUpAction: String? = null
-    private var mVolDownAction: String? = null
 
     private var mHeightPortrait = 0
     private var mHeightLandscape = 0
@@ -208,10 +192,9 @@ private var mAutoCorrectOn = false
         editorInfoProvider = { currentInputEditorInfo }
     )
 
-    private var mAudioManager: AudioManager? = null
-    private var mSilentMode = false
-
-    private var mVibrator: Vibrator? = null
+    private lateinit var mFeedbackManager: FeedbackManager
+    private lateinit var mSwipeHandler: SwipeActionHandler
+    private lateinit var mPuncHeuristics: PunctuationHeuristics
 
     /* package */ internal var mWordSeparators: String? = null
     private var mSentenceSeparators: String? = null
@@ -224,51 +207,12 @@ private var mAutoCorrectOn = false
     private val mWordHistory = ArrayList<WordAlternatives>()
 
     private var mPluginManager: PluginManager? = null
-    private var mNotificationReceiver: NotificationReceiver? = null
+    private lateinit var mNotificationController: NotificationController
     private var keyMapDumpReceiver: BroadcastReceiver? = null
-    // WHY: Holds the debug-only BroadcastReceiver so onDestroy can unregister it.
-    // NOTE: Mirrors the existing keyMapDumpReceiver field pattern (LatinIME.kt same area).
-    private var enableDebugServerReceiver: BroadcastReceiver? = null
-    // WHY: Holds the debug-only layout-mode switch receiver for unregistration.
-    private var setLayoutModeReceiver: BroadcastReceiver? = null
-    // WHY: Generic boolean-pref setter for test harness (e.g. devkey_show_toolbar).
-    private var setBoolPrefReceiver: BroadcastReceiver? = null
-    // WHY: Lets E2E tests set autocorrect level via broadcast.
-    private var setAutocorrectLevelReceiver: BroadcastReceiver? = null
+    private var mDebugReceivers: dev.devkey.keyboard.debug.DebugReceiverManager? = null
 
     /* package */ internal lateinit var mKeyEventSender: KeyEventSender
 
-    abstract class WordAlternatives {
-        protected var mChosenWord: CharSequence? = null
-
-        constructor()
-
-        constructor(chosenWord: CharSequence?) {
-            mChosenWord = chosenWord
-        }
-
-        override fun hashCode(): Int = mChosenWord.hashCode()
-
-        abstract fun getOriginalWord(): CharSequence?
-
-        fun getChosenWord(): CharSequence? = mChosenWord
-
-        abstract fun getAlternatives(): List<CharSequence>?
-    }
-
-    inner class TypedWordAlternatives : WordAlternatives {
-        internal var word: WordComposer? = null
-
-        constructor()
-
-        constructor(chosenWord: CharSequence?, wordComposer: WordComposer?) : super(chosenWord) {
-            word = wordComposer
-        }
-
-        override fun getOriginalWord(): CharSequence? = word?.getTypedWord()
-
-        override fun getAlternatives(): List<CharSequence>? = word?.let { getTypedSuggestions(it) }
-    }
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var suggestionsJob: Job? = null
@@ -278,13 +222,20 @@ private var mAutoCorrectOn = false
         Log.i(TAG, "onCreate(), os.version=${System.getProperty("os.version")}")
         super.onCreate()
         sInstance = this
-        mVibrator = getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
 
         // Initialize unified settings BEFORE KeyboardSwitcher (it reads sKeyboardSettings)
         val settingsPrefs = PreferenceManager.getDefaultSharedPreferences(this)
         sKeyboardSettings = SettingsRepository(settingsPrefs)
+        mFeedbackManager = FeedbackManager(
+            this,
+            getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator,
+            sKeyboardSettings
+        )
 
         KeyboardSwitcher.init(this)
+
+        // Load compose sequences from raw resource
+        ComposeSequenceLoader.load(this)
 
         // Initialize clipboard listener
         val clipboardRepo = ClipboardRepository(
@@ -317,10 +268,7 @@ private var mAutoCorrectOn = false
             PREF_RECORRECTION_ENABLED,
             res.getBoolean(R.bool.default_recorrection_enabled)
         )
-        mConnectbotTabHack = prefs.getBoolean(
-            PREF_CONNECTBOT_TAB_HACK,
-            res.getBoolean(R.bool.default_connectbot_tab_hack)
-        )
+
         mFullscreenOverride = prefs.getBoolean(
             PREF_FULLSCREEN_OVERRIDE,
             res.getBoolean(R.bool.default_fullscreen_override)
@@ -352,17 +300,51 @@ private var mAutoCorrectOn = false
         sKeyboardSettings.renderMode = getPrefInt(
             prefs, PREF_RENDER_MODE, res.getString(R.string.default_render_mode)
         )
-        mSwipeUpAction = prefs.getString(PREF_SWIPE_UP, res.getString(R.string.default_swipe_up))
-        mSwipeDownAction = prefs.getString(PREF_SWIPE_DOWN, res.getString(R.string.default_swipe_down))
-        mSwipeLeftAction = prefs.getString(PREF_SWIPE_LEFT, res.getString(R.string.default_swipe_left))
-        mSwipeRightAction = prefs.getString(PREF_SWIPE_RIGHT, res.getString(R.string.default_swipe_right))
-        mVolUpAction = prefs.getString(PREF_VOL_UP, res.getString(R.string.default_vol_up))
-        mVolDownAction = prefs.getString(PREF_VOL_DOWN, res.getString(R.string.default_vol_down))
+        mSwipeHandler = SwipeActionHandler(
+            handleClose = { handleClose() },
+            launchSettings = { launchSettings() },
+            toggleSuggestions = {
+                if (mSuggestionForceOn) { mSuggestionForceOn = false; mSuggestionForceOff = true }
+                else if (mSuggestionForceOff) { mSuggestionForceOn = true; mSuggestionForceOff = false }
+                else if (isPredictionWanted()) { mSuggestionForceOff = true }
+                else { mSuggestionForceOn = true }
+                setCandidatesViewShown(isPredictionOn())
+            },
+            toggleLanguagePrev = { toggleLanguage(false, false) },
+            toggleLanguageNext = { toggleLanguage(false, true) },
+            cycleFullMode = {
+                if (isPortrait()) {
+                    mKeyboardModeOverridePortrait = (mKeyboardModeOverridePortrait + 1) % mNumKeyboardModes
+                } else {
+                    mKeyboardModeOverrideLandscape = (mKeyboardModeOverrideLandscape + 1) % mNumKeyboardModes
+                }
+                toggleLanguage(reset = true, next = true)
+            },
+            toggleExtension = {
+                sKeyboardSettings.useExtension = !sKeyboardSettings.useExtension
+                reloadKeyboards()
+            },
+            adjustHeightUp = {
+                if (isPortrait()) { mHeightPortrait += 5; if (mHeightPortrait > 70) mHeightPortrait = 70 }
+                else { mHeightLandscape += 5; if (mHeightLandscape > 70) mHeightLandscape = 70 }
+                toggleLanguage(reset = true, next = true)
+            },
+            adjustHeightDown = {
+                if (isPortrait()) { mHeightPortrait -= 5; if (mHeightPortrait < 15) mHeightPortrait = 15 }
+                else { mHeightLandscape -= 5; if (mHeightLandscape < 15) mHeightLandscape = 15 }
+                toggleLanguage(reset = true, next = true)
+            }
+        )
+        mSwipeHandler.swipeUpAction = prefs.getString(PREF_SWIPE_UP, res.getString(R.string.default_swipe_up))
+        mSwipeHandler.swipeDownAction = prefs.getString(PREF_SWIPE_DOWN, res.getString(R.string.default_swipe_down))
+        mSwipeHandler.swipeLeftAction = prefs.getString(PREF_SWIPE_LEFT, res.getString(R.string.default_swipe_left))
+        mSwipeHandler.swipeRightAction = prefs.getString(PREF_SWIPE_RIGHT, res.getString(R.string.default_swipe_right))
+        mSwipeHandler.volUpAction = prefs.getString(PREF_VOL_UP, res.getString(R.string.default_vol_up))
+        mSwipeHandler.volDownAction = prefs.getString(PREF_VOL_DOWN, res.getString(R.string.default_vol_down))
         sKeyboardSettings.initPrefs(prefs, res)
 
         mKeyEventSender = KeyEventSender(
             inputConnectionProvider = { currentInputConnection },
-            editorInfoProvider = { currentInputEditorInfo },
             modCtrlProvider = { mModCtrl },
             modAltProvider = { mModAlt },
             modMetaProvider = { mModMeta },
@@ -370,7 +352,7 @@ private var mAutoCorrectOn = false
             ctrlKeyStateProvider = { mCtrlKeyState },
             altKeyStateProvider = { mAltKeyState },
             metaKeyStateProvider = { mMetaKeyState },
-            connectbotTabHackProvider = { mConnectbotTabHack },
+
             shiftModProvider = { isShiftMod() },
             setModCtrl = { setModCtrl(it) },
             setModAlt = { setModAlt(it) },
@@ -388,6 +370,12 @@ private var mAutoCorrectOn = false
                     Toast.LENGTH_LONG
                 ).show()
             }
+        )
+
+        mPuncHeuristics = PunctuationHeuristics(
+            icProvider = { currentInputConnection },
+            settings = sKeyboardSettings,
+            updateShiftKeyState = { updateShiftKeyState(currentInputEditorInfo) }
         )
 
         updateKeyboardOptions()
@@ -423,130 +411,16 @@ private var mAutoCorrectOn = false
 
         // register to receive ringer mode changes for silent mode
         val filter = IntentFilter(AudioManager.RINGER_MODE_CHANGED_ACTION)
-        registerReceiver(mReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        registerReceiver(mFeedbackManager.ringerModeReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
         prefs.registerOnSharedPreferenceChangeListener(this)
-        setNotification(mKeyboardNotification)
+        mNotificationController = NotificationController(this, this)
+        mNotificationController.setNotification(mKeyboardNotification)
 
-        // Debug: register broadcast receiver for on-demand key map dump
+        // Debug: register broadcast receivers for test harness
         if (KeyMapGenerator.isDebugBuild(this)) {
-            // WHY: DUMP_KEY_MAP receiver moved to DevKeyKeyboard.kt (Compose layer)
-            //      so it has access to the actual View for precise on-screen coordinates.
-            //      The old LatinIME receiver passed null, causing estimated positions that
-            //      were wrong when the navigation bar was present.
             keyMapDumpReceiver = null
-            // WHY: Test harness pushes the driver-server URL into the running IME via broadcast.
-            // FROM SPEC: §6 Phase 2 item 2.1 — "DevKeyLogger.enableServer(url) wired into /test harness"
-            // NOTE: Mirrors DUMP_KEY_MAP receiver exactly. Debug-only gate is the enclosing
-            //       isDebugBuild check — no additional gating needed.
-            // IMPORTANT: Extras: --es url http://10.0.2.2:3948 (emulator) or equivalent host loopback.
-            //            Passing no url extra OR an empty string calls disableServer() for cleanup.
-            enableDebugServerReceiver = object : BroadcastReceiver() {
-                override fun onReceive(context: Context, intent: Intent) {
-                    val url = intent.getStringExtra("url")
-                    if (url.isNullOrBlank()) {
-                        DevKeyLogger.disableServer()
-                        DevKeyLogger.ime("debug_server_disabled")
-                    } else {
-                        DevKeyLogger.enableServer(url)
-                        // NOTE: This ime() call runs BEFORE the server is actually reachable
-                        //       via the new URL on every subsequent event, so it serves as a
-                        //       handshake: the first log line the driver server receives is
-                        //       this one, confirming the broadcast landed.
-                        // SECURITY: Scrub the URL to scheme://host:port only so a malicious
-                        //           broadcaster cannot inject log-poisoning query strings.
-                        val scrubbed = try {
-                            java.net.URI(url).let { "${it.scheme}://${it.host}:${it.port}" }
-                        } catch (_: Exception) {
-                            "<invalid url>"
-                        }
-                        DevKeyLogger.ime("debug_server_enabled", mapOf("url" to scrubbed))
-                    }
-                }
-            }
-            registerReceiver(
-                enableDebugServerReceiver,
-                IntentFilter("dev.devkey.keyboard.ENABLE_DEBUG_SERVER"),
-                Context.RECEIVER_EXPORTED
-            )
-            // WHY: Test harness needs to flip between FULL/COMPACT/COMPACT_DEV without driving the Settings UI.
-            // FROM SPEC: §6 Phase 2 item 2.4 — "Existing tier stabilization — FULL + COMPACT + COMPACT_DEV to 100% green"
-            // NOTE: Writing the preference directly triggers the existing SharedPreferenceChangeListener
-            //       path in LatinIME (already wired — LatinIME is a SharedPreferences.OnSharedPreferenceChangeListener).
-            // IMPORTANT: Valid mode values are exactly "full", "compact", "compact_dev" — any other value is ignored.
-            //            These match the whitelist in the existing keyMapDumpReceiver at LatinIME.kt:407-413.
-            setLayoutModeReceiver = object : BroadcastReceiver() {
-                override fun onReceive(context: Context, intent: Intent) {
-                    val mode = intent.getStringExtra("mode") ?: return
-                    if (mode !in setOf("full", "compact", "compact_dev")) {
-                        DevKeyLogger.error("set_layout_mode_rejected", mapOf("mode" to mode))
-                        return
-                    }
-                    PreferenceManager.getDefaultSharedPreferences(context)
-                        .edit()
-                        .putString(SettingsRepository.KEY_LAYOUT_MODE, mode)
-                        .apply()
-                    DevKeyLogger.ime("layout_mode_set", mapOf("mode" to mode))
-                }
-            }
-            registerReceiver(
-                setLayoutModeReceiver,
-                IntentFilter("dev.devkey.keyboard.SET_LAYOUT_MODE"),
-                Context.RECEIVER_EXPORTED
-            )
-            // WHY: Debug-only generic boolean-pref setter. Lets the e2e harness flip
-            //      flags like devkey_show_toolbar between tests without driving the
-            //      Settings UI. Whitelisted key set keeps the surface minimal.
-            val allowedBoolKeys = setOf(
-                SettingsRepository.KEY_SHOW_TOOLBAR,
-                SettingsRepository.KEY_SHOW_NUMBER_ROW,
-            )
-            setBoolPrefReceiver = object : BroadcastReceiver() {
-                override fun onReceive(context: Context, intent: Intent) {
-                    val key = intent.getStringExtra("key") ?: return
-                    if (key !in allowedBoolKeys) {
-                        DevKeyLogger.error("set_bool_pref_rejected", mapOf("key" to key))
-                        return
-                    }
-                    val value = intent.getBooleanExtra("value", false)
-                    PreferenceManager.getDefaultSharedPreferences(context)
-                        .edit()
-                        .putBoolean(key, value)
-                        .apply()
-                    DevKeyLogger.ime(
-                        "bool_pref_set",
-                        mapOf("key" to key, "value" to value)
-                    )
-                }
-            }
-            registerReceiver(
-                setBoolPrefReceiver,
-                IntentFilter("dev.devkey.keyboard.SET_BOOL_PREF"),
-                Context.RECEIVER_EXPORTED
-            )
-
-            // Autocorrect level setter for E2E harness
-            setAutocorrectLevelReceiver = object : BroadcastReceiver() {
-                override fun onReceive(context: Context, intent: Intent) {
-                    val level = intent.getStringExtra("level") ?: return
-                    if (level !in listOf("off", "mild", "aggressive")) {
-                        DevKeyLogger.error("set_autocorrect_level_rejected", mapOf("level" to level))
-                        return
-                    }
-                    PreferenceManager.getDefaultSharedPreferences(context)
-                        .edit()
-                        .putString(SettingsRepository.KEY_AUTOCORRECT_LEVEL, level)
-                        .apply()
-                    DevKeyLogger.ime(
-                        "autocorrect_level_set",
-                        mapOf("level" to level)
-                    )
-                }
-            }
-            registerReceiver(
-                setAutocorrectLevelReceiver,
-                IntentFilter("dev.devkey.keyboard.SET_AUTOCORRECT_LEVEL"),
-                Context.RECEIVER_EXPORTED
-            )
+            mDebugReceivers = dev.devkey.keyboard.debug.DebugReceiverManager(this)
+            mDebugReceivers!!.registerAll()
         }
     }
 
@@ -572,69 +446,7 @@ private var mAutoCorrectOn = false
         sKeyboardSettings.keyboardHeightPercent = screenHeightPercent.toFloat()
     }
 
-    private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val name = getString(R.string.notification_channel_name)
-            val description = getString(R.string.notification_channel_description)
-            val importance = NotificationManager.IMPORTANCE_LOW
-            val channel = NotificationChannel(NOTIFICATION_CHANNEL_ID, name, importance).apply {
-                this.description = description
-            }
-            val notificationManager = getSystemService(NotificationManager::class.java)
-            notificationManager.createNotificationChannel(channel)
-        }
-    }
-
-    private fun setNotification(visible: Boolean) {
-        val mNotificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-
-        if (visible && mNotificationReceiver == null) {
-            createNotificationChannel()
-
-            mNotificationReceiver = NotificationReceiver(this)
-            val pFilter = IntentFilter(NotificationReceiver.ACTION_SHOW).apply {
-                addAction(NotificationReceiver.ACTION_SETTINGS)
-            }
-            registerReceiver(mNotificationReceiver, pFilter, Context.RECEIVER_NOT_EXPORTED)
-
-            val notificationIntent = Intent(NotificationReceiver.ACTION_SHOW)
-            val contentIntent = PendingIntent.getBroadcast(
-                applicationContext, 1, notificationIntent, PendingIntent.FLAG_IMMUTABLE
-            )
-
-            val configIntent = Intent(NotificationReceiver.ACTION_SETTINGS)
-            val configPendingIntent = PendingIntent.getBroadcast(
-                applicationContext, 2, configIntent, PendingIntent.FLAG_IMMUTABLE
-            )
-
-            val title = "Show DevKey"
-            val body = "Select this to open the keyboard. Disable in settings."
-
-            val mBuilder = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
-                .setSmallIcon(R.drawable.icon_hk_notification)
-                .setColor(0xff220044.toInt())
-                .setAutoCancel(false)
-                .setTicker("Keyboard notification enabled.")
-                .setContentTitle(title)
-                .setContentText(body)
-                .setContentIntent(contentIntent)
-                .setOngoing(true)
-                .addAction(
-                    R.drawable.icon_hk_notification,
-                    getString(R.string.notification_action_settings),
-                    configPendingIntent
-                )
-                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-
-            val notificationManager = NotificationManagerCompat.from(this)
-            notificationManager.notify(NOTIFICATION_ONGOING_ID, mBuilder.build())
-
-        } else if (mNotificationReceiver != null) {
-            mNotificationManager.cancel(NOTIFICATION_ONGOING_ID)
-            unregisterReceiver(mNotificationReceiver)
-            mNotificationReceiver = null
-        }
-    }
+    private fun setNotification(visible: Boolean) = mNotificationController.setNotification(visible)
 
     private fun isPortrait(): Boolean = mOrientation == Configuration.ORIENTATION_PORTRAIT
 
@@ -712,6 +524,7 @@ private var mAutoCorrectOn = false
         updateCorrectionMode()
         mWordSeparators = mResources!!.getString(R.string.word_separators)
         mSentenceSeparators = mResources!!.getString(R.string.sentence_separators)
+        mPuncHeuristics.sentenceSeparators = mSentenceSeparators
         initSuggestPuncList()
 
         // No need to restore locale: createConfigurationContext creates a new isolated context,
@@ -722,34 +535,11 @@ private var mAutoCorrectOn = false
         serviceScope.cancel()
         clipboardManager?.stopListening()
         keyMapDumpReceiver?.let { unregisterReceiver(it) }
-        // WHY: Prevent leak of the newly added receivers across IME process restarts.
-        try {
-            enableDebugServerReceiver?.let { unregisterReceiver(it) }
-        } catch (_: IllegalArgumentException) {
-            // Already unregistered — safe to ignore.
-        }
-        enableDebugServerReceiver = null
-        try {
-            setLayoutModeReceiver?.let { unregisterReceiver(it) }
-            setBoolPrefReceiver?.let { unregisterReceiver(it) }
-        } catch (_: IllegalArgumentException) {
-            // Already unregistered — safe to ignore.
-        }
-        setLayoutModeReceiver = null
-        setBoolPrefReceiver = null
-        try {
-            setAutocorrectLevelReceiver?.let { unregisterReceiver(it) }
-        } catch (_: IllegalArgumentException) {
-            // Already unregistered — safe to ignore.
-        }
-        setAutocorrectLevelReceiver = null
+        mDebugReceivers?.unregisterAll()
         mUserDictionary?.close()
-        unregisterReceiver(mReceiver)
+        unregisterReceiver(mFeedbackManager.ringerModeReceiver)
         unregisterReceiver(mPluginManager)
-        if (mNotificationReceiver != null) {
-            unregisterReceiver(mNotificationReceiver)
-            mNotificationReceiver = null
-        }
+        mNotificationController.destroy()
         sInstance = null
         super.onDestroy()
     }
@@ -1164,7 +954,7 @@ private var mAutoCorrectOn = false
         val dm = resources.displayMetrics
         val displayHeight = dm.heightPixels.toFloat()
         val dimen = resources.getDimension(R.dimen.max_height_for_fullscreen)
-        return if (displayHeight > dimen || mFullscreenOverride || isConnectbot()) {
+        return if (displayHeight > dimen || mFullscreenOverride) {
             false
         } else {
             super.onEvaluateFullscreenMode()
@@ -1179,12 +969,12 @@ private var mAutoCorrectOn = false
                 // Legacy view popup handling removed; Compose keyboard handles back key internally
             }
             KeyEvent.KEYCODE_VOLUME_UP -> {
-                if (mVolUpAction != "none" && isKeyboardVisible()) {
+                if (mSwipeHandler.volUpAction != "none" && isKeyboardVisible()) {
                     return true
                 }
             }
             KeyEvent.KEYCODE_VOLUME_DOWN -> {
-                if (mVolDownAction != "none" && isKeyboardVisible()) {
+                if (mSwipeHandler.volDownAction != "none" && isKeyboardVisible()) {
                     return true
                 }
             }
@@ -1214,13 +1004,13 @@ private var mAutoCorrectOn = false
                 }
             }
             KeyEvent.KEYCODE_VOLUME_UP -> {
-                if (mVolUpAction != "none" && isKeyboardVisible()) {
-                    return doSwipeAction(mVolUpAction)
+                if (mSwipeHandler.volUpAction != "none" && isKeyboardVisible()) {
+                    return mSwipeHandler.doSwipeAction(mSwipeHandler.volUpAction)
                 }
             }
             KeyEvent.KEYCODE_VOLUME_DOWN -> {
-                if (mVolDownAction != "none" && isKeyboardVisible()) {
-                    return doSwipeAction(mVolDownAction)
+                if (mSwipeHandler.volDownAction != "none" && isKeyboardVisible()) {
+                    return mSwipeHandler.doSwipeAction(mSwipeHandler.volDownAction)
                 }
             }
         }
@@ -1311,74 +1101,16 @@ private var mAutoCorrectOn = false
     }
 
     private fun swapPunctuationAndSpace() {
-        val ic = currentInputConnection ?: return
-        val lastTwo = ic.getTextBeforeCursor(2, 0)
-        if (lastTwo != null && lastTwo.length == 2
-            && lastTwo[0] == ASCII_SPACE.toChar()
-            && isSentenceSeparator(lastTwo[1].code)
-        ) {
-            ic.beginBatchEdit()
-            ic.deleteSurroundingText(2, 0)
-            ic.commitText("${lastTwo[1]} ", 1)
-            ic.endBatchEdit()
-            updateShiftKeyState(currentInputEditorInfo)
-            mJustAddedAutoSpace = true
-        }
+        mPuncHeuristics.swapPunctuationAndSpace()
+        // mJustAddedAutoSpace handled at call site
     }
-
-    private fun reswapPeriodAndSpace() {
-        val ic = currentInputConnection ?: return
-        val lastThree = ic.getTextBeforeCursor(3, 0)
-        if (lastThree != null && lastThree.length == 3
-            && lastThree[0] == ASCII_PERIOD.toChar()
-            && lastThree[1] == ASCII_SPACE.toChar()
-            && lastThree[2] == ASCII_PERIOD.toChar()
-        ) {
-            ic.beginBatchEdit()
-            ic.deleteSurroundingText(3, 0)
-            ic.commitText(" ..", 1)
-            ic.endBatchEdit()
-            updateShiftKeyState(currentInputEditorInfo)
-        }
-    }
-
+    private fun reswapPeriodAndSpace() = mPuncHeuristics.reswapPeriodAndSpace()
     private fun doubleSpace() {
-        if (mCorrectionMode == Suggest.CORRECTION_NONE) return
-        val ic = currentInputConnection ?: return
-        val lastThree = ic.getTextBeforeCursor(3, 0)
-        if (lastThree != null && lastThree.length == 3
-            && Character.isLetterOrDigit(lastThree[0])
-            && lastThree[1] == ASCII_SPACE.toChar()
-            && lastThree[2] == ASCII_SPACE.toChar()
-        ) {
-            ic.beginBatchEdit()
-            ic.deleteSurroundingText(2, 0)
-            ic.commitText(". ", 1)
-            ic.endBatchEdit()
-            updateShiftKeyState(currentInputEditorInfo)
-            mJustAddedAutoSpace = true
-        }
+        mPuncHeuristics.doubleSpace(mCorrectionMode)
+        // mJustAddedAutoSpace handled at call site
     }
-
-    private fun maybeRemovePreviousPeriod(text: CharSequence) {
-        val ic = currentInputConnection
-        if (ic == null || text.isEmpty()) return
-        val lastOne = ic.getTextBeforeCursor(1, 0)
-        if (lastOne != null && lastOne.length == 1
-            && lastOne[0] == ASCII_PERIOD.toChar()
-            && text[0] == ASCII_PERIOD.toChar()
-        ) {
-            ic.deleteSurroundingText(1, 0)
-        }
-    }
-
-    private fun removeTrailingSpace() {
-        val ic = currentInputConnection ?: return
-        val lastOne = ic.getTextBeforeCursor(1, 0)
-        if (lastOne != null && lastOne.length == 1 && lastOne[0] == ASCII_SPACE.toChar()) {
-            ic.deleteSurroundingText(1, 0)
-        }
-    }
+    private fun maybeRemovePreviousPeriod(text: CharSequence) = mPuncHeuristics.maybeRemovePreviousPeriod(text)
+    private fun removeTrailingSpace() = mPuncHeuristics.removeTrailingSpace()
 
     fun addWordToDictionary(word: String): Boolean {
         mUserDictionary!!.addWord(word, 128)
@@ -1411,7 +1143,6 @@ private var mAutoCorrectOn = false
     private fun isShowingOptionDialog(): Boolean =
         mOptionsDialog != null && mOptionsDialog!!.isShowing
 
-    private fun isConnectbot(): Boolean = mKeyEventSender.isConnectbot()
 
     private fun isShiftMod(): Boolean {
         if (mShiftKeyState.isChording()) return true
@@ -1464,31 +1195,18 @@ private var mAutoCorrectOn = false
             mDeleteCount = 0
         }
         mLastKeyTime = eventTime
-        val distinctMultiTouch = mKeyboardSwitcher!!.hasDistinctMultitouch()
         when (primaryCode) {
             Keyboard.KEYCODE_DELETE -> {
                 if (processMultiKey(primaryCode)) return@onKey
                 handleBackspace()
                 mDeleteCount++
             }
-            Keyboard.KEYCODE_SHIFT -> {
-                if (!distinctMultiTouch) handleShift()
-            }
-            Keyboard.KEYCODE_MODE_CHANGE -> {
-                if (!distinctMultiTouch) changeKeyboardMode()
-            }
-            KeyCodes.CTRL_LEFT -> {
-                if (!distinctMultiTouch) setModCtrl(!mModCtrl)
-            }
-            KeyCodes.ALT_LEFT -> {
-                if (!distinctMultiTouch) setModAlt(!mModAlt)
-            }
-            KeyCodes.KEYCODE_META_LEFT -> {
-                if (!distinctMultiTouch) setModMeta(!mModMeta)
-            }
-            KeyCodes.KEYCODE_FN -> {
-                if (!distinctMultiTouch) setModFn(!mModFn)
-            }
+            Keyboard.KEYCODE_SHIFT -> { /* handled in onPress/onRelease multitouch */ }
+            Keyboard.KEYCODE_MODE_CHANGE -> { /* handled in onPress/onRelease multitouch */ }
+            KeyCodes.CTRL_LEFT -> { /* handled in onPress/onRelease multitouch */ }
+            KeyCodes.ALT_LEFT -> { /* handled in onPress/onRelease multitouch */ }
+            KeyCodes.KEYCODE_META_LEFT -> { /* handled in onPress/onRelease multitouch */ }
+            KeyCodes.KEYCODE_FN -> { /* handled in onPress/onRelease multitouch */ }
             Keyboard.KEYCODE_CANCEL -> {
                 if (!isShowingOptionDialog()) handleClose()
             }
@@ -1642,28 +1360,10 @@ private var mAutoCorrectOn = false
         ic.endBatchEdit()
     }
 
-    private fun setModCtrl(enabled: Boolean) {
-        mKeyboardSwitcher!!.setCtrlIndicator(enabled)
-        mModCtrl = enabled
-    }
-
-    private fun setModAlt(enabled: Boolean) {
-        mKeyboardSwitcher!!.setAltIndicator(enabled)
-        mModAlt = enabled
-    }
-
-    private fun setModMeta(enabled: Boolean) {
-        mKeyboardSwitcher!!.setMetaIndicator(enabled)
-        mModMeta = enabled
-    }
-
-    private fun setModFn(enabled: Boolean) {
-        mModFn = enabled
-        mKeyboardSwitcher!!.setFn(enabled)
-        mKeyboardSwitcher!!.setCtrlIndicator(mModCtrl)
-        mKeyboardSwitcher!!.setAltIndicator(mModAlt)
-        mKeyboardSwitcher!!.setMetaIndicator(mModMeta)
-    }
+    private fun setModCtrl(enabled: Boolean) { mModCtrl = enabled }
+    private fun setModAlt(enabled: Boolean) { mModAlt = enabled }
+    private fun setModMeta(enabled: Boolean) { mModMeta = enabled }
+    private fun setModFn(enabled: Boolean) { mModFn = enabled; mKeyboardSwitcher!!.setFn(enabled) }
 
     private fun startMultitouchShift() {
         var newState = Keyboard.SHIFT_ON
@@ -1896,7 +1596,7 @@ private var mAutoCorrectOn = false
         if (result.isNullOrEmpty()) return
 
         val resultCopy = result.toString()
-        val entry = TypedWordAlternatives(resultCopy, WordComposer(mWord))
+        val entry = TypedWordAlternatives(resultCopy, WordComposer(mWord), ::getTypedSuggestions)
         mWordHistory.add(entry)
     }
 
@@ -2138,7 +1838,7 @@ private var mAutoCorrectOn = false
         }
         if (foundWord != null || alternatives != null) {
             if (alternatives == null) {
-                alternatives = TypedWordAlternatives(touching.word, foundWord)
+                alternatives = TypedWordAlternatives(touching.word, foundWord, ::getTypedSuggestions)
             }
             showCorrections(alternatives)
             if (foundWord != null) {
@@ -2356,9 +2056,7 @@ private var mAutoCorrectOn = false
         return separators.indexOf(code.toChar()) >= 0
     }
 
-    private fun isSentenceSeparator(code: Int): Boolean {
-        return mSentenceSeparators?.indexOf(code.toChar())?.let { it >= 0 } ?: false
-    }
+    private fun isSentenceSeparator(code: Int): Boolean = mPuncHeuristics.isSentenceSeparator(code)
 
     private fun sendSpace() {
         sendModifiableKeyChar(ASCII_SPACE.toChar())
@@ -2432,11 +2130,7 @@ private var mAutoCorrectOn = false
                     ).show()
                 }
             }
-            PREF_CONNECTBOT_TAB_HACK -> {
-                mConnectbotTabHack = sharedPreferences.getBoolean(
-                    PREF_CONNECTBOT_TAB_HACK, res.getBoolean(R.bool.default_connectbot_tab_hack)
-                )
-            }
+
             PREF_FULLSCREEN_OVERRIDE -> {
                 mFullscreenOverride = sharedPreferences.getBoolean(
                     PREF_FULLSCREEN_OVERRIDE, res.getBoolean(R.bool.default_fullscreen_override)
@@ -2500,14 +2194,14 @@ private var mAutoCorrectOn = false
                 )
                 needReload = true
             }
-            PREF_SWIPE_UP -> mSwipeUpAction = sharedPreferences.getString(PREF_SWIPE_UP, res.getString(R.string.default_swipe_up))
-            PREF_SWIPE_DOWN -> mSwipeDownAction = sharedPreferences.getString(PREF_SWIPE_DOWN, res.getString(R.string.default_swipe_down))
-            PREF_SWIPE_LEFT -> mSwipeLeftAction = sharedPreferences.getString(PREF_SWIPE_LEFT, res.getString(R.string.default_swipe_left))
-            PREF_SWIPE_RIGHT -> mSwipeRightAction = sharedPreferences.getString(PREF_SWIPE_RIGHT, res.getString(R.string.default_swipe_right))
-            PREF_VOL_UP -> mVolUpAction = sharedPreferences.getString(PREF_VOL_UP, res.getString(R.string.default_vol_up))
-            PREF_VOL_DOWN -> mVolDownAction = sharedPreferences.getString(PREF_VOL_DOWN, res.getString(R.string.default_vol_down))
+            PREF_SWIPE_UP -> mSwipeHandler.swipeUpAction = sharedPreferences.getString(PREF_SWIPE_UP, res.getString(R.string.default_swipe_up))
+            PREF_SWIPE_DOWN -> mSwipeHandler.swipeDownAction = sharedPreferences.getString(PREF_SWIPE_DOWN, res.getString(R.string.default_swipe_down))
+            PREF_SWIPE_LEFT -> mSwipeHandler.swipeLeftAction = sharedPreferences.getString(PREF_SWIPE_LEFT, res.getString(R.string.default_swipe_left))
+            PREF_SWIPE_RIGHT -> mSwipeHandler.swipeRightAction = sharedPreferences.getString(PREF_SWIPE_RIGHT, res.getString(R.string.default_swipe_right))
+            PREF_VOL_UP -> mSwipeHandler.volUpAction = sharedPreferences.getString(PREF_VOL_UP, res.getString(R.string.default_vol_up))
+            PREF_VOL_DOWN -> mSwipeHandler.volDownAction = sharedPreferences.getString(PREF_VOL_DOWN, res.getString(R.string.default_vol_down))
             PREF_VIBRATE_LEN -> {
-                mVibrateLen = getPrefInt(
+                mFeedbackManager.vibrateLen = getPrefInt(
                     sharedPreferences, PREF_VIBRATE_LEN, resources.getString(R.string.vibrate_duration_ms)
                 )
             }
@@ -2529,106 +2223,41 @@ private var mAutoCorrectOn = false
         }
     }
 
-    private fun doSwipeAction(action: String?): Boolean {
-        if (action.isNullOrEmpty() || action == "none") return false
-
-        when (action) {
-            "close" -> handleClose()
-            "settings" -> launchSettings()
-            "suggestions" -> {
-                if (mSuggestionForceOn) {
-                    mSuggestionForceOn = false
-                    mSuggestionForceOff = true
-                } else if (mSuggestionForceOff) {
-                    mSuggestionForceOn = true
-                    mSuggestionForceOff = false
-                } else if (isPredictionWanted()) {
-                    mSuggestionForceOff = true
-                } else {
-                    mSuggestionForceOn = true
-                }
-                setCandidatesViewShown(isPredictionOn())
-            }
-            "lang_prev" -> toggleLanguage(false, false)
-            "lang_next" -> toggleLanguage(false, true)
-            "full_mode" -> {
-                if (isPortrait()) {
-                    mKeyboardModeOverridePortrait = (mKeyboardModeOverridePortrait + 1) % mNumKeyboardModes
-                } else {
-                    mKeyboardModeOverrideLandscape = (mKeyboardModeOverrideLandscape + 1) % mNumKeyboardModes
-                }
-                toggleLanguage(reset = true, next = true)
-            }
-            "extension" -> {
-                sKeyboardSettings.useExtension = !sKeyboardSettings.useExtension
-                reloadKeyboards()
-            }
-            "height_up" -> {
-                if (isPortrait()) {
-                    mHeightPortrait += 5
-                    if (mHeightPortrait > 70) mHeightPortrait = 70
-                } else {
-                    mHeightLandscape += 5
-                    if (mHeightLandscape > 70) mHeightLandscape = 70
-                }
-                toggleLanguage(reset = true, next = true)
-            }
-            "height_down" -> {
-                if (isPortrait()) {
-                    mHeightPortrait -= 5
-                    if (mHeightPortrait < 15) mHeightPortrait = 15
-                } else {
-                    mHeightLandscape -= 5
-                    if (mHeightLandscape < 15) mHeightLandscape = 15
-                }
-                toggleLanguage(reset = true, next = true)
-            }
-            else -> Log.i(TAG, "Unsupported swipe action config: $action")
-        }
-        return true
-    }
-
-    fun swipeRight(): Boolean = doSwipeAction(mSwipeRightAction)
-
-    fun swipeLeft(): Boolean = doSwipeAction(mSwipeLeftAction)
-
-    fun swipeDown(): Boolean = doSwipeAction(mSwipeDownAction)
-
-    fun swipeUp(): Boolean = doSwipeAction(mSwipeUpAction)
+    fun swipeRight(): Boolean = mSwipeHandler.swipeRight()
+    fun swipeLeft(): Boolean = mSwipeHandler.swipeLeft()
+    fun swipeDown(): Boolean = mSwipeHandler.swipeDown()
+    fun swipeUp(): Boolean = mSwipeHandler.swipeUp()
 
     override fun onPress(primaryCode: Int) {
         val ic = currentInputConnection
-        if (mKeyboardSwitcher!!.isVibrateAndSoundFeedbackRequired()) {
-            vibrate()
-            playKeyClick(primaryCode)
-        }
-        val distinctMultiTouch = mKeyboardSwitcher!!.hasDistinctMultitouch()
-        when {
-            distinctMultiTouch && primaryCode == Keyboard.KEYCODE_SHIFT -> {
+        mFeedbackManager.vibrate()
+        mFeedbackManager.playKeyClick(primaryCode)
+        when (primaryCode) {
+            Keyboard.KEYCODE_SHIFT -> {
                 mShiftKeyState.onPress()
                 startMultitouchShift()
             }
-            distinctMultiTouch && primaryCode == Keyboard.KEYCODE_MODE_CHANGE -> {
+            Keyboard.KEYCODE_MODE_CHANGE -> {
                 changeKeyboardMode()
                 mSymbolKeyState.onPress()
                 mKeyboardSwitcher!!.setAutoModeSwitchStateMomentary()
             }
-            distinctMultiTouch && primaryCode == KeyCodes.CTRL_LEFT -> {
+            KeyCodes.CTRL_LEFT -> {
                 setModCtrl(!mModCtrl)
                 mCtrlKeyState.onPress()
                 mKeyEventSender.sendCtrlKey(ic, true, true)
             }
-            distinctMultiTouch && primaryCode == KeyCodes.ALT_LEFT -> {
+            KeyCodes.ALT_LEFT -> {
                 setModAlt(!mModAlt)
                 mAltKeyState.onPress()
                 mKeyEventSender.sendAltKey(ic, true, true)
             }
-            distinctMultiTouch && primaryCode == KeyCodes.KEYCODE_META_LEFT -> {
+            KeyCodes.KEYCODE_META_LEFT -> {
                 setModMeta(!mModMeta)
                 mMetaKeyState.onPress()
                 mKeyEventSender.sendMetaKey(ic, true, true)
             }
-            distinctMultiTouch && primaryCode == KeyCodes.KEYCODE_FN -> {
+            KeyCodes.KEYCODE_FN -> {
                 setModFn(!mModFn)
                 mFnKeyState.onPress()
             }
@@ -2644,116 +2273,39 @@ private var mAutoCorrectOn = false
     }
 
     override fun onRelease(primaryCode: Int) {
-        val distinctMultiTouch = mKeyboardSwitcher!!.hasDistinctMultitouch()
         val ic = currentInputConnection
-        when {
-            distinctMultiTouch && primaryCode == Keyboard.KEYCODE_SHIFT -> {
-                if (mShiftKeyState.isChording()) {
-                    resetMultitouchShift()
-                } else {
-                    commitMultitouchShift()
-                }
+        when (primaryCode) {
+            Keyboard.KEYCODE_SHIFT -> {
+                if (mShiftKeyState.isChording()) resetMultitouchShift() else commitMultitouchShift()
                 mShiftKeyState.onRelease()
             }
-            distinctMultiTouch && primaryCode == Keyboard.KEYCODE_MODE_CHANGE -> {
-                if (mKeyboardSwitcher!!.isInChordingAutoModeSwitchState()) {
-                    changeKeyboardMode()
-                }
+            Keyboard.KEYCODE_MODE_CHANGE -> {
+                if (mKeyboardSwitcher!!.isInChordingAutoModeSwitchState()) changeKeyboardMode()
                 mSymbolKeyState.onRelease()
             }
-            distinctMultiTouch && primaryCode == KeyCodes.CTRL_LEFT -> {
-                if (mCtrlKeyState.isChording()) {
-                    setModCtrl(false)
-                }
+            KeyCodes.CTRL_LEFT -> {
+                if (mCtrlKeyState.isChording()) setModCtrl(false)
                 mKeyEventSender.sendCtrlKey(ic, false, true)
                 mCtrlKeyState.onRelease()
             }
-            distinctMultiTouch && primaryCode == KeyCodes.ALT_LEFT -> {
-                if (mAltKeyState.isChording()) {
-                    setModAlt(false)
-                }
+            KeyCodes.ALT_LEFT -> {
+                if (mAltKeyState.isChording()) setModAlt(false)
                 mKeyEventSender.sendAltKey(ic, false, true)
                 mAltKeyState.onRelease()
             }
-            distinctMultiTouch && primaryCode == KeyCodes.KEYCODE_META_LEFT -> {
-                if (mMetaKeyState.isChording()) {
-                    setModMeta(false)
-                }
+            KeyCodes.KEYCODE_META_LEFT -> {
+                if (mMetaKeyState.isChording()) setModMeta(false)
                 mKeyEventSender.sendMetaKey(ic, false, true)
                 mMetaKeyState.onRelease()
             }
-            distinctMultiTouch && primaryCode == KeyCodes.KEYCODE_FN -> {
-                if (mFnKeyState.isChording()) {
-                    setModFn(false)
-                }
+            KeyCodes.KEYCODE_FN -> {
+                if (mFnKeyState.isChording()) setModFn(false)
                 mFnKeyState.onRelease()
             }
         }
     }
 
-    // receive ringer mode changes to detect silent mode
-    private val mReceiver: BroadcastReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            updateRingerMode()
-        }
-    }
-
-    // update flags for silent mode
-    private fun updateRingerMode() {
-        if (mAudioManager == null) {
-            mAudioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        }
-        mAudioManager?.let {
-            mSilentMode = it.ringerMode != AudioManager.RINGER_MODE_NORMAL
-        }
-    }
-
-    private fun getKeyClickVolume(): Float {
-        if (mAudioManager == null) return 0.0f
-
-        val method = sKeyboardSettings.keyClickMethod
-        if (method == 0) return FX_VOLUME
-
-        var targetVol = sKeyboardSettings.keyClickVolume
-
-        if (method > 1) {
-            val mediaMax = mAudioManager!!.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-            val mediaVol = mAudioManager!!.getStreamVolume(AudioManager.STREAM_MUSIC)
-            val channelVol = mediaVol.toFloat() / mediaMax
-            when (method) {
-                2 -> targetVol *= channelVol
-                3 -> {
-                    if (channelVol == 0f) return 0.0f
-                    targetVol = min(targetVol / channelVol, 1.0f)
-                }
-            }
-        }
-        return 10.0f.pow(FX_VOLUME_RANGE_DB * (targetVol - 1) / 20)
-    }
-
-    private fun playKeyClick(primaryCode: Int) {
-        if (mAudioManager == null) {
-            updateRingerMode()
-        }
-        if (mSoundOn && !mSilentMode) {
-            val sound = when (primaryCode) {
-                Keyboard.KEYCODE_DELETE -> AudioManager.FX_KEYPRESS_DELETE
-                ASCII_ENTER -> AudioManager.FX_KEYPRESS_RETURN
-                ASCII_SPACE -> AudioManager.FX_KEYPRESS_SPACEBAR
-                else -> AudioManager.FX_KEYPRESS_STANDARD
-            }
-            mAudioManager!!.playSoundEffect(sound, getKeyClickVolume())
-        }
-    }
-
-    private fun vibrate() {
-        if (!mVibrateOn) return
-        vibrate(mVibrateLen)
-    }
-
-    internal fun vibrate(len: Int) {
-        mVibrator?.vibrate(VibrationEffect.createOneShot(len.toLong(), VibrationEffect.DEFAULT_AMPLITUDE))
-    }
+    internal fun vibrate(len: Int) = mFeedbackManager.vibrate(len)
 
     override fun promoteToUserDictionary(word: String, frequency: Int) {
         if (mUserDictionary!!.isValidWord(word)) return
@@ -2803,9 +2355,9 @@ private var mAutoCorrectOn = false
 
     private fun loadSettings() {
         val sp = PreferenceManager.getDefaultSharedPreferences(this)
-        mVibrateOn = sp.getBoolean(PREF_VIBRATE_ON, false)
-        mVibrateLen = getPrefInt(sp, PREF_VIBRATE_LEN, resources.getString(R.string.vibrate_duration_ms))
-        mSoundOn = sp.getBoolean(PREF_SOUND_ON, false)
+        mFeedbackManager.vibrateOn = sp.getBoolean(PREF_VIBRATE_ON, false)
+        mFeedbackManager.vibrateLen = getPrefInt(sp, PREF_VIBRATE_LEN, resources.getString(R.string.vibrate_duration_ms))
+        mFeedbackManager.soundOn = sp.getBoolean(PREF_SOUND_ON, false)
         mPopupOn = sp.getBoolean(
             PREF_POPUP_ON,
             mResources!!.getBoolean(R.bool.default_popup_preview)
@@ -2856,21 +2408,14 @@ private var mAutoCorrectOn = false
     }
 
     private fun initSuggestPuncList() {
-        mSuggestPuncList = mutableListOf()
-        var suggestPuncs = sKeyboardSettings.suggestedPunctuation
-        val defaultPuncs = resources.getString(R.string.suggested_punctuations_default)
-        if (suggestPuncs == defaultPuncs || suggestPuncs.isEmpty()) {
-            suggestPuncs = resources.getString(R.string.suggested_punctuations)
-        }
-        for (i in suggestPuncs.indices) {
-            mSuggestPuncList!!.add(suggestPuncs.subSequence(i, i + 1))
-        }
+        mPuncHeuristics.defaultPunctuations = resources.getString(R.string.suggested_punctuations_default)
+        mPuncHeuristics.actualPunctuations = resources.getString(R.string.suggested_punctuations)
+        mPuncHeuristics.initSuggestPuncList()
+        mSuggestPuncList = mPuncHeuristics.suggestPuncList
         setNextSuggestions()
     }
 
-    private fun isSuggestedPunctuation(code: Int): Boolean {
-        return sKeyboardSettings.suggestedPunctuation.indexOf(code.toChar()) >= 0
-    }
+    private fun isSuggestedPunctuation(code: Int): Boolean = mPuncHeuristics.isSuggestedPunctuation(code)
 
     private fun showOptionsMenu() {
         val builder = AlertDialog.Builder(this)
@@ -2926,8 +2471,8 @@ private var mAutoCorrectOn = false
         p.println("  mAutoSpace=$mAutoSpace")
         p.println("  mCompletionOn=$mCompletionOn")
         p.println("  TextEntryState.state=${TextEntryState.getState()}")
-        p.println("  mSoundOn=$mSoundOn")
-        p.println("  mVibrateOn=$mVibrateOn")
+        p.println("  mSoundOn=${mFeedbackManager.soundOn}")
+        p.println("  mVibrateOn=${mFeedbackManager.vibrateOn}")
         p.println("  mPopupOn=$mPopupOn")
     }
 
@@ -2938,58 +2483,9 @@ private var mAutoCorrectOn = false
     companion object {
         private const val TAG = "DevKey/LatinIME"
 
-        // Align sound effect volume on music volume
-        private const val FX_VOLUME = -1.0f
-        private const val FX_VOLUME_RANGE_DB = 72.0f
-        private const val NOTIFICATION_CHANNEL_ID = "DevKey"
-        private const val NOTIFICATION_ONGOING_ID = 1001
-
-        private const val PREF_VIBRATE_ON = "vibrate_on"
-        internal const val PREF_VIBRATE_LEN = "vibrate_len"
-        private const val PREF_SOUND_ON = "sound_on"
-        private const val PREF_POPUP_ON = "popup_on"
-        private const val PREF_AUTO_CAP = "auto_cap"
-        private const val PREF_QUICK_FIXES = "quick_fixes"
-        private const val PREF_SHOW_SUGGESTIONS = "show_suggestions"
-        private const val PREF_AUTO_COMPLETE = "auto_complete"
-        private const val PREF_VOICE_MODE = "voice_mode"
-
-        private const val IME_OPTION_NO_MICROPHONE = "nm"
-
-        val PREF_SELECTED_LANGUAGES = "selected_languages"
-        val PREF_INPUT_LANGUAGE = "input_language"
-        private const val PREF_RECORRECTION_ENABLED = "recorrection_enabled"
-        internal const val PREF_FULLSCREEN_OVERRIDE = "fullscreen_override"
-        internal const val PREF_FORCE_KEYBOARD_ON = "force_keyboard_on"
-        internal const val PREF_KEYBOARD_NOTIFICATION = "keyboard_notification"
-        internal const val PREF_CONNECTBOT_TAB_HACK = "connectbot_tab_hack"
-        internal const val PREF_FULL_KEYBOARD_IN_PORTRAIT = "full_keyboard_in_portrait"
-        internal const val PREF_SUGGESTIONS_IN_LANDSCAPE = "suggestions_in_landscape"
-        internal const val PREF_HEIGHT_PORTRAIT = "settings_height_portrait"
-        internal const val PREF_HEIGHT_LANDSCAPE = "settings_height_landscape"
-        internal const val PREF_HINT_MODE = "pref_hint_mode"
-        internal const val PREF_LONGPRESS_TIMEOUT = "pref_long_press_duration"
-        internal const val PREF_RENDER_MODE = "pref_render_mode"
-        internal const val PREF_SWIPE_UP = "pref_swipe_up"
-        internal const val PREF_SWIPE_DOWN = "pref_swipe_down"
-        internal const val PREF_SWIPE_LEFT = "pref_swipe_left"
-        internal const val PREF_SWIPE_RIGHT = "pref_swipe_right"
-        internal const val PREF_VOL_UP = "pref_vol_up"
-        internal const val PREF_VOL_DOWN = "pref_vol_down"
-
-        // How many continuous deletes at which to start deleting at a higher speed.
-        private const val DELETE_ACCELERATE_AT = 20
-        // Key events coming any faster than this are long-presses.
-        private const val QUICK_PRESS = 200
-
-        // ASCII constants delegate to KeyCodes (single source of truth)
-        val ASCII_ENTER = KeyCodes.ENTER
-        val ASCII_SPACE = KeyCodes.ASCII_SPACE
-        val ASCII_PERIOD = KeyCodes.ASCII_PERIOD
-
-        // Contextual menu positions
-        private const val POS_METHOD = 0
-        private const val POS_SETTINGS = 1
+        // Re-export for external callers (InputLanguageSelection, LanguageSwitcher)
+        @JvmField val PREF_SELECTED_LANGUAGES = dev.devkey.keyboard.PREF_SELECTED_LANGUAGES
+        @JvmField val PREF_INPUT_LANGUAGE = dev.devkey.keyboard.PREF_INPUT_LANGUAGE
 
         lateinit var sKeyboardSettings: SettingsRepository
             private set
@@ -3000,56 +2496,11 @@ private var mAutoCorrectOn = false
         var sInstance: LatinIME? = null
             private set
 
-        private val NUMBER_RE = Pattern.compile("(\\d+).*")
-
-        fun getDictionary(res: Resources): IntArray {
-            val packageName = LatinIME::class.java.`package`?.name ?: ""
-            val xrp = res.getXml(R.xml.dictionary)
-            val dictionaries = mutableListOf<Int>()
-
-            try {
-                var current = xrp.eventType
-                while (current != android.content.res.XmlResourceParser.END_DOCUMENT) {
-                    if (current == android.content.res.XmlResourceParser.START_TAG) {
-                        val tag = xrp.name
-                        if (tag == "part") {
-                            val dictFileName = xrp.getAttributeValue(null, "name")
-                            dictionaries.add(res.getIdentifier(dictFileName, "raw", packageName))
-                        }
-                    }
-                    xrp.next()
-                    current = xrp.eventType
-                }
-            } catch (e: XmlPullParserException) {
-                Log.e(TAG, "Dictionary XML parsing failure")
-            } catch (e: IOException) {
-                Log.e(TAG, "Dictionary XML IOException")
-            }
-
-            return dictionaries.toIntArray()
-        }
-
-        fun getIntFromString(value: String, defVal: Int): Int {
-            val num = NUMBER_RE.matcher(value)
-            return if (num.matches()) num.group(1)!!.toInt() else defVal
-        }
-
-        fun getPrefInt(prefs: SharedPreferences, prefName: String, defVal: Int): Int {
-            val prefVal = prefs.getString(prefName, defVal.toString())
-            return getIntFromString(prefVal ?: defVal.toString(), defVal)
-        }
-
-        fun getPrefInt(prefs: SharedPreferences, prefName: String, defStr: String): Int {
-            val defVal = getIntFromString(defStr, 0)
-            return getPrefInt(prefs, prefName, defVal)
-        }
-
-        fun getHeight(prefs: SharedPreferences, prefName: String, defVal: String): Int {
-            var value = getPrefInt(prefs, prefName, defVal)
-            if (value < 15) value = 15
-            if (value > 75) value = 75
-            return value
-        }
+        fun getDictionary(res: Resources): IntArray = ImePrefsUtil.getDictionary(res)
+        fun getIntFromString(value: String, defVal: Int): Int = ImePrefsUtil.getIntFromString(value, defVal)
+        fun getPrefInt(prefs: SharedPreferences, prefName: String, defVal: Int): Int = ImePrefsUtil.getPrefInt(prefs, prefName, defVal)
+        fun getPrefInt(prefs: SharedPreferences, prefName: String, defStr: String): Int = ImePrefsUtil.getPrefInt(prefs, prefName, defStr)
+        fun getHeight(prefs: SharedPreferences, prefName: String, defVal: String): Int = ImePrefsUtil.getHeight(prefs, prefName, defVal)
 
         private fun getCapsOrShiftLockState(): Int {
             return if (sKeyboardSettings.capsLock) Keyboard.SHIFT_CAPS_LOCKED else Keyboard.SHIFT_LOCKED

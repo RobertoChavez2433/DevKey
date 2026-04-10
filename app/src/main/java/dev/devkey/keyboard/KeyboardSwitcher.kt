@@ -1,528 +1,170 @@
-/*
- * Copyright (C) 2008 The Android Open Source Project
- *
- * Licensed under the Apache License, Version 2.0 (the "License"); you may not
- * use this file except in compliance with the License. You may obtain a copy of
- * the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations under
- * the License.
- */
-
+// Copyright (C) 2008 The Android Open Source Project. Licensed under the Apache License, Version 2.0.
 package dev.devkey.keyboard
 
 import android.content.SharedPreferences
 import androidx.preference.PreferenceManager
 import android.util.Log
-import dev.devkey.keyboard.ui.keyboard.KeyCodes
-import java.lang.ref.SoftReference
-import java.util.Arrays
-import java.util.HashMap
 
 class KeyboardSwitcher private constructor() :
         SharedPreferences.OnSharedPreferenceChangeListener {
 
     companion object {
         private const val TAG = "DevKey/KeyboardSwitcher"
-
-        const val MODE_NONE = 0
-        const val MODE_TEXT = 1
-        const val MODE_SYMBOLS = 2
-        const val MODE_PHONE = 3
-        const val MODE_URL = 4
-        const val MODE_EMAIL = 5
-        const val MODE_IM = 6
-        const val MODE_WEB = 7
-
-        // Main keyboard layouts without the settings key
-        @JvmField val KEYBOARDMODE_NORMAL = R.id.mode_normal
-        @JvmField val KEYBOARDMODE_URL = R.id.mode_url
-        @JvmField val KEYBOARDMODE_EMAIL = R.id.mode_email
-        @JvmField val KEYBOARDMODE_IM = R.id.mode_im
-        @JvmField val KEYBOARDMODE_WEB = R.id.mode_webentry
-        // Main keyboard layouts with the settings key
-        @JvmField val KEYBOARDMODE_NORMAL_WITH_SETTINGS_KEY = R.id.mode_normal_with_settings_key
-        @JvmField val KEYBOARDMODE_URL_WITH_SETTINGS_KEY = R.id.mode_url_with_settings_key
-        @JvmField val KEYBOARDMODE_EMAIL_WITH_SETTINGS_KEY = R.id.mode_email_with_settings_key
-        @JvmField val KEYBOARDMODE_IM_WITH_SETTINGS_KEY = R.id.mode_im_with_settings_key
-        @JvmField val KEYBOARDMODE_WEB_WITH_SETTINGS_KEY = R.id.mode_webentry_with_settings_key
-
-        // Symbols keyboard layout without the settings key
-        @JvmField val KEYBOARDMODE_SYMBOLS = R.id.mode_symbols
-        // Symbols keyboard layout with the settings key
-        @JvmField val KEYBOARDMODE_SYMBOLS_WITH_SETTINGS_KEY = R.id.mode_symbols_with_settings_key
-
-        const val DEFAULT_LAYOUT_ID = "0"
-        const val PREF_KEYBOARD_LAYOUT = "pref_keyboard_layout"
-        const val PREF_SETTINGS_KEY = "settings_key"
-
-        // Tables which contain resource ids for each character theme color
-        private val KBD_PHONE = R.xml.kbd_phone
-        private val KBD_PHONE_SYMBOLS = R.xml.kbd_phone_symbols
-        private val KBD_SYMBOLS = R.xml.kbd_symbols
-        private val KBD_SYMBOLS_SHIFT = R.xml.kbd_symbols_shift
-        private val KBD_QWERTY = R.xml.kbd_qwerty
-        private val KBD_FULL = R.xml.kbd_full
-        private val KBD_FULL_FN = R.xml.kbd_full_fn
-        private val KBD_COMPACT = R.xml.kbd_compact
-        private val KBD_COMPACT_FN = R.xml.kbd_compact_fn
-
-        private val ALPHABET_MODES = intArrayOf(
-            KEYBOARDMODE_NORMAL,
-            KEYBOARDMODE_URL, KEYBOARDMODE_EMAIL, KEYBOARDMODE_IM,
-            KEYBOARDMODE_WEB, KEYBOARDMODE_NORMAL_WITH_SETTINGS_KEY,
-            KEYBOARDMODE_URL_WITH_SETTINGS_KEY,
-            KEYBOARDMODE_EMAIL_WITH_SETTINGS_KEY,
-            KEYBOARDMODE_IM_WITH_SETTINGS_KEY,
-            KEYBOARDMODE_WEB_WITH_SETTINGS_KEY
-        )
-
-        private val SETTINGS_KEY_MODE_AUTO = R.string.settings_key_mode_auto
-        private val SETTINGS_KEY_MODE_ALWAYS_SHOW = R.string.settings_key_mode_always_show
-        // NOTE: No need to have SETTINGS_KEY_MODE_ALWAYS_HIDE here because it's not
-        // being referred to in the source code now.
-        // Default is SETTINGS_KEY_MODE_AUTO.
-        private val DEFAULT_SETTINGS_KEY_MODE = SETTINGS_KEY_MODE_AUTO
-
-        private val AUTO_MODE_SWITCH_STATE_ALPHA = 0
-        private val AUTO_MODE_SWITCH_STATE_SYMBOL_BEGIN = 1
-        private val AUTO_MODE_SWITCH_STATE_SYMBOL = 2
-        // The following states are used only on the distinct multi-touch panel devices.
-        private val AUTO_MODE_SWITCH_STATE_MOMENTARY = 3
-        private val AUTO_MODE_SWITCH_STATE_CHORDING = 4
+        // Re-export constants so existing callers via KeyboardSwitcher.MODE_* still compile.
+        const val MODE_NONE = KeyboardModes.MODE_NONE
+        const val MODE_TEXT = KeyboardModes.MODE_TEXT
+        const val MODE_SYMBOLS = KeyboardModes.MODE_SYMBOLS
+        const val MODE_PHONE = KeyboardModes.MODE_PHONE
+        const val MODE_URL = KeyboardModes.MODE_URL
+        const val MODE_EMAIL = KeyboardModes.MODE_EMAIL
+        const val MODE_IM = KeyboardModes.MODE_IM
+        const val MODE_WEB = KeyboardModes.MODE_WEB
+        @JvmField val KEYBOARDMODE_NORMAL = KeyboardModes.KEYBOARDMODE_NORMAL
+        @JvmField val KEYBOARDMODE_SYMBOLS = KeyboardModes.KEYBOARDMODE_SYMBOLS
+        @JvmField val KEYBOARDMODE_SYMBOLS_WITH_SETTINGS_KEY = KeyboardModes.KEYBOARDMODE_SYMBOLS_WITH_SETTINGS_KEY
+        @JvmField val KEYBOARDMODE_NORMAL_WITH_SETTINGS_KEY = KeyboardModes.KEYBOARDMODE_NORMAL_WITH_SETTINGS_KEY
+        @JvmField val KEYBOARDMODE_URL = KeyboardModes.KEYBOARDMODE_URL
+        @JvmField val KEYBOARDMODE_URL_WITH_SETTINGS_KEY = KeyboardModes.KEYBOARDMODE_URL_WITH_SETTINGS_KEY
+        @JvmField val KEYBOARDMODE_EMAIL = KeyboardModes.KEYBOARDMODE_EMAIL
+        @JvmField val KEYBOARDMODE_EMAIL_WITH_SETTINGS_KEY = KeyboardModes.KEYBOARDMODE_EMAIL_WITH_SETTINGS_KEY
+        @JvmField val KEYBOARDMODE_IM = KeyboardModes.KEYBOARDMODE_IM
+        @JvmField val KEYBOARDMODE_IM_WITH_SETTINGS_KEY = KeyboardModes.KEYBOARDMODE_IM_WITH_SETTINGS_KEY
+        @JvmField val KEYBOARDMODE_WEB = KeyboardModes.KEYBOARDMODE_WEB
+        @JvmField val KEYBOARDMODE_WEB_WITH_SETTINGS_KEY = KeyboardModes.KEYBOARDMODE_WEB_WITH_SETTINGS_KEY
 
         private val sInstance = KeyboardSwitcher()
-
         fun getInstance(): KeyboardSwitcher = sInstance
 
         fun init(ims: LatinIME) {
             sInstance.mInputMethodService = ims
-
+            sInstance.mKeyboardCache = KeyboardCache(
+                imeProvider = { sInstance.mInputMethodService!! },
+                languageSwitcherProvider = { sInstance.mLanguageSwitcher },
+                isAutoCompletionActiveProvider = { sInstance.mIsAutoCompletionActive },
+                hasVoiceButtonFn = { isSymbols -> sInstance.mHasVoice && (isSymbols != sInstance.mVoiceOnPrimary) },
+                hasVoiceProvider = { sInstance.mHasVoice }
+            )
             val prefs = PreferenceManager.getDefaultSharedPreferences(ims)
-
             sInstance.updateSettingsKeyState(prefs)
             prefs.registerOnSharedPreferenceChangeListener(sInstance)
-
-            sInstance.mSymbolsId = sInstance.makeSymbolsId(false)
-            sInstance.mSymbolsShiftedId = sInstance.makeSymbolsShiftedId(false)
+            sInstance.mSymbolsId = makeSymbolsId(false, sInstance.mFullMode, sInstance.mHasSettingsKey)
+            sInstance.mSymbolsShiftedId = makeSymbolsShiftedId(false, sInstance.mFullMode, sInstance.mHasSettingsKey)
         }
     }
 
     private var mInputMethodService: LatinIME? = null
     private var mShiftState: Int = Keyboard.SHIFT_OFF
-
     private var mSymbolsId: KeyboardId? = null
     private var mSymbolsShiftedId: KeyboardId? = null
-
     private var mCurrentId: KeyboardId? = null
-    private val mKeyboards = HashMap<KeyboardId, SoftReference<LatinKeyboard>>()
-
+    private var mKeyboardCache: KeyboardCache? = null
     private var mMode = MODE_NONE
-    /** One of the MODE_XXX values */
     private var mImeOptions = 0
     private var mIsSymbols = false
-    private var mFullMode = 0
-    /**
-     * mIsAutoCompletionActive indicates that auto completed word will be input
-     * instead of what user actually typed.
-     */
+    var mFullMode = 0; private set
     private var mIsAutoCompletionActive = false
     private var mHasVoice = false
     private var mVoiceOnPrimary = false
     private var mPreferSymbols = false
-
-    private var mAutoModeSwitchState = AUTO_MODE_SWITCH_STATE_ALPHA
-
-    // Indicates whether or not we have the settings key
-    private var mHasSettingsKey = false
-
+    private val mAutoModeSwitcher = AutoModeSwitchStateMachine(
+        changeKeyboardMode = { mInputMethodService!!.changeKeyboardMode() },
+        getPointerCount = { 1 }
+    )
+    var mHasSettingsKey = false; private set
     private var mLastDisplayWidth = 0
     private var mLanguageSwitcher: LanguageSwitcher? = null
 
-    /**
-     * Represents the parameters necessary to construct a new LatinKeyboard,
-     * which also serve as a unique identifier for each keyboard type.
-     */
-    private class KeyboardId(
-        val mXml: Int,
-        val mKeyboardMode: Int,
-        /** A KEYBOARDMODE_XXX value */
-        val mEnableShiftLock: Boolean,
-        val mHasVoice: Boolean
-    ) {
-        val mKeyboardHeightPercent: Float = LatinIME.sKeyboardSettings.keyboardHeightPercent
-        val mUsingExtension: Boolean = LatinIME.sKeyboardSettings.useExtension
-
-        private val mHashCode: Int = Arrays.hashCode(arrayOf(mXml, mKeyboardMode, mEnableShiftLock, mHasVoice, mKeyboardHeightPercent))
-
-        override fun equals(other: Any?): Boolean {
-            return other is KeyboardId && equals(other)
-        }
-
-        private fun equals(other: KeyboardId?): Boolean {
-            return other != null
-                    && other.mXml == this.mXml
-                    && other.mKeyboardMode == this.mKeyboardMode
-                    && other.mUsingExtension == this.mUsingExtension
-                    && other.mEnableShiftLock == this.mEnableShiftLock
-                    && other.mHasVoice == this.mHasVoice
-                    && other.mKeyboardHeightPercent == this.mKeyboardHeightPercent
-        }
-
-        override fun hashCode(): Int = mHashCode
-    }
-
-    /**
-     * Sets the input locale, when there are multiple locales for input. If no
-     * locale switching is required, then the locale should be set to null.
-     *
-     * @param languageSwitcher the current input locale, or null for default locale with no
-     * locale button.
-     */
     fun setLanguageSwitcher(languageSwitcher: LanguageSwitcher) {
         mLanguageSwitcher = languageSwitcher
-        // Side effect: initializes input locale
         languageSwitcher.getInputLocale()
-    }
-
-    private fun makeSymbolsId(hasVoice: Boolean): KeyboardId {
-        if (mFullMode == 1) {
-            return KeyboardId(KBD_COMPACT_FN, KEYBOARDMODE_SYMBOLS, true, hasVoice)
-        } else if (mFullMode == 2) {
-            return KeyboardId(KBD_FULL_FN, KEYBOARDMODE_SYMBOLS, true, hasVoice)
-        }
-        return KeyboardId(
-            KBD_SYMBOLS,
-            if (mHasSettingsKey) KEYBOARDMODE_SYMBOLS_WITH_SETTINGS_KEY else KEYBOARDMODE_SYMBOLS,
-            false, hasVoice
-        )
-    }
-
-    private fun makeSymbolsShiftedId(hasVoice: Boolean): KeyboardId? {
-        if (mFullMode > 0) return null
-        return KeyboardId(
-            KBD_SYMBOLS_SHIFT,
-            if (mHasSettingsKey) KEYBOARDMODE_SYMBOLS_WITH_SETTINGS_KEY else KEYBOARDMODE_SYMBOLS,
-            false, hasVoice
-        )
     }
 
     fun makeKeyboards(forceCreate: Boolean) {
         mFullMode = LatinIME.sKeyboardSettings.keyboardMode
-        mSymbolsId = makeSymbolsId(mHasVoice && !mVoiceOnPrimary)
-        mSymbolsShiftedId = makeSymbolsShiftedId(mHasVoice && !mVoiceOnPrimary)
-
-        if (forceCreate) mKeyboards.clear()
-        // Configuration change is coming after the keyboard gets recreated. So
-        // don't rely on that.
-        // If keyboards have already been made, check if we have a screen width
-        // change and create the keyboard layouts again at the correct orientation
-        val displayWidth = mInputMethodService!!.maxWidth
-        if (displayWidth == mLastDisplayWidth) return
-        mLastDisplayWidth = displayWidth
-        if (!forceCreate) mKeyboards.clear()
+        mSymbolsId = makeSymbolsId(mHasVoice && !mVoiceOnPrimary, mFullMode, mHasSettingsKey)
+        mSymbolsShiftedId = makeSymbolsShiftedId(mHasVoice && !mVoiceOnPrimary, mFullMode, mHasSettingsKey)
+        mKeyboardCache!!.refreshIfNeeded(forceCreate, mInputMethodService!!.maxWidth)
     }
 
     fun setVoiceMode(enableVoice: Boolean, voiceOnPrimary: Boolean) {
-        if (enableVoice != mHasVoice || voiceOnPrimary != mVoiceOnPrimary) {
-            mKeyboards.clear()
-        }
-        mHasVoice = enableVoice
-        mVoiceOnPrimary = voiceOnPrimary
+        if (enableVoice != mHasVoice || voiceOnPrimary != mVoiceOnPrimary) mKeyboardCache?.clear()
+        mHasVoice = enableVoice; mVoiceOnPrimary = voiceOnPrimary
         setKeyboardMode(mMode, mImeOptions, mHasVoice, mIsSymbols)
     }
 
-    private fun hasVoiceButton(isSymbols: Boolean): Boolean {
-        return mHasVoice && (isSymbols != mVoiceOnPrimary)
-    }
-
     fun setKeyboardMode(mode: Int, imeOptions: Int, enableVoice: Boolean) {
-        var effectiveMode = mode
-        mAutoModeSwitchState = AUTO_MODE_SWITCH_STATE_ALPHA
-        mPreferSymbols = effectiveMode == MODE_SYMBOLS
-        if (effectiveMode == MODE_SYMBOLS) {
-            effectiveMode = MODE_TEXT
-        }
-        try {
-            setKeyboardMode(effectiveMode, imeOptions, enableVoice, mPreferSymbols)
-        } catch (e: RuntimeException) {
-            Log.e(TAG, "Got exception: $effectiveMode,$imeOptions,$mPreferSymbols msg=${e.message}")
-        }
+        mAutoModeSwitcher.reset()
+        mPreferSymbols = mode == MODE_SYMBOLS
+        val effectiveMode = if (mode == MODE_SYMBOLS) MODE_TEXT else mode
+        try { setKeyboardMode(effectiveMode, imeOptions, enableVoice, mPreferSymbols) }
+        catch (e: RuntimeException) { Log.e(TAG, "Got exception: $effectiveMode,$imeOptions,$mPreferSymbols msg=${e.message}") }
     }
 
     private fun setKeyboardMode(mode: Int, imeOptions: Int, enableVoice: Boolean, isSymbols: Boolean) {
-        mMode = mode
-        mImeOptions = imeOptions
-        if (enableVoice != mHasVoice) {
-            // TODO clean up this unnecessary recursive call.
-            setVoiceMode(enableVoice, mVoiceOnPrimary)
-        }
+        mMode = mode; mImeOptions = imeOptions
+        if (enableVoice != mHasVoice) setVoiceMode(enableVoice, mVoiceOnPrimary)
         mIsSymbols = isSymbols
-
-        val id = getKeyboardId(mode, imeOptions, isSymbols)
-        mCurrentId = id
+        mCurrentId = getKeyboardId(mode, imeOptions, isSymbols, mHasVoice && (isSymbols != mVoiceOnPrimary), mFullMode, mHasSettingsKey)
         mShiftState = Keyboard.SHIFT_OFF
     }
 
-    private fun getKeyboard(id: KeyboardId): LatinKeyboard {
-        val ref = mKeyboards[id]
-        var keyboard = ref?.get()
-        if (keyboard == null) {
-            val orig = mInputMethodService!!.resources
-            val conf = orig.configuration
-            val saveLocale = conf.locale
-            // TODO: Replace with createConfigurationContext()
-            conf.locale = LatinIME.sKeyboardSettings.inputLocale
-            orig.updateConfiguration(conf, null)
-            keyboard = LatinKeyboard(mInputMethodService!!, id.mXml,
-                    id.mKeyboardMode, id.mKeyboardHeightPercent)
-            keyboard.setVoiceMode(hasVoiceButton(id.mXml == R.xml.kbd_symbols), mHasVoice)
-            keyboard.setLanguageSwitcher(mLanguageSwitcher, mIsAutoCompletionActive)
-
-            if (id.mEnableShiftLock) {
-                keyboard.enableShiftLock()
-            }
-            mKeyboards[id] = SoftReference(keyboard)
-
-            conf.locale = saveLocale
-            orig.updateConfiguration(conf, null)
-        }
-        return keyboard
-    }
-
     fun isFullMode(): Boolean = mFullMode > 0
-
-    private fun getKeyboardId(mode: Int, imeOptions: Int, isSymbols: Boolean): KeyboardId {
-        val hasVoice = hasVoiceButton(isSymbols)
-        if (mFullMode > 0) {
-            when (mode) {
-                MODE_TEXT, MODE_URL, MODE_EMAIL, MODE_IM, MODE_WEB ->
-                    return KeyboardId(
-                        if (mFullMode == 1) KBD_COMPACT else KBD_FULL,
-                        KEYBOARDMODE_NORMAL, true, hasVoice
-                    )
-            }
-        }
-        // TODO: generalize for any KeyboardId
-        val keyboardRowsResId = KBD_QWERTY
-        if (isSymbols) {
-            return if (mode == MODE_PHONE) {
-                KeyboardId(KBD_PHONE_SYMBOLS, 0, false, hasVoice)
-            } else {
-                KeyboardId(
-                    KBD_SYMBOLS,
-                    if (mHasSettingsKey) KEYBOARDMODE_SYMBOLS_WITH_SETTINGS_KEY else KEYBOARDMODE_SYMBOLS,
-                    false, hasVoice
-                )
-            }
-        }
-        return when (mode) {
-            MODE_NONE, MODE_TEXT ->
-                KeyboardId(keyboardRowsResId,
-                    if (mHasSettingsKey) KEYBOARDMODE_NORMAL_WITH_SETTINGS_KEY else KEYBOARDMODE_NORMAL,
-                    true, hasVoice)
-            MODE_SYMBOLS ->
-                KeyboardId(KBD_SYMBOLS,
-                    if (mHasSettingsKey) KEYBOARDMODE_SYMBOLS_WITH_SETTINGS_KEY else KEYBOARDMODE_SYMBOLS,
-                    false, hasVoice)
-            MODE_PHONE ->
-                KeyboardId(KBD_PHONE, 0, false, hasVoice)
-            MODE_URL ->
-                KeyboardId(keyboardRowsResId,
-                    if (mHasSettingsKey) KEYBOARDMODE_URL_WITH_SETTINGS_KEY else KEYBOARDMODE_URL,
-                    true, hasVoice)
-            MODE_EMAIL ->
-                KeyboardId(keyboardRowsResId,
-                    if (mHasSettingsKey) KEYBOARDMODE_EMAIL_WITH_SETTINGS_KEY else KEYBOARDMODE_EMAIL,
-                    true, hasVoice)
-            MODE_IM ->
-                KeyboardId(keyboardRowsResId,
-                    if (mHasSettingsKey) KEYBOARDMODE_IM_WITH_SETTINGS_KEY else KEYBOARDMODE_IM,
-                    true, hasVoice)
-            MODE_WEB ->
-                KeyboardId(keyboardRowsResId,
-                    if (mHasSettingsKey) KEYBOARDMODE_WEB_WITH_SETTINGS_KEY else KEYBOARDMODE_WEB,
-                    true, hasVoice)
-            else -> KeyboardId(keyboardRowsResId,
-                    if (mHasSettingsKey) KEYBOARDMODE_NORMAL_WITH_SETTINGS_KEY else KEYBOARDMODE_NORMAL,
-                    true, hasVoice)
-        }
-    }
-
     fun getKeyboardMode(): Int = mMode
 
     fun isAlphabetMode(): Boolean {
         val currentId = mCurrentId ?: return false
-        val currentMode = currentId.mKeyboardMode
-        if (mFullMode > 0 && currentMode == KEYBOARDMODE_NORMAL) return true
-        for (mode in ALPHABET_MODES) {
-            if (currentMode == mode) return true
-        }
-        return false
+        if (mFullMode > 0 && currentId.mKeyboardMode == KEYBOARDMODE_NORMAL) return true
+        return currentId.mKeyboardMode in KeyboardModes.ALPHABET_MODES
     }
 
-    fun setShiftState(shiftState: Int) {
-        mShiftState = shiftState
-    }
-
-    fun getShiftState(): Int {
-        return mShiftState
-    }
+    fun setShiftState(shiftState: Int) { mShiftState = shiftState }
+    fun getShiftState(): Int = mShiftState
 
     fun setFn(useFn: Boolean) {
         val oldShiftState = mShiftState
-        if (useFn) {
-            mCurrentId = mSymbolsId
-        } else {
-            // Return to default keyboard state
-            setKeyboardMode(mMode, mImeOptions, mHasVoice, false)
-        }
+        if (useFn) mCurrentId = mSymbolsId
+        else setKeyboardMode(mMode, mImeOptions, mHasVoice, false)
         mShiftState = oldShiftState
-    }
-
-    fun setCtrlIndicator(active: Boolean) {
-        // No-op: Compose ModifierStateManager handles visual indicators
-    }
-
-    fun setAltIndicator(active: Boolean) {
-        // No-op: Compose ModifierStateManager handles visual indicators
-    }
-
-    fun setMetaIndicator(active: Boolean) {
-        // No-op: Compose ModifierStateManager handles visual indicators
     }
 
     fun toggleShift() {
         if (isAlphabetMode()) return
         if (mFullMode > 0) {
-            val shifted = mShiftState == Keyboard.SHIFT_ON || mShiftState == Keyboard.SHIFT_LOCKED
-                    || mShiftState == Keyboard.SHIFT_CAPS_LOCKED
+            val shifted = mShiftState == Keyboard.SHIFT_ON || mShiftState == Keyboard.SHIFT_LOCKED || mShiftState == Keyboard.SHIFT_CAPS_LOCKED
             mShiftState = if (shifted) Keyboard.SHIFT_OFF else Keyboard.SHIFT_ON
             return
         }
         if (mCurrentId == mSymbolsId || mCurrentId != mSymbolsShiftedId) {
-            mCurrentId = mSymbolsShiftedId
-            mShiftState = Keyboard.SHIFT_LOCKED
+            mCurrentId = mSymbolsShiftedId; mShiftState = Keyboard.SHIFT_LOCKED
         } else {
-            mCurrentId = mSymbolsId
-            mShiftState = Keyboard.SHIFT_OFF
+            mCurrentId = mSymbolsId; mShiftState = Keyboard.SHIFT_OFF
         }
     }
 
-    fun onCancelInput() {
-        // Snap back to the previous keyboard mode if the user cancels sliding input.
-        if (mAutoModeSwitchState == AUTO_MODE_SWITCH_STATE_MOMENTARY && getPointerCount() == 1) {
-            mInputMethodService!!.changeKeyboardMode()
-        }
-    }
+    fun onCancelInput() { mAutoModeSwitcher.onCancelInput() }
 
     fun toggleSymbols() {
         setKeyboardMode(mMode, mImeOptions, mHasVoice, !mIsSymbols)
-        if (mIsSymbols && !mPreferSymbols) {
-            mAutoModeSwitchState = AUTO_MODE_SWITCH_STATE_SYMBOL_BEGIN
-        } else {
-            mAutoModeSwitchState = AUTO_MODE_SWITCH_STATE_ALPHA
-        }
+        mAutoModeSwitcher.onToggleSymbols(mIsSymbols, mPreferSymbols)
     }
 
-    fun hasDistinctMultitouch(): Boolean {
-        // Compose keyboard always supports distinct multitouch
-        return true
-    }
-
-    fun setAutoModeSwitchStateMomentary() {
-        mAutoModeSwitchState = AUTO_MODE_SWITCH_STATE_MOMENTARY
-    }
-
-    fun isInMomentaryAutoModeSwitchState(): Boolean {
-        return mAutoModeSwitchState == AUTO_MODE_SWITCH_STATE_MOMENTARY
-    }
-
-    fun isInChordingAutoModeSwitchState(): Boolean {
-        return mAutoModeSwitchState == AUTO_MODE_SWITCH_STATE_CHORDING
-    }
-
-    fun isVibrateAndSoundFeedbackRequired(): Boolean {
-        // Compose keyboard: always allow vibrate/sound feedback
-        return true
-    }
-
-    private fun getPointerCount(): Int {
-        // Compose keyboard handles multitouch internally; report 1 for mode-switch logic
-        return 1
-    }
-
-    /**
-     * Updates state machine to figure out when to automatically snap back to
-     * the previous mode.
-     */
-    fun onKey(key: Int) {
-        // Switch back to alpha mode if user types one or more non-space/enter
-        // characters followed by a space/enter
-        when (mAutoModeSwitchState) {
-            AUTO_MODE_SWITCH_STATE_MOMENTARY ->
-                // Only distinct multi touch devices can be in this state.
-                // On non-distinct multi touch devices, mode change key is handled
-                // by {@link onKey}, not by {@link onPress} and {@link onRelease}.
-                // So, on such devices, {@link mAutoModeSwitchState} starts from
-                // {@link AUTO_MODE_SWITCH_STATE_SYMBOL_BEGIN}, or
-                // {@link AUTO_MODE_SWITCH_STATE_ALPHA}, not from
-                // {@link AUTO_MODE_SWITCH_STATE_MOMENTARY}.
-                if (key == Keyboard.KEYCODE_MODE_CHANGE) {
-                    // Detected only the mode change key has been pressed, and then released.
-                    if (mIsSymbols) {
-                        mAutoModeSwitchState = AUTO_MODE_SWITCH_STATE_SYMBOL_BEGIN
-                    } else {
-                        mAutoModeSwitchState = AUTO_MODE_SWITCH_STATE_ALPHA
-                    }
-                } else if (getPointerCount() == 1) {
-                    // Snap back to the previous keyboard mode if the user pressed
-                    // the mode change key and slid to other key, then released the finger.
-                    // If the user cancels the sliding input, snapping back to the
-                    // previous keyboard mode is handled by {@link #onCancelInput}.
-                    mInputMethodService!!.changeKeyboardMode()
-                } else {
-                    // Chording input is being started. The keyboard mode will be
-                    // snapped back to the previous mode in {@link onReleaseSymbol}
-                    // when the mode change key is released.
-                    mAutoModeSwitchState = AUTO_MODE_SWITCH_STATE_CHORDING
-                }
-            AUTO_MODE_SWITCH_STATE_SYMBOL_BEGIN ->
-                if (key != KeyCodes.ASCII_SPACE && key != KeyCodes.ENTER && key >= 0) {
-                    mAutoModeSwitchState = AUTO_MODE_SWITCH_STATE_SYMBOL
-                }
-            AUTO_MODE_SWITCH_STATE_SYMBOL ->
-                // Snap back to alpha keyboard mode if user types one or more
-                // non-space/enter characters followed by a space/enter.
-                if (key == KeyCodes.ENTER || key == KeyCodes.ASCII_SPACE) {
-                    mInputMethodService!!.changeKeyboardMode()
-                }
-        }
-    }
+    fun setAutoModeSwitchStateMomentary() { mAutoModeSwitcher.setMomentary() }
+    fun isInMomentaryAutoModeSwitchState(): Boolean = mAutoModeSwitcher.isInMomentaryState()
+    fun isInChordingAutoModeSwitchState(): Boolean = mAutoModeSwitcher.isInChordingState()
+    fun onKey(key: Int) { mAutoModeSwitcher.onKey(key, mIsSymbols) }
 
     override fun onSharedPreferenceChanged(sharedPreferences: SharedPreferences, key: String?) {
-        if (PREF_SETTINGS_KEY == key) {
-            updateSettingsKeyState(sharedPreferences)
-        }
+        if (KeyboardModes.PREF_SETTINGS_KEY == key) updateSettingsKeyState(sharedPreferences)
     }
 
-    fun onAutoCompletionStateChanged(isAutoCompletion: Boolean) {
-        mIsAutoCompletionActive = isAutoCompletion
-    }
+    fun onAutoCompletionStateChanged(isAutoCompletion: Boolean) { mIsAutoCompletionActive = isAutoCompletion }
 
     private fun updateSettingsKeyState(prefs: SharedPreferences) {
         val resources = mInputMethodService!!.resources
         val settingsKeyMode = prefs.getString(
-                PREF_SETTINGS_KEY,
-                resources.getString(DEFAULT_SETTINGS_KEY_MODE))
-        // We show the settings key when 1) SETTINGS_KEY_MODE_ALWAYS_SHOW or
-        // 2) SETTINGS_KEY_MODE_AUTO and there are two or more enabled IMEs on the system
-        mHasSettingsKey = settingsKeyMode == resources.getString(SETTINGS_KEY_MODE_ALWAYS_SHOW)
-                || settingsKeyMode == resources.getString(SETTINGS_KEY_MODE_AUTO)
+            KeyboardModes.PREF_SETTINGS_KEY,
+            resources.getString(KeyboardModes.DEFAULT_SETTINGS_KEY_MODE))
+        mHasSettingsKey = settingsKeyMode == resources.getString(KeyboardModes.SETTINGS_KEY_MODE_ALWAYS_SHOW)
+                || settingsKeyMode == resources.getString(KeyboardModes.SETTINGS_KEY_MODE_AUTO)
     }
 }

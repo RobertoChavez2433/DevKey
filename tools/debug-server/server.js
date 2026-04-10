@@ -5,7 +5,7 @@ const http = require('http');
 // WHY: Phase 2.2 extension adds wave-gating + ADB dispatch endpoints.
 const waveGate = require('./wave-gate');
 const adb = require('./adb-exec');
-const PORT = 3948;
+const PORT = parseInt(process.env.PORT || '3948', 10);
 const MAX_ENTRIES = 30000;
 
 let logs = [];

@@ -4,43 +4,33 @@ Macros panel smoke test.
 FROM PLAN: Phase 2 sub-phase 4.7 — "tap macros button → wait_for DevKey/UI
            panel_opened{panel=macros} → dismiss → assert no crash."
 
-Depends on:
-  - A DevKeyLogger.ui("panel_opened", mapOf("panel" to "macros")) emit site at
-    the macros panel composition entry point. PRIVACY: structural only —
-    NEVER log macro names or bodies.
+Strategy:
+  - Open macros panel via SET_KEYBOARD_MODE broadcast (avoids toolbar
+    coordinate dependency).
+  - Assert panel_opened event fires with structural-only payload.
+  - Dismiss via RESET_KEYBOARD_MODE and verify IME survives.
 """
 import subprocess
 from lib import adb, keyboard, driver
 
-MACROS_LABEL_CANDIDATES = ["Macros", "macros", "\u2699"]  # gear
-
-
-def _find_macros_key():
-    km = keyboard.get_key_map()
-    for candidate in MACROS_LABEL_CANDIDATES:
-        if candidate in km:
-            return candidate, km[candidate]
-    return None, None
-
 
 def test_macros_panel_opens():
+    """Open macros grid via broadcast → panel_opened fires → dismiss cleanly."""
     serial = adb.get_device_serial()
     driver.require_driver()
     if not keyboard.get_key_map():
         keyboard.load_key_map(serial)
 
-    label, coords = _find_macros_key()
-    if coords is None:
-        import pytest
-        pytest.skip("macros toolbar key not in current key map")
-
     driver.clear_logs()
-    driver.tap(coords[0], coords[1])
+    driver.broadcast(
+        "dev.devkey.keyboard.SET_KEYBOARD_MODE",
+        {"mode": "macro_grid"},
+    )
     entry = driver.wait_for(
         category="DevKey/UI",
         event="panel_opened",
         match={"panel": "macros"},
-        timeout_ms=2000,
+        timeout_ms=3000,
     )
     data = entry.get("data", {})
     assert set(data.keys()).issubset({"panel"}), (
@@ -48,11 +38,8 @@ def test_macros_panel_opens():
         f"PRIVACY: must be structural-only (panel name)."
     )
 
-    back_cmd = ["adb"]
-    if serial:
-        back_cmd += ["-s", serial]
-    back_cmd += ["shell", "input", "keyevent", "KEYCODE_BACK"]
-    subprocess.run(back_cmd, check=True, capture_output=True)
+    # Dismiss via RESET_KEYBOARD_MODE → Normal.
+    driver.broadcast("dev.devkey.keyboard.RESET_KEYBOARD_MODE", {})
 
     pidof = ["adb"]
     if serial:

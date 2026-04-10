@@ -230,10 +230,14 @@ def main():
     # (matches the plan's own verification command `e2e_runner.py --list`).
     from lib import driver
     driver.require_driver()
-    _driver_url = os.environ.get("DEVKEY_DRIVER_URL", "http://10.0.2.2:3948")
+    # WHY: The host-side driver URL (e.g. http://127.0.0.1:3950) is NOT reachable
+    #      from inside the emulator. Android emulator uses 10.0.2.2 to reach the
+    #      host's loopback. Translate automatically so callers don't need two vars.
+    _driver_url = os.environ.get("DEVKEY_DRIVER_URL", "http://127.0.0.1:3948")
+    _ime_url = _driver_url.replace("127.0.0.1", "10.0.2.2").replace("localhost", "10.0.2.2")
     driver.broadcast(
         "dev.devkey.keyboard.ENABLE_DEBUG_SERVER",
-        {"url": _driver_url},
+        {"url": _ime_url},
     )
 
     # Run tests

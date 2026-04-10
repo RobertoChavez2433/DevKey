@@ -103,38 +103,54 @@ def test_abc_returns_to_normal():
 
 def test_symbols_toggle_back():
     """
-    Tap 123 twice (with ABC in between) to verify toggle round-trip.
+    Toggle Normal → Symbols → Normal → Symbols via broadcasts.
+    Verifies the mode toggle round-trip works without coordinate dependency.
     """
     serial = adb.get_device_serial()
+    driver.require_driver()
 
     if not keyboard.get_key_map():
         keyboard.load_key_map(serial)
 
     try:
-        # Enter symbols
-        keyboard.tap_key_by_code(-2, serial)
-        time.sleep(0.5)
+        # Ensure clean Normal state.
+        driver.broadcast("dev.devkey.keyboard.RESET_KEYBOARD_MODE", {})
+        time.sleep(0.3)
 
-        # Return via ABC (symbols-layer key)
-        keyboard.tap_symbols_key_by_code(-200, serial)
-        time.sleep(0.5)
+        # Toggle to Symbols
+        driver.clear_logs()
+        driver.broadcast(
+            "dev.devkey.keyboard.SET_KEYBOARD_MODE",
+            {"mode": "symbols"},
+        )
+        driver.wait_for(
+            category="DevKey/IME",
+            event="keyboard_mode_changed",
+            timeout_ms=2000,
+        )
 
-        adb.clear_logcat(serial)
+        # Toggle back to Normal
+        driver.broadcast("dev.devkey.keyboard.RESET_KEYBOARD_MODE", {})
+        time.sleep(0.3)
 
-        # Enter symbols again
-        keyboard.tap_key_by_code(-2, serial)
-        time.sleep(0.5)
-
-        adb.assert_logcat_contains(
-            "DevKeyMode",
-            r"(toggleMode|setMode):.*(Normal.*Symbols|Symbols.*Normal)",
-            timeout=2.0,
-            serial=serial
+        # Toggle to Symbols again
+        driver.clear_logs()
+        driver.broadcast(
+            "dev.devkey.keyboard.SET_KEYBOARD_MODE",
+            {"mode": "symbols"},
+        )
+        entry = driver.wait_for(
+            category="DevKey/IME",
+            event="keyboard_mode_changed",
+            timeout_ms=2000,
+        )
+        assert "Symbols" in str(entry.get("data", {}).get("to", "")), (
+            f"Expected Symbols in mode change, got {entry}"
         )
     finally:
-        # Return to Normal so subsequent tests don't inherit symbols mode.
+        # Return to Normal.
         try:
-            keyboard.tap_symbols_key_by_code(-200, serial)
+            driver.broadcast("dev.devkey.keyboard.RESET_KEYBOARD_MODE", {})
         except Exception:
             pass
 

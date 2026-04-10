@@ -50,4 +50,16 @@ def inject_sample(sample_path: str = DEFAULT_SAMPLE) -> bool:
                 return True
             except subprocess.CalledProcessError:
                 continue
+    # Windows fallback: PowerShell SoundPlayer
+    if shutil.which("powershell"):
+        try:
+            abs_path = os.path.abspath(sample_path).replace("/", "\\")
+            subprocess.run(
+                ["powershell", "-Command",
+                 f"(New-Object Media.SoundPlayer '{abs_path}').PlaySync()"],
+                check=True, timeout=10
+            )
+            return True
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+            pass
     return False

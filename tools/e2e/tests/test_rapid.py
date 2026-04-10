@@ -42,27 +42,36 @@ def test_rapid_mode_toggles():
     Verify no crashes and final mode is deterministic.
     """
     serial = adb.get_device_serial()
+    from lib import driver
+    driver.require_driver()
 
     if not keyboard.get_key_map():
         keyboard.load_key_map(serial)
 
-    adb.clear_logcat(serial)
+    driver.clear_logs()
 
     try:
         for _ in range(5):
-            # Enter symbols
+            # Enter symbols via 123 key
             keyboard.tap_key_by_code(-2, serial)
             time.sleep(0.2)
-            # Return to normal via ABC (symbols-layer key)
-            keyboard.tap_symbols_key_by_code(-200, serial)
+            # Return to normal via broadcast (more reliable than ABC tap
+            # which depends on SYM_KEY coordinates)
+            driver.broadcast("dev.devkey.keyboard.RESET_KEYBOARD_MODE", {})
             time.sleep(0.2)
 
         time.sleep(0.5)
 
-        # Verify logcat has mode transitions (no crashes)
-        lines = adb.capture_logcat("DevKeyMode", timeout=1.0, serial=serial)
-        assert len(lines) >= 5, (
-            f"Expected at least 5 mode transitions, got {len(lines)}"
+        # Verify driver has mode transitions (no crashes)
+        import json
+        from urllib import request
+        url = f"{driver.DRIVER_URL}/logs"
+        with request.urlopen(url, timeout=5) as resp:
+            raw = resp.read().decode("utf-8")
+        # Count keyboard_mode_changed events
+        mode_changes = raw.count("keyboard_mode_changed")
+        assert mode_changes >= 5, (
+            f"Expected at least 5 mode transitions, got {mode_changes}"
         )
     finally:
         # Ensure we end in Normal mode regardless of where the loop stopped.

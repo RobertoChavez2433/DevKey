@@ -111,13 +111,48 @@ def test_long_press_every_key_compact_dev():
 
 
 def test_long_press_every_key_symbols():
-    # WHY: Phase 3 defect #22 — "symbols" is a mode toggle state reached via
-    #      the 123 key, not a layout mode that `set_layout_mode()` accepts.
-    #      Symbols long-press coverage is handled via the FULL/COMPACT runs
-    #      which include a 123-toggle precondition inside their own flow.
-    #      Skip here until a dedicated symbols-mode expectation file exists.
-    import pytest
-    pytest.skip(
-        "symbols long-press tested via FULL/COMPACT 123-toggle flow; "
-        "dedicated symbols expectation file not yet defined"
-    )
+    """
+    Long-press every key in Symbols mode.
+
+    Symbols mode is entered via SET_KEYBOARD_MODE broadcast (not a layout mode).
+    Coordinates come from the SYM_KEY entries in the key map dump.
+    """
+    serial = adb.get_device_serial()
+    driver.require_driver()
+    keyboard.set_layout_mode("full", serial)
+
+    expectations = _load_expectations("symbols")
+
+    # Enter symbols mode via 123 key tap (not broadcast) so the keyboard
+    # actually switches its display. The SYM_KEY coordinates in the key map
+    # correspond to the rendered Symbols layout.
+    keyboard.tap_key_by_code(-2, serial)  # KEYCODE_SYMBOLS = -2
+    import time
+    time.sleep(0.5)
+
+    # Reload key map to get fresh SYM_KEY coordinates.
+    keyboard.load_key_map(serial)
+    sym_map = keyboard.get_symbols_key_map()
+
+    for entry in expectations:
+        label = entry["label"]
+        if label not in sym_map:
+            continue  # Key not in symbols map for this layout
+
+        x, y = sym_map[label]
+        driver.clear_logs()
+        driver.swipe(x, y, x, y, duration_ms=500)
+        try:
+            result = driver.wait_for(
+                category="DevKey/TXT",
+                event="long_press_fired",
+                match={"label": label},
+                timeout_ms=2000,
+            )
+        except driver.DriverTimeout:
+            raise AssertionError(
+                f"[symbols] long_press_fired timeout for label='{label}' at ({x},{y})"
+            )
+
+    # Restore Normal mode.
+    driver.broadcast("dev.devkey.keyboard.RESET_KEYBOARD_MODE", {})

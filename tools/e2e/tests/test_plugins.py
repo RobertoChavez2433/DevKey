@@ -5,9 +5,11 @@ FROM PLAN: Phase 2 sub-phase 4.9 — "after IME boot, wait_for
            DevKey/IME plugin_scan_complete and assert plugin_count matches
            the expected count."
 
-Depends on:
-  - DevKeyLogger.ime("plugin_scan_complete", mapOf("plugin_count" to plugins.size))
-    emit at the end of PluginManager.scanPlugins() (or equivalent boot-time scan).
+Strategy:
+  - Trigger a plugin rescan via RESCAN_PLUGINS broadcast (the boot-time scan
+    fires before the debug server is enabled, so we re-trigger).
+  - Wait for plugin_scan_complete event.
+  - Assert plugin_count and structural-only payload.
 
 PRIVACY: only plugin_count integer — NEVER plugin metadata / names / paths.
 """
@@ -21,31 +23,22 @@ EXPECTED_PLUGIN_COUNT = int(os.environ.get("DEVKEY_EXPECTED_PLUGIN_COUNT", "0"))
 
 def test_plugin_scan_complete_event_fires():
     """
-    Wait for the plugin_scan_complete event (fires once per IME boot).
-
-    SKIPs when the event is absent — indicates the instrumentation is not yet
-    landed. Once landed per sub-phase 4.9, this test activates and enforces
-    the expected plugin count.
+    Trigger a plugin rescan and wait for the plugin_scan_complete event.
     """
     serial = adb.get_device_serial()
     driver.require_driver()
-    # Touch the key map so we know the IME is up.
     if not keyboard.get_key_map():
         keyboard.load_key_map(serial)
 
-    try:
-        entry = driver.wait_for(
-            category="DevKey/IME",
-            event="plugin_scan_complete",
-            timeout_ms=10000,
-        )
-    except driver.DriverTimeout:
-        import pytest
-        pytest.skip(
-            "plugin_scan_complete not observed within 10s — either "
-            "instrumentation not yet landed (plan sub-phase 4.9) or IME "
-            "booted before the driver buffer started capturing."
-        )
+    driver.clear_logs()
+    # Re-trigger plugin scan so the event fires while the driver is connected.
+    driver.broadcast("dev.devkey.keyboard.RESCAN_PLUGINS", {})
+
+    entry = driver.wait_for(
+        category="DevKey/IME",
+        event="plugin_scan_complete",
+        timeout_ms=10000,
+    )
 
     data = entry.get("data", {})
     plugin_count = int(data.get("plugin_count", -1))

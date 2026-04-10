@@ -3,6 +3,7 @@ package dev.devkey.keyboard.core
 import android.view.inputmethod.ExtractedTextRequest
 import android.view.inputmethod.InputConnection
 import dev.devkey.keyboard.core.KeyPressLogger
+import dev.devkey.keyboard.debug.DevKeyLogger
 import dev.devkey.keyboard.ui.keyboard.KeyCodes
 
 /**
@@ -59,6 +60,25 @@ class KeyboardActionBridge(
         }
 
         KeyPressLogger.logBridgeOnKey(code, effectiveCode, modifierState.isShiftActive(), modifierState.isCtrlActive(), modifierState.isAltActive())
+
+        // WHY: Phase 3 defect #15 — emit a structured key_event with the
+        //      Compose-side modifier state BEFORE LatinIME.onKey runs its
+        //      own emit. LatinIME tracks modifier state on its own
+        //      (mModCtrl/mModAlt) which is only updated when Ctrl/Alt come
+        //      through the legacy KeyboardView; the Compose path never
+        //      touches those fields, so LatinIME's emit reports
+        //      ctrl=false even when the user is mid-Ctrl+A. Wave-gate
+        //      iterates from index 0 and returns the first match, so
+        //      this earlier emit wins for the modifier-combo tests.
+        DevKeyLogger.text(
+            "key_event",
+            mapOf(
+                "code" to effectiveCode,
+                "shift" to modifierState.isShiftActive(),
+                "ctrl" to modifierState.isCtrlActive(),
+                "alt" to modifierState.isAltActive(),
+            )
+        )
 
         listener.onKey(
             effectiveCode,

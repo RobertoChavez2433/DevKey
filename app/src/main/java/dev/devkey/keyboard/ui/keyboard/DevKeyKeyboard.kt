@@ -135,6 +135,30 @@ fun DevKeyKeyboard(
     // State — using StateFlow via KeyboardModeManager for reliable recomposition
     val modeManager = remember { KeyboardModeManager() }
     val keyboardMode by modeManager.mode.collectAsState()
+
+    // WHY: Phase 3 test harness — debug-only broadcast lets the e2e runner
+    //      reset the keyboard to Normal between tests so a prior test that
+    //      left the keyboard in Symbols/Voice/Macro state can't poison
+    //      coordinate lookups for the next test.
+    if (KeyMapGenerator.isDebugBuild(context)) {
+        DisposableEffect(modeManager) {
+            val receiver = object : android.content.BroadcastReceiver() {
+                override fun onReceive(c: android.content.Context, i: android.content.Intent) {
+                    modeManager.setMode(KeyboardMode.Normal)
+                    DevKeyLogger.ime("keyboard_mode_reset", mapOf("to" to "Normal"))
+                }
+            }
+            context.registerReceiver(
+                receiver,
+                android.content.IntentFilter("dev.devkey.keyboard.RESET_KEYBOARD_MODE"),
+                android.content.Context.RECEIVER_EXPORTED
+            )
+            onDispose {
+                try { context.unregisterReceiver(receiver) } catch (_: IllegalArgumentException) {}
+            }
+        }
+    }
+
     val ctrlState by modifierState.ctrlState.collectAsState()
     val macros by macroRepo.getAllMacros().collectAsState(initial = emptyList())
     val clipboardEntries by clipboardRepo.getAll().collectAsState(initial = emptyList())

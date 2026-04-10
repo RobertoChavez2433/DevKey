@@ -225,6 +225,8 @@ private var mAutoCorrectOn = false
     private var enableDebugServerReceiver: BroadcastReceiver? = null
     // WHY: Holds the debug-only layout-mode switch receiver for unregistration.
     private var setLayoutModeReceiver: BroadcastReceiver? = null
+    // WHY: Generic boolean-pref setter for test harness (e.g. devkey_show_toolbar).
+    private var setBoolPrefReceiver: BroadcastReceiver? = null
 
     /* package */ internal lateinit var mKeyEventSender: KeyEventSender
 
@@ -489,6 +491,36 @@ private var mAutoCorrectOn = false
                 IntentFilter("dev.devkey.keyboard.SET_LAYOUT_MODE"),
                 Context.RECEIVER_EXPORTED
             )
+            // WHY: Debug-only generic boolean-pref setter. Lets the e2e harness flip
+            //      flags like devkey_show_toolbar between tests without driving the
+            //      Settings UI. Whitelisted key set keeps the surface minimal.
+            val allowedBoolKeys = setOf(
+                SettingsRepository.KEY_SHOW_TOOLBAR,
+                SettingsRepository.KEY_SHOW_NUMBER_ROW,
+            )
+            setBoolPrefReceiver = object : BroadcastReceiver() {
+                override fun onReceive(context: Context, intent: Intent) {
+                    val key = intent.getStringExtra("key") ?: return
+                    if (key !in allowedBoolKeys) {
+                        DevKeyLogger.error("set_bool_pref_rejected", mapOf("key" to key))
+                        return
+                    }
+                    val value = intent.getBooleanExtra("value", false)
+                    PreferenceManager.getDefaultSharedPreferences(context)
+                        .edit()
+                        .putBoolean(key, value)
+                        .apply()
+                    DevKeyLogger.ime(
+                        "bool_pref_set",
+                        mapOf("key" to key, "value" to value)
+                    )
+                }
+            }
+            registerReceiver(
+                setBoolPrefReceiver,
+                IntentFilter("dev.devkey.keyboard.SET_BOOL_PREF"),
+                Context.RECEIVER_EXPORTED
+            )
         }
     }
 
@@ -653,10 +685,12 @@ private var mAutoCorrectOn = false
         enableDebugServerReceiver = null
         try {
             setLayoutModeReceiver?.let { unregisterReceiver(it) }
+            setBoolPrefReceiver?.let { unregisterReceiver(it) }
         } catch (_: IllegalArgumentException) {
             // Already unregistered — safe to ignore.
         }
         setLayoutModeReceiver = null
+        setBoolPrefReceiver = null
         mUserDictionary?.close()
         unregisterReceiver(mReceiver)
         unregisterReceiver(mPluginManager)

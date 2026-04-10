@@ -48,10 +48,24 @@ def input_text(text: str, serial: Optional[str] = None) -> None:
     subprocess.run(cmd, check=True, capture_output=True)
 
 
-def clear_logcat(serial: Optional[str] = None) -> None:
-    """Clear the logcat buffer."""
+def clear_logcat(serial: Optional[str] = None, retries: int = 3) -> None:
+    """
+    Clear the logcat buffer.
+
+    `adb logcat -c` is flaky on emulators under load — it occasionally exits
+    with status 4294967295 (-1) when the buffer is being written to. Retry
+    a few times before giving up.
+    """
     cmd = _adb_cmd(["logcat", "-c"], serial)
-    subprocess.run(cmd, check=True, capture_output=True)
+    last_err: Optional[Exception] = None
+    for attempt in range(retries):
+        result = subprocess.run(cmd, capture_output=True)
+        if result.returncode == 0:
+            return
+        last_err = subprocess.CalledProcessError(result.returncode, cmd, result.stdout, result.stderr)
+        time.sleep(0.2 * (attempt + 1))
+    if last_err is not None:
+        raise last_err
 
 
 def capture_logcat(tag: str, timeout: float = 2.0,

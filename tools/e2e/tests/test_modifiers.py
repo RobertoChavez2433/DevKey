@@ -17,6 +17,17 @@ def _setup_full(serial):
     COMPACT omits the utility row with Ctrl/Alt/Tab and because test ordering
     can leave the keyboard in a different mode from a prior run.
     """
+    # Reset any leftover Symbols/Voice/Macro toggle from a prior test so the
+    # tap coordinates we look up in the FULL key map actually correspond to
+    # what's rendered on screen.
+    import subprocess
+    cmd = ["adb"]
+    if serial:
+        cmd += ["-s", serial]
+    cmd += ["shell", "am", "broadcast", "-a",
+            "dev.devkey.keyboard.RESET_KEYBOARD_MODE"]
+    subprocess.run(cmd, check=False, capture_output=True,
+                   encoding="utf-8", errors="replace")
     keyboard.set_layout_mode("full", serial)
     # set_layout_mode clears the cache and reloads the key map after the
     # layout_mode_recomposed wave gate, so we don't need to call load_key_map

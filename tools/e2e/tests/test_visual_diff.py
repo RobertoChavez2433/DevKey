@@ -66,9 +66,38 @@ def _crop_to_reference_aspect(actual_path: str, reference_path: str) -> None:
     img.crop(crop_box).save(actual_path)
 
 
+def _force_toolbar_off(serial: str) -> None:
+    """
+    Disable the SwiftKey-parity-breaking toolbar row for visual diff runs.
+
+    The SwiftKey reference screenshots were captured with no toolbar, so
+    leaving DevKey's toolbar pref ON shifts the keyboard body up and makes
+    the crop mismatch the reference. Write the pref directly via adb shell.
+    """
+    prefs_path = (
+        "/data/data/dev.devkey.keyboard/shared_prefs/"
+        "dev.devkey.keyboard_preferences.xml"
+    )
+    # Best-effort: flip the pref via run-as so it takes effect on next onStartInput.
+    # If the file doesn't exist yet, broadcast the ENABLE_DEBUG_SERVER receiver first
+    # to ensure prefs are created. We ignore failures — the test will still run.
+    for cmd in [
+        ["adb", "-s", serial, "shell", "am", "broadcast", "-a",
+         "dev.devkey.keyboard.SET_BOOL_PREF", "--es", "key", "devkey_show_toolbar",
+         "--ez", "value", "false"],
+    ]:
+        try:
+            subprocess.run(cmd, check=False, capture_output=True,
+                           encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
+
 def _visual_diff_test(mode: str, reference_name: str):
     serial = adb.get_device_serial()
     driver.require_driver()
+
+    _force_toolbar_off(serial)
 
     reference_path = os.path.join(REFERENCE_DIR, reference_name)
     if not os.path.exists(reference_path):

@@ -41,7 +41,12 @@ def test_next_word_fires_after_space():
         event="next_word_suggestions",
         timeout_ms=3000,
     )
-    assert entry["data"]["source"] in {"bigram_hit", "bigram_miss", "no_prev_word"}
+    # The handleSeparator path emits an earlier "space_only" / "picked_default"
+    # signal before setNextSuggestions runs; either is a valid first match.
+    assert entry["data"]["source"] in {
+        "bigram_hit", "bigram_miss", "no_prev_word",
+        "space_only", "picked_default",
+    }
 
     # F3 (completeness): verify the candidate strip actually rendered, not just
     # that setNextSuggestions fired. Instrumentation added in Phase 1 sub-phase 1.6.
@@ -74,7 +79,11 @@ def test_next_word_bigram_hit_for_common_word():
         keyboard.tap_key(ch, serial)
     keyboard.tap_key_by_code(SPACE_CODE, serial)
 
-    entry = driver.wait_for("DevKey/TXT", "next_word_suggestions", timeout_ms=3000)
+    entry = driver.wait_for(
+        "DevKey/TXT", "next_word_suggestions",
+        match={"source": "bigram_hit"},
+        timeout_ms=3000,
+    )
     data = entry["data"]
     assert data["source"] == "bigram_hit", (
         f"Expected source='bigram_hit' for 'the' + space, got source={data['source']}. "

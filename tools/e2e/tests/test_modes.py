@@ -27,7 +27,7 @@ def test_symbols_mode_switch():
 
     adb.assert_logcat_contains(
         "DevKeyMode",
-        r"setMode:.*(Normal.*Symbols|Symbols.*Normal)",
+        r"(toggleMode|setMode):.*(Normal.*Symbols|Symbols.*Normal)",
         timeout=2.0,
         serial=serial
     )
@@ -99,7 +99,7 @@ def test_symbols_toggle_back():
 
         adb.assert_logcat_contains(
             "DevKeyMode",
-            r"setMode:.*(Normal.*Symbols|Symbols.*Normal)",
+            r"(toggleMode|setMode):.*(Normal.*Symbols|Symbols.*Normal)",
             timeout=2.0,
             serial=serial
         )

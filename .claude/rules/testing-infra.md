@@ -32,3 +32,10 @@ The shared test harness lives in `tools/e2e/` and `tools/debug-server/`.
 - Never log typed text, clipboard contents, or credential-adjacent values.
 - Reuse existing debug server endpoints and harness wait helpers before adding
   new polling or sleep-heavy logic.
+
+## Testing Philosophy
+
+- Test real behavior, not mock presence.
+- Do not add test-only methods or lifecycle hooks to production classes.
+- Mock only after understanding the real dependency chain and required side effects.
+- Prefer real production seams over large mock stacks.

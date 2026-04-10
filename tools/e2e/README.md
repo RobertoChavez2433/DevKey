@@ -89,6 +89,50 @@ def test_my_feature():
 | `DEVKEY_DEVICE_SERIAL` | ADB device serial (alternative to `--device` flag) |
 | `DEVKEY_E2E_VERBOSE` | Set to `1` for full tracebacks on errors |
 
+## Phase 2 Infrastructure (Driver Server + Visual Diff)
+
+Phase 2 of the v1.0 pre-release adds a driver-server architecture that replaces
+sleep-based synchronization with log-event-gated waits, plus SSIM visual diff
+for SwiftKey parity testing.
+
+### Prerequisites
+
+    pip install -r tools/e2e/requirements.txt
+
+### Running a test suite
+
+    # Terminal 1 — start the driver server
+    node tools/debug-server/server.js
+
+    # Terminal 2 — run the tests (the runner auto-enables HTTP forwarding)
+    python tools/e2e/e2e_runner.py
+
+### Switching layout modes during a run
+
+    adb shell am broadcast -a dev.devkey.keyboard.SET_LAYOUT_MODE --es mode compact
+
+### Environment variables
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `DEVKEY_DEVICE_SERIAL` | (first device) | ADB target |
+| `DEVKEY_DRIVER_URL` | `http://127.0.0.1:3947` | Driver server URL |
+| `DEVKEY_SSIM_THRESHOLD` | `0.92` | Visual diff pass threshold |
+| `DEVKEY_E2E_VERBOSE` | unset | Verbose tracebacks |
+
+### Troubleshooting
+
+If you're running diagnostics that bypass `e2e_runner.py` (e.g. invoking a test
+module directly or driving the IME by hand), the runner's auto-broadcast of
+`ENABLE_DEBUG_SERVER` won't fire. Issue it manually so the IME forwards events
+to the driver server:
+
+    adb shell am broadcast -a dev.devkey.keyboard.ENABLE_DEBUG_SERVER \
+        --es url http://10.0.2.2:3947
+
+Note: `10.0.2.2` is the emulator's alias for the host loopback. On a physical
+device, replace it with the host's LAN IP and ensure the driver port is reachable.
+
 ## Coordinate Calibration
 
 The keyboard reports key coordinates relative to its own view. ADB `input tap` uses absolute screen coordinates. The difference depends on:

@@ -64,7 +64,7 @@ def capture_logcat(tag: str, timeout: float = 2.0,
     """
     time.sleep(timeout)
     cmd = _adb_cmd(["logcat", "-d", "-s", f"{tag}:*"], serial)
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
     lines = result.stdout.strip().split("\n")
     # Filter out the header line
     return [line for line in lines if tag in line]
@@ -78,7 +78,7 @@ def get_text_field_content(serial: Optional[str] = None) -> str:
     Returns the extracted text or empty string if not found.
     """
     cmd = _adb_cmd(["shell", "dumpsys", "input_method"], serial)
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
     # Look for "mText=" in the InputConnection section
     match = re.search(r"mText=(.+?)(?:\n|$)", result.stdout)
     if match:
@@ -89,7 +89,7 @@ def get_text_field_content(serial: Optional[str] = None) -> str:
 def get_focused_window(serial: Optional[str] = None) -> str:
     """Get the currently focused window/activity name."""
     cmd = _adb_cmd(["shell", "dumpsys", "window", "windows"], serial)
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
     match = re.search(r"mCurrentFocus=Window\{.+?\s+(.+?)\}", result.stdout)
     if match:
         return match.group(1)
@@ -99,8 +99,53 @@ def get_focused_window(serial: Optional[str] = None) -> str:
 def is_keyboard_visible(serial: Optional[str] = None) -> bool:
     """Check if the soft keyboard is currently visible."""
     cmd = _adb_cmd(["shell", "dumpsys", "input_method"], serial)
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
     return "mInputShown=true" in result.stdout
+
+
+TEST_HOST_ACTIVITY = (
+    "dev.devkey.keyboard/dev.devkey.keyboard.debug.TestHostActivity"
+)
+
+
+def ensure_keyboard_visible(serial: Optional[str] = None) -> None:
+    """
+    Ensure the soft keyboard is visible and focused on a controlled EditText.
+
+    Phase 3 gate observation: after SET_LAYOUT_MODE broadcasts, IME mode
+    switches, or backgrounding, the soft keyboard can vanish mid-run and
+    subsequent tap_key calls produce zero events. Every _setup helper
+    should call this so tests don't inherit a keyboardless state from a
+    prior test.
+
+    Strategy:
+      1. Always launch `dev.devkey.keyboard.debug.TestHostActivity` via
+         `am start` — a debug-only activity that hosts a single EditText
+         configured with stateVisible soft-input mode.
+      2. The activity is owned by the DevKey build so it is guaranteed
+         present on any device where the IME is installed. Unlike Chrome,
+         it cannot navigate away on typed input, cannot lose focus to OS
+         affordances, and cannot accidentally tab to another activity.
+      3. Busy-wait up to 3 seconds for the IME to mark itself visible.
+
+    Idempotent — cheap to call before every test. The underlying `am start`
+    is a no-op if the activity is already top.
+    """
+    # Always bring the test host to the front. It is cheap when it's already
+    # top and guaranteed to re-request IME visibility via SOFT_INPUT_STATE_VISIBLE.
+    subprocess.run(
+        _adb_cmd(
+            ["shell", "am", "start", "-n", TEST_HOST_ACTIVITY],
+            serial,
+        ),
+        capture_output=True,
+    )
+    # Wait for the IME to mark itself visible — up to 3s in 100ms slices.
+    deadline = time.time() + 3.0
+    while time.time() < deadline:
+        if is_keyboard_visible(serial):
+            return
+        time.sleep(0.1)
 
 
 def assert_logcat_contains(tag: str, pattern: str, timeout: float = 2.0,

@@ -23,6 +23,15 @@ import os
 import sys
 import time
 import traceback
+
+# WHY: Windows console default encoding is cp1252 which cannot encode Unicode
+#      glyphs used in long-press expectations (e.g. ⌫ U+232B, ≠, α) or in test
+#      names. Without this, any test whose label contains a non-ASCII char
+#      crashes the whole runner loop via UnicodeEncodeError in print().
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 # WHY: pytest.skip() raises _pytest.outcomes.Skipped which subclasses
 #      BaseException (verified on pytest 9.0.2 during tailor 2026-04-09),
 #      NOT Exception. Without an explicit handler the whole runner loop
@@ -100,11 +109,30 @@ def run_tests(tests: List[Tuple[str, callable]]) -> Tuple[int, int, int, int]:
     print(f"\nRunning {total} test(s)...\n")
     print("=" * 70)
 
+    # Pre-test focus guard — lazy-import to avoid pulling the lib path before
+    # test discovery patches sys.path. WHY: several tests (set_layout_mode,
+    # symbols toggle, ABC return) cause the IME to temporarily hide. Without
+    # a refocus hook between tests, later tests tap into nothing and produce
+    # zero events. See lib/adb.py::ensure_keyboard_visible.
+    try:
+        from lib import adb as _adb_for_focus  # type: ignore
+        _focus_serial = _adb_for_focus.get_device_serial()
+    except Exception:
+        _adb_for_focus = None
+        _focus_serial = None
+
     for i, (name, func) in enumerate(tests, 1):
         print(f"  [{i}/{total}] {name} ... ", end="", flush=True)
         start = time.time()
 
         try:
+            if _adb_for_focus is not None:
+                try:
+                    _adb_for_focus.ensure_keyboard_visible(_focus_serial)
+                except Exception:
+                    # Never fail a test because the refocus helper raised —
+                    # tests that need a focused keyboard will still assert on it.
+                    pass
             func()
             elapsed = time.time() - start
             print(f"PASS ({elapsed:.1f}s)")

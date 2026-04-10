@@ -10,6 +10,19 @@ import time
 from lib import adb, keyboard
 
 
+def _setup_full(serial):
+    """
+    Ensure the keyboard is in FULL layout mode so Shift (-1) and Ctrl (-113)
+    are both present in the key map. Modifier tests require FULL because
+    COMPACT omits the utility row with Ctrl/Alt/Tab and because test ordering
+    can leave the keyboard in a different mode from a prior run.
+    """
+    keyboard.set_layout_mode("full", serial)
+    # set_layout_mode clears the cache and reloads the key map after the
+    # layout_mode_recomposed wave gate, so we don't need to call load_key_map
+    # again here.
+
+
 def test_shift_one_shot():
     """
     Tap Shift, then tap 'a'.
@@ -17,9 +30,7 @@ def test_shift_one_shot():
     """
     serial = adb.get_device_serial()
 
-    if not keyboard.get_key_map():
-        keyboard.load_key_map(serial)
-
+    _setup_full(serial)
     adb.clear_logcat(serial)
 
     # Tap Shift
@@ -46,9 +57,7 @@ def test_shift_double_tap_locks():
     """
     serial = adb.get_device_serial()
 
-    if not keyboard.get_key_map():
-        keyboard.load_key_map(serial)
-
+    _setup_full(serial)
     adb.clear_logcat(serial)
 
     # Double-tap Shift quickly
@@ -72,9 +81,7 @@ def test_ctrl_one_shot():
     """
     serial = adb.get_device_serial()
 
-    if not keyboard.get_key_map():
-        keyboard.load_key_map(serial)
-
+    _setup_full(serial)
     adb.clear_logcat(serial)
 
     keyboard.tap_key_by_code(-113, serial)  # CTRL_LEFT = -113

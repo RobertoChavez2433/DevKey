@@ -16,6 +16,12 @@ from . import adb
 # Key map: maps key names/labels to (x, y) coordinates
 _key_map: Dict[str, Tuple[int, int]] = {}
 
+# Symbols-layer key map: maps symbols-layout labels to (x, y) coordinates.
+# Populated from SYM_KEY lines in the DevKeyMap dump. WHY: tests that enter
+# symbols mode (ABC return, 123 toggle) need ABC (-200) and other symbol-only
+# keys that don't exist in the normal QWERTY dump.
+_symbols_key_map: Dict[str, Tuple[int, int]] = {}
+
 # Y-offset calibration value
 _y_offset: int = 0
 
@@ -55,20 +61,49 @@ def load_key_map(serial: Optional[str] = None) -> Dict[str, Tuple[int, int]]:
     lines = adb.capture_logcat("DevKeyMap", timeout=2.0, serial=serial)
 
     # Parse format: "KEY label=<label> code=<code> x=<x> y=<y>"
+    #            or "SYM_KEY label=<label> code=<code> x=<x> y=<y>" for symbols layer
+    global _symbols_key_map
     key_map: Dict[str, Tuple[int, int]] = {}
-    pattern = re.compile(r"KEY label=(\S+) code=(-?\d+) x=(\d+) y=(\d+)")
+    symbols_map: Dict[str, Tuple[int, int]] = {}
+    pattern = re.compile(r"(SYM_KEY|KEY) label=(\S+) code=(-?\d+) x=(\d+) y=(\d+)")
     for line in lines:
         m = pattern.search(line)
         if m:
-            label = m.group(1)
-            code = int(m.group(2))
-            x = int(m.group(3))
-            y = int(m.group(4))
-            key_map[label] = (x, y)
-            key_map[f"code_{code}"] = (x, y)
+            kind = m.group(1)
+            label = m.group(2)
+            code = int(m.group(3))
+            x = int(m.group(4))
+            y = int(m.group(5))
+            target = symbols_map if kind == "SYM_KEY" else key_map
+            target[label] = (x, y)
+            target[f"code_{code}"] = (x, y)
 
     _key_map = key_map
+    _symbols_key_map = symbols_map
     return key_map
+
+
+def get_symbols_key_map() -> Dict[str, Tuple[int, int]]:
+    """Return the cached symbols-layer key map (populated by load_key_map)."""
+    return _symbols_key_map
+
+
+def tap_symbols_key_by_code(code: int, serial: Optional[str] = None) -> None:
+    """
+    Tap a key from the symbols layer by its keycode.
+
+    Use this for keys that only exist when the keyboard is in Symbols mode
+    (ABC=-200, @, #, $, etc.).
+    """
+    code_key = f"code_{code}"
+    if code_key not in _symbols_key_map:
+        raise KeyError(
+            f"Symbols key code {code} not found in symbols key map. "
+            f"Available: {list(_symbols_key_map.keys())[:20]}..."
+        )
+    x, y = _symbols_key_map[code_key]
+    from . import adb as _adb
+    _adb.tap(x, y + _y_offset, serial)
 
 
 def get_key_map() -> Dict[str, Tuple[int, int]]:
@@ -86,8 +121,9 @@ def clear_key_map_cache() -> None:
          a key map whose coordinates belong to the previous layout, causing
          taps to miss and tests to error with "key code not found".
     """
-    global _key_map, _y_offset
+    global _key_map, _symbols_key_map, _y_offset
     _key_map = {}
+    _symbols_key_map = {}
     _y_offset = 0
 
 

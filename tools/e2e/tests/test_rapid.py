@@ -48,21 +48,28 @@ def test_rapid_mode_toggles():
 
     adb.clear_logcat(serial)
 
-    for _ in range(5):
-        # Enter symbols
-        keyboard.tap_key_by_code(-2, serial)
-        time.sleep(0.2)
-        # Return to normal via ABC
-        keyboard.tap_key_by_code(-200, serial)
-        time.sleep(0.2)
+    try:
+        for _ in range(5):
+            # Enter symbols
+            keyboard.tap_key_by_code(-2, serial)
+            time.sleep(0.2)
+            # Return to normal via ABC (symbols-layer key)
+            keyboard.tap_symbols_key_by_code(-200, serial)
+            time.sleep(0.2)
 
-    time.sleep(0.5)
+        time.sleep(0.5)
 
-    # Verify logcat has mode transitions (no crashes)
-    lines = adb.capture_logcat("DevKeyMode", timeout=1.0, serial=serial)
-    assert len(lines) >= 5, (
-        f"Expected at least 5 mode transitions, got {len(lines)}"
-    )
+        # Verify logcat has mode transitions (no crashes)
+        lines = adb.capture_logcat("DevKeyMode", timeout=1.0, serial=serial)
+        assert len(lines) >= 5, (
+            f"Expected at least 5 mode transitions, got {len(lines)}"
+        )
+    finally:
+        # Ensure we end in Normal mode regardless of where the loop stopped.
+        try:
+            keyboard.tap_symbols_key_by_code(-200, serial)
+        except Exception:
+            pass
 
 
 def test_rapid_shift_taps():

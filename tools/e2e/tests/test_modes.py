@@ -37,31 +37,40 @@ def test_abc_returns_to_normal():
     """
     From symbols mode, tap ABC and verify return to Normal.
     Expect: logcat shows setMode to Normal.
+
+    WHY: The symbols-layer coordinates (ABC=-200) come from the SYM_KEY lines
+         in the DevKeyMap dump (populated via the Phase 3 KeyMapGenerator change).
     """
     serial = adb.get_device_serial()
 
     if not keyboard.get_key_map():
         keyboard.load_key_map(serial)
 
-    # First enter symbols mode
-    adb.clear_logcat(serial)
-    keyboard.tap_key_by_code(-2, serial)
-    time.sleep(0.5)
+    try:
+        # First enter symbols mode
+        adb.clear_logcat(serial)
+        keyboard.tap_key_by_code(-2, serial)
+        time.sleep(0.5)
 
-    # Now reload key map for symbols layout
-    symbols_map = keyboard.load_key_map(serial)
+        # Tap ABC key (KEYCODE_ALPHA = -200) from the symbols-layer key map.
+        adb.clear_logcat(serial)
+        keyboard.tap_symbols_key_by_code(-200, serial)
+        time.sleep(0.5)
 
-    # Tap ABC key (KEYCODE_ALPHA = -200)
-    adb.clear_logcat(serial)
-    keyboard.tap_key_by_code(-200, serial)
-    time.sleep(0.5)
-
-    adb.assert_logcat_contains(
-        "DevKeyMode",
-        r"setMode.*Normal",
-        timeout=2.0,
-        serial=serial
-    )
+        adb.assert_logcat_contains(
+            "DevKeyMode",
+            r"setMode.*Normal",
+            timeout=2.0,
+            serial=serial
+        )
+    finally:
+        # Defensive cleanup: ensure we're back in Normal mode so later tests
+        # don't inherit a symbols keyboard. A missing ABC tap leaves the
+        # keyboard stuck in symbols and poisons test_modifiers coordinates.
+        try:
+            keyboard.tap_symbols_key_by_code(-200, serial)
+        except Exception:
+            pass
 
 
 def test_symbols_toggle_back():
@@ -73,26 +82,33 @@ def test_symbols_toggle_back():
     if not keyboard.get_key_map():
         keyboard.load_key_map(serial)
 
-    # Enter symbols
-    keyboard.tap_key_by_code(-2, serial)
-    time.sleep(0.5)
+    try:
+        # Enter symbols
+        keyboard.tap_key_by_code(-2, serial)
+        time.sleep(0.5)
 
-    # Return via ABC
-    keyboard.tap_key_by_code(-200, serial)
-    time.sleep(0.5)
+        # Return via ABC (symbols-layer key)
+        keyboard.tap_symbols_key_by_code(-200, serial)
+        time.sleep(0.5)
 
-    adb.clear_logcat(serial)
+        adb.clear_logcat(serial)
 
-    # Enter symbols again
-    keyboard.tap_key_by_code(-2, serial)
-    time.sleep(0.5)
+        # Enter symbols again
+        keyboard.tap_key_by_code(-2, serial)
+        time.sleep(0.5)
 
-    adb.assert_logcat_contains(
-        "DevKeyMode",
-        r"setMode:.*(Normal.*Symbols|Symbols.*Normal)",
-        timeout=2.0,
-        serial=serial
-    )
+        adb.assert_logcat_contains(
+            "DevKeyMode",
+            r"setMode:.*(Normal.*Symbols|Symbols.*Normal)",
+            timeout=2.0,
+            serial=serial
+        )
+    finally:
+        # Return to Normal so subsequent tests don't inherit symbols mode.
+        try:
+            keyboard.tap_symbols_key_by_code(-200, serial)
+        except Exception:
+            pass
 
 
 def test_layout_mode_round_trip():

@@ -6,87 +6,41 @@ paths:
 
 # Build Configuration Rules
 
-## Gradle Kotlin DSL + Version Catalogs
+## Dependency And SDK Ownership
 
-Both build files use Kotlin DSL (`.gradle.kts`):
-- `build.gradle.kts` — root project
-- `app/build.gradle.kts` — app module
+- Build files stay in Kotlin DSL and dependency versions live in
+  `gradle/libs.versions.toml`.
+- Do not hardcode version strings in `build.gradle.kts` files when the catalog
+  can own them.
+- Keep `minSdk = 26`, `targetSdk = 34`, and `compileSdk = 34` unless the change
+  is deliberate and tested.
+- Keep KSP aligned with the Kotlin version exactly.
 
-Dependency versions are managed via the version catalog
-(`gradle/libs.versions.toml`). Do NOT hardcode version strings directly in
-`build.gradle.kts` files. Always add new dependencies via the catalog first,
-then reference them as `libs.*` in the build file.
+## R8 And JNI Safety
 
-## SDK Versions
+- ProGuard/R8 must preserve
+  `org.pocketworkstation.pckeyboard.BinaryDictionary`.
+- Keep rule required:
 
-| Setting | Value |
-|---------|-------|
-| `minSdk` | 26 (Android 8.0) |
-| `targetSdk` | 34 (Android 14) |
-| `compileSdk` | 34 |
-
-Do NOT lower `minSdk` below 26 — the codebase uses APIs not available on
-older versions. Do NOT raise `targetSdk` without testing behavior changes
-(notification permissions, intent restrictions, etc. change per API level).
-
-## Key Dependency Versions
-
-| Component | Version |
-|-----------|---------|
-| Kotlin | 2.0.21 |
-| AGP | 8.5.2 |
-| Gradle | 8.7 |
-| KSP | 2.0.21-1.0.27 |
-| Compose BOM | 2024.06.00 |
-| Room | 2.6.1 |
-| TF Lite | 2.16.1 |
-
-KSP version must match the Kotlin version exactly (major.minor.patch-ksp-version).
-Mismatches cause annotation processing failures.
-
-## ProGuard Must Not Break JNI
-
-The ProGuard/R8 configuration must keep `BinaryDictionary` and all its JNI
-method signatures intact.
-
-Required keep rule (must be present in proguard rules):
 ```proguard
 -keep class org.pocketworkstation.pckeyboard.BinaryDictionary { *; }
 ```
 
-Without this rule, R8 will rename or remove native method declarations,
-silently breaking dictionary lookup in release builds while debug builds work
-fine.
+## Test Install Reality
 
-## connectedAndroidTest Uninstalls the App
+- `./gradlew connectedAndroidTest` is not a normal verification path for this
+  repo. It can uninstall or disrupt the debug IME.
+- After any instrumented test run, reinstall and explicitly re-enable the IME.
 
-Running instrumented tests (`./gradlew connectedAndroidTest`) removes the debug
-APK from the device as part of test teardown.
+## Diagnostic Logging
 
-After running instrumented tests, always:
-```bash
-./gradlew installDebug
-adb shell ime enable dev.devkey.keyboard/.LatinIME
-adb shell ime set dev.devkey.keyboard/.LatinIME
-```
+- Existing debug logging is intentional infrastructure, not cleanup noise.
+- Do not remove it or gate it behind `BuildConfig.DEBUG`.
+- Logs must stay privacy-safe: structural state, timings, and key metadata are
+  allowed; typed content is not.
 
-Do NOT assume the keyboard is still installed and active after a test run.
+## Known Tooling Limit
 
-## Debug Logging Is Intentional
-
-`KeyPressLogger` and `Log.d` calls throughout the codebase are intentional
-debugging infrastructure added in Session 19. Do NOT:
-- Remove them
-- Gate them behind `BuildConfig.DEBUG`
-- Treat them as lint warnings to be cleaned up
-
-They are permanent diagnostic tools until explicitly decided otherwise.
-
-## Espresso + API 36 Incompatibility
-
-Compose BOM `2024.06.00` Espresso dependencies use `InputManager.getInstance()`
-reflection that fails on Android 16 (API 36) emulators. Compose UI tests:
-- Fail on API 36 emulator
-- Pass on physical device and API 34 emulator
-
-Do not upgrade to API 36 emulators for CI until Espresso deps are upgraded.
+- Compose/Espresso UI tests are unreliable on API 36 with the current
+  dependency stack.
+- Prefer physical devices or API 34 for Compose test work until the deps move.

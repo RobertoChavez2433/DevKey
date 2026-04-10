@@ -156,10 +156,33 @@ def ensure_keyboard_visible(serial: Optional[str] = None) -> None:
     )
     # Wait for the IME to mark itself visible — up to 3s in 100ms slices.
     deadline = time.time() + 3.0
+    visible = False
     while time.time() < deadline:
         if is_keyboard_visible(serial):
-            return
+            visible = True
+            break
         time.sleep(0.1)
+
+    # WHY: The runner broadcasts ENABLE_DEBUG_SERVER once at startup, but if
+    #      the IME service wasn't yet bound at that moment (mCurMethod=null
+    #      happens after a fresh install / force-stop), the broadcast is
+    #      dropped because LatinIME.onCreate hasn't yet registered the
+    #      receiver. Once the IME is visible we re-broadcast every test so
+    #      DevKeyLogger.serverUrl is guaranteed set for the upcoming test.
+    # IMPORTANT: This is a no-op on the IME side if the URL is unchanged.
+    if visible:
+        driver_url = os.environ.get("DEVKEY_DRIVER_URL", "http://127.0.0.1:3948")
+        subprocess.run(
+            _adb_cmd(
+                [
+                    "shell", "am", "broadcast",
+                    "-a", "dev.devkey.keyboard.ENABLE_DEBUG_SERVER",
+                    "--es", "url", driver_url,
+                ],
+                serial,
+            ),
+            capture_output=True,
+        )
 
 
 def assert_logcat_contains(tag: str, pattern: str, timeout: float = 2.0,

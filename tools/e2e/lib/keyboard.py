@@ -223,6 +223,26 @@ def set_layout_mode(mode: str, serial: Optional[str] = None) -> None:
         raise ValueError(f"invalid layout mode: {mode}")
 
     import subprocess
+
+    # WHY: The keyboard mode (Normal/Symbols/Voice/Macro) is independent of the
+    #      layout mode (FULL/COMPACT/COMPACT_DEV). A prior test that entered
+    #      Symbols and didn't clean up leaves the keyboard rendering the symbols
+    #      layer. Taps using the FULL key map then hit symbols keys instead of
+    #      QWERTY letters. Resetting mode to Normal before changing layout
+    #      ensures the key map coordinates match what's actually rendered.
+    cmd_reset = ["adb"]
+    if serial:
+        cmd_reset += ["-s", serial]
+    cmd_reset += [
+        "shell", "am", "broadcast",
+        "-a", "dev.devkey.keyboard.RESET_KEYBOARD_MODE",
+    ]
+    subprocess.run(cmd_reset, check=False, capture_output=True)
+    # WHY: The mode reset triggers a Compose recomposition. If SET_LAYOUT_MODE
+    #      arrives while the reset recomposition is in flight, the subsequent
+    #      DUMP_KEY_MAP can race with layout re-measurement and return empty.
+    time.sleep(0.3)
+
     cmd = ["adb"]
     if serial:
         cmd += ["-s", serial]

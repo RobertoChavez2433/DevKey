@@ -8,7 +8,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import dev.devkey.keyboard.ui.theme.DevKeyTheme
+import dev.devkey.keyboard.ui.theme.DevKeyThemeColors
+import dev.devkey.keyboard.ui.theme.DevKeyThemeDimensions
+import dev.devkey.keyboard.ui.theme.DevKeyThemeTypography
 
 /**
  * Ctrl Mode banner displayed when the Ctrl key is held down.
@@ -21,14 +23,14 @@ fun CtrlModeBanner() {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(DevKeyTheme.ctrlModeBannerHeight)
-            .background(DevKeyTheme.ctrlModeBannerBg),
+            .height(DevKeyThemeDimensions.ctrlModeBannerHeight)
+            .background(DevKeyThemeColors.ctrlModeBannerBg),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = "CTRL MODE \u2014 tap a key for shortcut",
-            color = DevKeyTheme.keyText,
-            fontSize = DevKeyTheme.fontCtrlModeBanner
+            color = DevKeyThemeColors.keyText,
+            fontSize = DevKeyThemeTypography.fontCtrlModeBanner
         )
     }
 }

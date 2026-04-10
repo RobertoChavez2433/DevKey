@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import dev.devkey.keyboard.core.ModifierStateManager
 import dev.devkey.keyboard.ui.theme.DevKeyTheme
+import dev.devkey.keyboard.ui.theme.DevKeyThemeDimensions
 
 /**
  * Composable for a single row of keyboard keys.
@@ -34,14 +35,14 @@ fun KeyRow(
     ctrlHeld: Boolean = false,
     showHints: Boolean = false,
     hintBright: Boolean = false,
-    rowHeight: Dp = DevKeyTheme.keyAreaMinHeight,
+    rowHeight: Dp = DevKeyThemeDimensions.keyAreaMinHeight,
     modifier: Modifier = Modifier
 ) {
     Row(
         modifier = modifier
             .fillMaxWidth()
             .height(rowHeight),
-        horizontalArrangement = Arrangement.spacedBy(DevKeyTheme.keyGap)
+        horizontalArrangement = Arrangement.spacedBy(DevKeyThemeDimensions.keyGap)
     ) {
         for (key in row.keys) {
             KeyView(

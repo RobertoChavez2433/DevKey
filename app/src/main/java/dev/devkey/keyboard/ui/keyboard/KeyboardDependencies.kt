@@ -1,0 +1,154 @@
+package dev.devkey.keyboard.ui.keyboard
+
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
+import dev.devkey.keyboard.core.KeyboardActionBridge
+import dev.devkey.keyboard.core.KeyboardActionListener
+import dev.devkey.keyboard.core.KeyboardModeManager
+import dev.devkey.keyboard.core.ModifierStateManager
+import dev.devkey.keyboard.data.db.DevKeyDatabase
+import dev.devkey.keyboard.debug.DevKeyLogger
+import dev.devkey.keyboard.debug.KeyMapGenerator
+import dev.devkey.keyboard.feature.clipboard.ClipboardRepository
+import dev.devkey.keyboard.feature.command.CommandModeDetector
+import dev.devkey.keyboard.feature.command.CommandModeRepository
+import dev.devkey.keyboard.feature.macro.MacroEngine
+import dev.devkey.keyboard.feature.macro.MacroRepository
+import dev.devkey.keyboard.feature.prediction.PredictionResult
+import dev.devkey.keyboard.feature.voice.VoiceInputEngine
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.launch
+
+/** All wired-up runtime dependencies for the keyboard composable. */
+class KeyboardDependencies(
+    val bridge: KeyboardActionBridge,
+    val modifierState: ModifierStateManager,
+    val modeManager: KeyboardModeManager,
+    val macroRepo: MacroRepository,
+    val clipboardRepo: ClipboardRepository,
+    val macroEngine: MacroEngine,
+    val commandModeDetector: CommandModeDetector,
+    val voiceInputEngine: VoiceInputEngine
+)
+
+/**
+ * Creates and remembers all repositories, engines, and bridge objects for the keyboard.
+ * Registers debug-only broadcast receivers (DUMP_KEY_MAP, RESET_KEYBOARD_MODE,
+ * SET_KEYBOARD_MODE, TOGGLE_COMMAND_MODE) when running in a debug build.
+ */
+@Composable
+fun rememberKeyboardDependencies(
+    actionListener: KeyboardActionListener,
+    layoutMode: LayoutMode
+): KeyboardDependencies {
+    val context = LocalContext.current
+    val currentView = LocalView.current
+    val coroutineScope = rememberCoroutineScope()
+
+    val modifierState = remember { ModifierStateManager() }
+    val bridge = remember { KeyboardActionBridge(actionListener) }
+    val database = remember { DevKeyDatabase.getInstance(context) }
+    val macroRepo = remember { MacroRepository(database.macroDao()) }
+    val clipboardRepo = remember { ClipboardRepository(database.clipboardHistoryDao()) }
+    val macroEngine = remember { MacroEngine() }
+    val commandModeDetector = remember { CommandModeDetector(CommandModeRepository(database.commandAppDao())) }
+    val voiceInputEngine = remember { VoiceInputEngine(context) }
+    val modeManager = remember { KeyboardModeManager() }
+
+    DisposableEffect(voiceInputEngine) { onDispose { voiceInputEngine.release() } }
+
+    if (KeyMapGenerator.isDebugBuild(context)) {
+        // WHY: Compose-layer DUMP_KEY_MAP uses the real View for precise on-screen coords,
+        //      unlike the LatinIME receiver which uses estimated coords.
+        DisposableEffect(currentView, layoutMode) {
+            val r = object : android.content.BroadcastReceiver() {
+                override fun onReceive(c: android.content.Context, i: android.content.Intent) =
+                    KeyMapGenerator.dumpToLogcat(c, currentView, layoutMode)
+            }
+            context.registerReceiver(r, android.content.IntentFilter("dev.devkey.keyboard.DUMP_KEY_MAP"), android.content.Context.RECEIVER_EXPORTED)
+            onDispose { try { context.unregisterReceiver(r) } catch (_: IllegalArgumentException) {} }
+        }
+
+        DisposableEffect(modeManager, modifierState) {
+            // RESET_KEYBOARD_MODE — e2e harness resets state between tests
+            val resetR = object : android.content.BroadcastReceiver() {
+                override fun onReceive(c: android.content.Context, i: android.content.Intent) {
+                    if (modeManager.mode.value == KeyboardMode.Voice) voiceInputEngine.cancelListening()
+                    modeManager.setMode(KeyboardMode.Normal)
+                    modifierState.resetAll()
+                    DevKeyLogger.ime("keyboard_mode_reset", mapOf("to" to "Normal"))
+                }
+            }
+            context.registerReceiver(resetR, android.content.IntentFilter("dev.devkey.keyboard.RESET_KEYBOARD_MODE"), android.content.Context.RECEIVER_EXPORTED)
+
+            // SET_KEYBOARD_MODE — e2e harness opens any panel without needing tap coords
+            val setR = object : android.content.BroadcastReceiver() {
+                override fun onReceive(c: android.content.Context, i: android.content.Intent) {
+                    val modeName = i.getStringExtra("mode") ?: return
+                    val mode = when (modeName.lowercase()) {
+                        "normal" -> KeyboardMode.Normal
+                        "clipboard" -> KeyboardMode.Clipboard
+                        "voice" -> KeyboardMode.Voice
+                        "symbols" -> KeyboardMode.Symbols
+                        "macro_chips" -> KeyboardMode.MacroChips
+                        "macro_grid" -> KeyboardMode.MacroGrid
+                        else -> { DevKeyLogger.error("set_keyboard_mode_rejected", mapOf("mode" to modeName)); return }
+                    }
+                    modeManager.setMode(mode)
+                    // WHY: Voice mode needs startListening() alongside the mode change.
+                    if (mode == KeyboardMode.Voice) coroutineScope.launch { voiceInputEngine.startListening() }
+                    DevKeyLogger.ime("keyboard_mode_set", mapOf("mode" to modeName.lowercase()))
+                }
+            }
+            context.registerReceiver(setR, android.content.IntentFilter("dev.devkey.keyboard.SET_KEYBOARD_MODE"), android.content.Context.RECEIVER_EXPORTED)
+
+            // TOGGLE_COMMAND_MODE — e2e harness triggers command mode without a terminal app
+            val cmdR = object : android.content.BroadcastReceiver() {
+                override fun onReceive(c: android.content.Context, i: android.content.Intent) =
+                    commandModeDetector.toggleManualOverride()
+            }
+            context.registerReceiver(cmdR, android.content.IntentFilter("dev.devkey.keyboard.TOGGLE_COMMAND_MODE"), android.content.Context.RECEIVER_EXPORTED)
+
+            onDispose {
+                try { context.unregisterReceiver(resetR) } catch (_: IllegalArgumentException) {}
+                try { context.unregisterReceiver(setR) } catch (_: IllegalArgumentException) {}
+                try { context.unregisterReceiver(cmdR) } catch (_: IllegalArgumentException) {}
+            }
+        }
+    }
+
+    return KeyboardDependencies(bridge, modifierState, modeManager, macroRepo, clipboardRepo, macroEngine, commandModeDetector, voiceInputEngine)
+}
+
+/**
+ * Observes the composing word via [SessionDependencies], debounces it, and
+ * drives the prediction pipeline. Returns the current predictions list.
+ */
+@Composable
+fun rememberPredictions(): List<PredictionResult> {
+    var predictions by remember { mutableStateOf<List<PredictionResult>>(emptyList()) }
+
+    @OptIn(FlowPreview::class)
+    val composingWord by SessionDependencies.composingWord
+        .debounce(100L)
+        .distinctUntilChanged()
+        .collectAsState(initial = "")
+
+    LaunchedEffect(composingWord) {
+        val pe = SessionDependencies.predictionEngine
+        predictions = if (pe != null && composingWord.isNotEmpty()) pe.predict(composingWord) else emptyList()
+    }
+
+    return predictions
+}

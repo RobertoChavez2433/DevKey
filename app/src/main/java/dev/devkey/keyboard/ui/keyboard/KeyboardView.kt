@@ -15,6 +15,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.devkey.keyboard.core.ModifierStateManager
 import dev.devkey.keyboard.ui.theme.DevKeyTheme
+import dev.devkey.keyboard.ui.theme.DevKeyThemeColors
+import dev.devkey.keyboard.ui.theme.DevKeyThemeDimensions
 
 /**
  * Composable that renders the full keyboard grid.
@@ -43,8 +45,8 @@ fun KeyboardView(
     hintBright: Boolean = false
 ) {
     val screenHeightDp = LocalConfiguration.current.screenHeightDp
-    val rawHeight = (screenHeightDp * heightPercent).dp - DevKeyTheme.toolbarHeight
-    val keyAreaHeight = rawHeight.coerceAtLeast(DevKeyTheme.keyAreaMinHeight)
+    val rawHeight = (screenHeightDp * heightPercent).dp - DevKeyThemeDimensions.toolbarHeight
+    val keyAreaHeight = rawHeight.coerceAtLeast(DevKeyThemeDimensions.keyAreaMinHeight)
 
     // Compute per-row heights based on weight ratios
     val rowHeights = remember(layout, layoutMode, keyAreaHeight) {
@@ -55,12 +57,12 @@ fun KeyboardView(
         modifier = Modifier
             .fillMaxWidth()
             .height(keyAreaHeight)
-            .background(DevKeyTheme.kbBg)
-            .padding(horizontal = DevKeyTheme.kbPadH),
-        verticalArrangement = Arrangement.spacedBy(DevKeyTheme.keyGap)
+            .background(DevKeyThemeColors.kbBg)
+            .padding(horizontal = DevKeyThemeDimensions.kbPadH),
+        verticalArrangement = Arrangement.spacedBy(DevKeyThemeDimensions.keyGap)
     ) {
         for ((index, row) in layout.rows.withIndex()) {
-            val rowHeight = rowHeights.getOrElse(index) { DevKeyTheme.rowHeightFallback }
+            val rowHeight = rowHeights.getOrElse(index) { DevKeyThemeDimensions.rowHeightFallback }
             KeyRow(
                 row = row,
                 modifierState = modifierState,
@@ -91,7 +93,7 @@ private fun computeRowHeights(
     val rowCount = layout.rows.size
     if (rowCount == 0) return emptyList()
 
-    val totalGap = DevKeyTheme.keyGap * (rowCount - 1)
+    val totalGap = DevKeyThemeDimensions.keyGap * (rowCount - 1)
     val availableHeight = totalHeight - totalGap
 
     val weights = when (layoutMode) {

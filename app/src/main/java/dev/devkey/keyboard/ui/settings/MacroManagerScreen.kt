@@ -1,29 +1,21 @@
 package dev.devkey.keyboard.ui.settings
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -35,7 +27,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import dev.devkey.keyboard.data.db.entity.MacroEntity
 import dev.devkey.keyboard.feature.macro.MacroRepository
-import dev.devkey.keyboard.ui.theme.DevKeyTheme
+import dev.devkey.keyboard.ui.theme.DevKeyThemeColors
+import dev.devkey.keyboard.ui.theme.DevKeyThemeDimensions
 import kotlinx.coroutines.launch
 
 /**
@@ -56,168 +49,83 @@ fun MacroManagerScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(DevKeyTheme.kbBg)
+            .background(DevKeyThemeColors.kbBg)
     ) {
-        // Top bar
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(DevKeyTheme.keyBg)
-                .padding(horizontal = DevKeyTheme.managerBarPadH, vertical = DevKeyTheme.managerBarPadV),
+                .background(DevKeyThemeColors.keyBg)
+                .padding(
+                    horizontal = DevKeyThemeDimensions.managerBarPadH,
+                    vertical = DevKeyThemeDimensions.managerBarPadV
+                ),
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onBack) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "Back",
-                    tint = DevKeyTheme.keyText
+                    tint = DevKeyThemeColors.keyText
                 )
             }
             Text(
                 text = "Manage Macros",
-                color = DevKeyTheme.keyText,
+                color = DevKeyThemeColors.keyText,
                 style = MaterialTheme.typography.titleMedium
             )
         }
 
         if (macros.isEmpty()) {
-            // Empty state
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(DevKeyTheme.managerFullPad),
+                    .padding(DevKeyThemeDimensions.managerFullPad),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = "No macros saved. Record macros from the keyboard toolbar.",
-                    color = DevKeyTheme.settingsDescriptionColor,
+                    color = DevKeyThemeColors.settingsDescriptionColor,
                     style = MaterialTheme.typography.bodyLarge
                 )
             }
         } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize()
-            ) {
-                items(
-                    items = macros,
-                    key = { it.id }
-                ) { macro ->
+            LazyColumn(modifier = Modifier.fillMaxSize()) {
+                items(items = macros, key = { it.id }) { macro ->
                     MacroListItem(
                         macro = macro,
                         onEdit = {
                             editingMacro = macro
                             editName = macro.name
                         },
-                        onDelete = {
-                            deletingMacro = macro
-                        }
+                        onDelete = { deletingMacro = macro }
                     )
-                    HorizontalDivider(color = DevKeyTheme.settingsDividerColor)
+                    HorizontalDivider(color = DevKeyThemeColors.settingsDividerColor)
                 }
             }
         }
     }
 
-    // Edit name dialog
     editingMacro?.let { macro ->
-        AlertDialog(
-            onDismissRequest = { editingMacro = null },
-            title = { Text("Rename Macro") },
-            text = {
-                OutlinedTextField(
-                    value = editName,
-                    onValueChange = { editName = it },
-                    singleLine = true,
-                    label = { Text("Macro name") },
-                    modifier = Modifier.fillMaxWidth()
-                )
+        MacroRenameDialog(
+            macro = macro,
+            editName = editName,
+            onNameChange = { editName = it },
+            onConfirm = {
+                coroutineScope.launch { macroRepository.updateMacroName(macro.id, editName) }
+                editingMacro = null
             },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        coroutineScope.launch {
-                            macroRepository.updateMacroName(macro.id, editName)
-                        }
-                        editingMacro = null
-                    }
-                ) {
-                    Text("Save")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { editingMacro = null }) {
-                    Text("Cancel")
-                }
-            }
+            onDismiss = { editingMacro = null }
         )
     }
 
-    // Delete confirmation dialog
     deletingMacro?.let { macro ->
-        AlertDialog(
-            onDismissRequest = { deletingMacro = null },
-            title = { Text("Delete Macro") },
-            text = { Text("Delete \"${macro.name}\"? This cannot be undone.") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        coroutineScope.launch {
-                            macroRepository.deleteMacro(macro.id)
-                        }
-                        deletingMacro = null
-                    }
-                ) {
-                    Text("Delete")
-                }
+        MacroDeleteDialog(
+            macro = macro,
+            onConfirm = {
+                coroutineScope.launch { macroRepository.deleteMacro(macro.id) }
+                deletingMacro = null
             },
-            dismissButton = {
-                TextButton(onClick = { deletingMacro = null }) {
-                    Text("Cancel")
-                }
-            }
+            onDismiss = { deletingMacro = null }
         )
-    }
-}
-
-@Composable
-private fun MacroListItem(
-    macro: MacroEntity,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = DevKeyTheme.settingsRowPadH, vertical = DevKeyTheme.settingsRowPadVLg),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = macro.name,
-                color = DevKeyTheme.keyText,
-                style = MaterialTheme.typography.bodyLarge
-            )
-            Spacer(modifier = Modifier.height(DevKeyTheme.managerItemSubtitleSpacerH))
-            Text(
-                text = "Used ${macro.usageCount} times",
-                color = DevKeyTheme.settingsDescriptionColor,
-                style = MaterialTheme.typography.bodySmall
-            )
-        }
-        IconButton(onClick = onEdit) {
-            Icon(
-                imageVector = Icons.Default.Edit,
-                contentDescription = "Edit",
-                tint = DevKeyTheme.iconColor
-            )
-        }
-        IconButton(onClick = onDelete) {
-            Icon(
-                imageVector = Icons.Default.Delete,
-                contentDescription = "Delete",
-                tint = DevKeyTheme.macroRecordingRed
-            )
-        }
     }
 }

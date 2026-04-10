@@ -25,30 +25,14 @@ import dev.devkey.keyboard.data.export.ImportManager
 import dev.devkey.keyboard.data.repository.SettingsRepository
 import dev.devkey.keyboard.feature.command.CommandModeRepository
 import dev.devkey.keyboard.feature.macro.MacroRepository
-import dev.devkey.keyboard.ui.theme.DevKeyTheme
+import dev.devkey.keyboard.ui.theme.DevKeyThemeColors
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
-enum class SettingsNav {
-    MAIN,
-    KEYBOARD_VIEW,
-    KEY_BEHAVIOR,
-    ACTIONS,
-    FEEDBACK,
-    PREDICTION,
-    MACROS,
-    VOICE_INPUT,
-    COMMAND_MODE,
-    BACKUP,
-    ABOUT,
-    MACRO_MANAGER,
-    COMMAND_APPS,
-    CUSTOM_DICTIONARY
-}
-
 class DevKeySettingsActivity : ComponentActivity() {
 
+    private lateinit var database: DevKeyDatabase
     private lateinit var settingsRepository: SettingsRepository
     private lateinit var exportManager: ExportManager
     private lateinit var importManager: ImportManager
@@ -78,7 +62,7 @@ class DevKeySettingsActivity : ComponentActivity() {
         val prefs = PreferenceManager.getDefaultSharedPreferences(this)
         settingsRepository = SettingsRepository(prefs)
 
-        val database = DevKeyDatabase.getInstance(this)
+        database = DevKeyDatabase.getInstance(this)
         exportManager = ExportManager(database)
         importManager = ImportManager(database)
         macroRepository = MacroRepository(database.macroDao())
@@ -91,15 +75,7 @@ class DevKeySettingsActivity : ComponentActivity() {
         }
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
-            override fun handleOnBackPressed() {
-                when (currentNav) {
-                    SettingsNav.MAIN -> finish()
-                    SettingsNav.MACRO_MANAGER -> currentNav = SettingsNav.MACROS
-                    SettingsNav.COMMAND_APPS -> currentNav = SettingsNav.COMMAND_MODE
-                    SettingsNav.CUSTOM_DICTIONARY -> currentNav = SettingsNav.PREDICTION
-                    else -> currentNav = SettingsNav.MAIN
-                }
-            }
+            override fun handleOnBackPressed() = navigateBack()
         })
 
         setContent {
@@ -109,126 +85,30 @@ class DevKeySettingsActivity : ComponentActivity() {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(DevKeyTheme.kbBg)
+                        .background(DevKeyThemeColors.kbBg)
                 ) {
-                    when (currentNav) {
-                        SettingsNav.MAIN -> {
-                            SettingsCategoryScreen(
-                                onNavigate = { currentNav = it }
-                            )
+                    SettingsNavGraph(
+                        currentNav = currentNav,
+                        onNavigate = { currentNav = it },
+                        settingsRepository = settingsRepository,
+                        macroRepository = macroRepository,
+                        commandModeRepository = commandModeRepository,
+                        database = database,
+                        versionName = versionName,
+                        showConflictDialog = showConflictDialog,
+                        pendingBackup = pendingBackup,
+                        onStartExport = { startExport() },
+                        onStartImport = { startImport() },
+                        onConflictStrategy = { strategy ->
+                            showConflictDialog = false
+                            pendingBackup?.let { backup -> performImport(backup, strategy) }
+                            pendingBackup = null
+                        },
+                        onConflictDismiss = {
+                            showConflictDialog = false
+                            pendingBackup = null
                         }
-
-                        SettingsNav.KEYBOARD_VIEW -> {
-                            KeyboardViewSettingsScreen(
-                                settingsRepository = settingsRepository,
-                                onBack = { currentNav = SettingsNav.MAIN }
-                            )
-                        }
-
-                        SettingsNav.KEY_BEHAVIOR -> {
-                            KeyBehaviorSettingsScreen(
-                                settingsRepository = settingsRepository,
-                                onBack = { currentNav = SettingsNav.MAIN }
-                            )
-                        }
-
-                        SettingsNav.ACTIONS -> {
-                            ActionsSettingsScreen(
-                                settingsRepository = settingsRepository,
-                                onBack = { currentNav = SettingsNav.MAIN }
-                            )
-                        }
-
-                        SettingsNav.FEEDBACK -> {
-                            FeedbackSettingsScreen(
-                                settingsRepository = settingsRepository,
-                                onBack = { currentNav = SettingsNav.MAIN }
-                            )
-                        }
-
-                        SettingsNav.PREDICTION -> {
-                            PredictionSettingsScreen(
-                                settingsRepository = settingsRepository,
-                                onNavigateToCustomDictionary = { currentNav = SettingsNav.CUSTOM_DICTIONARY },
-                                onBack = { currentNav = SettingsNav.MAIN }
-                            )
-                        }
-
-                        SettingsNav.MACROS -> {
-                            MacrosSettingsScreen(
-                                settingsRepository = settingsRepository,
-                                onNavigateToMacroManager = { currentNav = SettingsNav.MACRO_MANAGER },
-                                onBack = { currentNav = SettingsNav.MAIN }
-                            )
-                        }
-
-                        SettingsNav.VOICE_INPUT -> {
-                            VoiceInputSettingsScreen(
-                                settingsRepository = settingsRepository,
-                                onBack = { currentNav = SettingsNav.MAIN }
-                            )
-                        }
-
-                        SettingsNav.COMMAND_MODE -> {
-                            CommandModeSettingsScreen(
-                                settingsRepository = settingsRepository,
-                                onNavigateToCommandApps = { currentNav = SettingsNav.COMMAND_APPS },
-                                onBack = { currentNav = SettingsNav.MAIN }
-                            )
-                        }
-
-                        SettingsNav.BACKUP -> {
-                            BackupSettingsScreen(
-                                onExport = { startExport() },
-                                onImport = { startImport() },
-                                onBack = { currentNav = SettingsNav.MAIN }
-                            )
-
-                            if (showConflictDialog) {
-                                ImportConflictDialog(
-                                    onStrategy = { strategy ->
-                                        showConflictDialog = false
-                                        pendingBackup?.let { backup ->
-                                            performImport(backup, strategy)
-                                        }
-                                        pendingBackup = null
-                                    },
-                                    onDismiss = {
-                                        showConflictDialog = false
-                                        pendingBackup = null
-                                    }
-                                )
-                            }
-                        }
-
-                        SettingsNav.ABOUT -> {
-                            AboutSettingsScreen(
-                                versionName = versionName,
-                                onBack = { currentNav = SettingsNav.MAIN }
-                            )
-                        }
-
-                        SettingsNav.MACRO_MANAGER -> {
-                            MacroManagerScreen(
-                                macroRepository = macroRepository,
-                                onBack = { currentNav = SettingsNav.MACROS }
-                            )
-                        }
-
-                        SettingsNav.COMMAND_APPS -> {
-                            CommandAppManagerScreen(
-                                repository = commandModeRepository,
-                                onBack = { currentNav = SettingsNav.COMMAND_MODE }
-                            )
-                        }
-
-                        SettingsNav.CUSTOM_DICTIONARY -> {
-                            CustomDictionaryScreen(
-                                database = database,
-                                onBack = { currentNav = SettingsNav.PREDICTION }
-                            )
-                        }
-                    }
+                    )
                 }
             }
         }
@@ -238,6 +118,16 @@ class DevKeySettingsActivity : ComponentActivity() {
         super.onDestroy()
         if (::settingsRepository.isInitialized) {
             settingsRepository.close()
+        }
+    }
+
+    private fun navigateBack() {
+        when (currentNav) {
+            SettingsNav.MAIN -> finish()
+            SettingsNav.MACRO_MANAGER -> currentNav = SettingsNav.MACROS
+            SettingsNav.COMMAND_APPS -> currentNav = SettingsNav.COMMAND_MODE
+            SettingsNav.CUSTOM_DICTIONARY -> currentNav = SettingsNav.PREDICTION
+            else -> currentNav = SettingsNav.MAIN
         }
     }
 
@@ -251,17 +141,18 @@ class DevKeySettingsActivity : ComponentActivity() {
         openDocumentLauncher.launch(arrayOf("application/json"))
     }
 
+    private fun toast(msg: String, long: Boolean = false) {
+        val len = if (long) Toast.LENGTH_LONG else Toast.LENGTH_SHORT
+        Toast.makeText(this, msg, len).show()
+    }
+
     private fun exportToUri(uri: Uri) {
         lifecycleScope.launch {
             try {
                 exportManager.exportToUri(this@DevKeySettingsActivity, uri, versionName)
-                Toast.makeText(this@DevKeySettingsActivity, "Data exported", Toast.LENGTH_SHORT).show()
+                toast("Data exported")
             } catch (e: Exception) {
-                Toast.makeText(
-                    this@DevKeySettingsActivity,
-                    "Export failed: ${e.message}",
-                    Toast.LENGTH_LONG
-                ).show()
+                toast("Export failed: ${e.message}", long = true)
             }
         }
     }
@@ -272,32 +163,20 @@ class DevKeySettingsActivity : ComponentActivity() {
                 val jsonString = contentResolver.openInputStream(uri)?.use { stream ->
                     stream.bufferedReader(Charsets.UTF_8).readText()
                 } ?: run {
-                    Toast.makeText(
-                        this@DevKeySettingsActivity,
-                        "Could not read file",
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    toast("Could not read file")
                     return@launch
                 }
 
                 val result = importManager.deserialize(jsonString)
                 if (result.isFailure) {
-                    Toast.makeText(
-                        this@DevKeySettingsActivity,
-                        "Invalid backup file: ${result.exceptionOrNull()?.message}",
-                        Toast.LENGTH_LONG
-                    ).show()
+                    toast("Invalid backup file: ${result.exceptionOrNull()?.message}", long = true)
                     return@launch
                 }
 
                 pendingBackup = result.getOrThrow()
                 showConflictDialog = true
             } catch (e: Exception) {
-                Toast.makeText(
-                    this@DevKeySettingsActivity,
-                    "Import failed: ${e.message}",
-                    Toast.LENGTH_LONG
-                ).show()
+                toast("Import failed: ${e.message}", long = true)
             }
         }
     }
@@ -306,18 +185,13 @@ class DevKeySettingsActivity : ComponentActivity() {
         lifecycleScope.launch {
             try {
                 val result = importManager.importBackup(backup, strategy)
-                Toast.makeText(
-                    this@DevKeySettingsActivity,
+                toast(
                     "Imported: ${result.macros} macros, ${result.words} words, " +
-                            "${result.commandApps} apps, ${result.clipboard} clips",
-                    Toast.LENGTH_LONG
-                ).show()
+                        "${result.commandApps} apps, ${result.clipboard} clips",
+                    long = true
+                )
             } catch (e: Exception) {
-                Toast.makeText(
-                    this@DevKeySettingsActivity,
-                    "Import failed: ${e.message}",
-                    Toast.LENGTH_LONG
-                ).show()
+                toast("Import failed: ${e.message}", long = true)
             }
         }
     }

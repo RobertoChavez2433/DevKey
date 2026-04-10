@@ -1,14 +1,11 @@
 package dev.devkey.keyboard.ui.settings
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -20,7 +17,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -32,9 +28,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import dev.devkey.keyboard.data.db.DevKeyDatabase
 import dev.devkey.keyboard.data.db.entity.LearnedWordEntity
-import dev.devkey.keyboard.feature.prediction.LearningEngine
 import dev.devkey.keyboard.ui.keyboard.SessionDependencies
-import dev.devkey.keyboard.ui.theme.DevKeyTheme
+import dev.devkey.keyboard.ui.theme.DevKeyThemeColors
+import dev.devkey.keyboard.ui.theme.DevKeyThemeDimensions
 import kotlinx.coroutines.launch
 
 /**
@@ -56,26 +52,29 @@ fun CustomDictionaryScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(DevKeyTheme.kbBg)
+            .background(DevKeyThemeColors.kbBg)
     ) {
         // Top bar
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(DevKeyTheme.keyBg)
-                .padding(horizontal = DevKeyTheme.managerBarPadH, vertical = DevKeyTheme.managerBarPadV),
+                .background(DevKeyThemeColors.keyBg)
+                .padding(
+                    horizontal = DevKeyThemeDimensions.managerBarPadH,
+                    vertical = DevKeyThemeDimensions.managerBarPadV
+                ),
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onBack) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "Back",
-                    tint = DevKeyTheme.keyText
+                    tint = DevKeyThemeColors.keyText
                 )
             }
             Text(
                 text = "Custom Dictionary",
-                color = DevKeyTheme.keyText,
+                color = DevKeyThemeColors.keyText,
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.weight(1f)
             )
@@ -83,7 +82,7 @@ fun CustomDictionaryScreen(
                 Icon(
                     imageVector = Icons.Default.Add,
                     contentDescription = "Add word",
-                    tint = DevKeyTheme.keyText
+                    tint = DevKeyThemeColors.keyText
                 )
             }
         }
@@ -91,50 +90,19 @@ fun CustomDictionaryScreen(
         // Info text
         Text(
             text = "Words added here won't be autocorrected (e.g. kubectl, useState, nginx).",
-            color = DevKeyTheme.settingsDescriptionColor,
+            color = DevKeyThemeColors.settingsDescriptionColor,
             style = MaterialTheme.typography.bodySmall,
-            modifier = Modifier.padding(horizontal = DevKeyTheme.managerRowPadH, vertical = DevKeyTheme.managerInfoPadV)
-        )
-        HorizontalDivider(color = DevKeyTheme.settingsDividerColor)
-
-        if (customWords.isEmpty()) {
-            Text(
-                text = "No custom words added yet.",
-                color = DevKeyTheme.settingsDescriptionColor,
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(DevKeyTheme.settingsTilePad)
+            modifier = Modifier.padding(
+                horizontal = DevKeyThemeDimensions.managerRowPadH,
+                vertical = DevKeyThemeDimensions.managerInfoPadV
             )
-        } else {
-            LazyColumn(modifier = Modifier.fillMaxSize()) {
-                items(
-                    items = customWords,
-                    key = { it.id }
-                ) { wordEntity ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = DevKeyTheme.settingsRowPadH, vertical = DevKeyTheme.settingsRowPadVLg),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = wordEntity.word,
-                            color = DevKeyTheme.keyText,
-                            style = MaterialTheme.typography.bodyLarge,
-                            modifier = Modifier.weight(1f)
-                        )
-                        IconButton(onClick = { deletingWord = wordEntity }) {
-                            Icon(
-                                imageVector = Icons.Default.Delete,
-                                contentDescription = "Remove",
-                                tint = DevKeyTheme.macroRecordingRed
-                            )
-                        }
-                    }
-                    HorizontalDivider(color = DevKeyTheme.settingsDividerColor)
-                }
-            }
-        }
+        )
+        HorizontalDivider(color = DevKeyThemeColors.settingsDividerColor)
+
+        DictionaryWordList(
+            words = customWords,
+            onDeleteWord = { deletingWord = it }
+        )
     }
 
     // Add word dialog
@@ -163,7 +131,6 @@ fun CustomDictionaryScreen(
                                 if (le != null) {
                                     le.addCustomWord(word)
                                 } else {
-                                    // Fallback: write directly to DAO
                                     dao.insert(
                                         LearnedWordEntity(
                                             word = word, frequency = 1,

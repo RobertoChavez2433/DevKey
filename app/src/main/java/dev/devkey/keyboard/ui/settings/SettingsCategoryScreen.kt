@@ -22,7 +22,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
-import dev.devkey.keyboard.ui.theme.DevKeyTheme
+import dev.devkey.keyboard.ui.theme.DevKeyThemeColors
+import dev.devkey.keyboard.ui.theme.DevKeyThemeDimensions
+import dev.devkey.keyboard.ui.theme.DevKeyThemeTypography
 
 /**
  * Top-level settings screen showing category tiles.
@@ -46,30 +48,30 @@ fun SettingsCategoryScreen(
     )
 
     Scaffold(
-        containerColor = DevKeyTheme.kbBg
+        containerColor = DevKeyThemeColors.kbBg
     ) { padding ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .background(DevKeyTheme.kbBg)
-                .padding(horizontal = DevKeyTheme.settingsCategoryScreenPadH),
-            verticalArrangement = Arrangement.spacedBy(DevKeyTheme.settingsTileSpacing)
+                .background(DevKeyThemeColors.kbBg)
+                .padding(horizontal = DevKeyThemeDimensions.settingsCategoryScreenPadH),
+            verticalArrangement = Arrangement.spacedBy(DevKeyThemeDimensions.settingsTileSpacing)
         ) {
             item(key = "header") {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(
-                            top = DevKeyTheme.settingsHeaderPadTop,
-                            bottom = DevKeyTheme.settingsHeaderPadBottom
+                            top = DevKeyThemeDimensions.settingsHeaderPadTop,
+                            bottom = DevKeyThemeDimensions.settingsHeaderPadBottom
                         ),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
                         text = "Settings",
-                        color = DevKeyTheme.keyText,
-                        fontSize = DevKeyTheme.fontSettingsSectionTitle,
+                        color = DevKeyThemeColors.keyText,
+                        fontSize = DevKeyThemeTypography.fontSettingsSectionTitle,
                         fontWeight = FontWeight.Bold
                     )
                 }
@@ -84,7 +86,7 @@ fun SettingsCategoryScreen(
             }
 
             item(key = "bottom_spacer") {
-                Spacer(modifier = Modifier.height(DevKeyTheme.settingsListBottomSpacerH))
+                Spacer(modifier = Modifier.height(DevKeyThemeDimensions.settingsListBottomSpacerH))
             }
         }
     }
@@ -99,30 +101,30 @@ private fun CategoryTile(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(DevKeyTheme.settingsTileRadius))
-            .background(DevKeyTheme.keyBg)
+            .clip(RoundedCornerShape(DevKeyThemeDimensions.settingsTileRadius))
+            .background(DevKeyThemeColors.keyBg)
             .clickable { onClick() }
-            .padding(DevKeyTheme.settingsTilePad),
+            .padding(DevKeyThemeDimensions.settingsTilePad),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
-                color = DevKeyTheme.keyText,
-                fontSize = DevKeyTheme.fontSettingsTileTitle,
+                color = DevKeyThemeColors.keyText,
+                fontSize = DevKeyThemeTypography.fontSettingsTileTitle,
                 fontWeight = FontWeight.Medium
             )
             Text(
                 text = description,
-                color = DevKeyTheme.settingsDescriptionColor,
-                fontSize = DevKeyTheme.fontSettingsTileDescription
+                color = DevKeyThemeColors.settingsDescriptionColor,
+                fontSize = DevKeyThemeTypography.fontSettingsTileDescription
             )
         }
-        Spacer(modifier = Modifier.width(DevKeyTheme.settingsTileTrailingSpacerW))
+        Spacer(modifier = Modifier.width(DevKeyThemeDimensions.settingsTileTrailingSpacerW))
         Text(
             text = "\u203A",
-            color = DevKeyTheme.settingsDescriptionColor,
-            fontSize = DevKeyTheme.fontSettingsSectionTitle
+            color = DevKeyThemeColors.settingsDescriptionColor,
+            fontSize = DevKeyThemeTypography.fontSettingsSectionTitle
         )
     }
 }

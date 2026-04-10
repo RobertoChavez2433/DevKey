@@ -2,32 +2,8 @@ package dev.devkey.keyboard.core
 
 import android.os.SystemClock
 import androidx.annotation.MainThread
-import dev.devkey.keyboard.debug.DevKeyLogger
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-
-/**
- * States a modifier key can be in.
- */
-enum class ModifierKeyState {
-    OFF,
-    ONE_SHOT,
-    LOCKED,
-    HELD,
-    /** Modifier is held while another key is being pressed (chording). */
-    CHORDING
-}
-
-/**
- * Types of modifier keys tracked by the state machine.
- */
-enum class ModifierType {
-    SHIFT,
-    CTRL,
-    ALT,
-    META
-}
 
 /**
  * Manages the state machine for modifier keys (Shift, Ctrl, Alt, Meta).
@@ -39,6 +15,8 @@ enum class ModifierType {
  * - Other key pressed while HELD: HELD -> CHORDING
  * - After non-modifier key: ONE_SHOT -> OFF (consumeOneShot)
  * - CHORDING -> OFF on release (handled by caller)
+ *
+ * Enums live in [ModifierTypes.kt]; per-type mutable state in [ModifierTransitionTable].
  */
 class ModifierStateManager(
     private val timeProvider: () -> Long = { SystemClock.uptimeMillis() }
@@ -48,65 +26,38 @@ class ModifierStateManager(
         private const val DOUBLE_TAP_WINDOW_MS = 400L
     }
 
-    private val _shiftState = MutableStateFlow(ModifierKeyState.OFF)
-    private val _ctrlState = MutableStateFlow(ModifierKeyState.OFF)
-    private val _altState = MutableStateFlow(ModifierKeyState.OFF)
-    private val _metaState = MutableStateFlow(ModifierKeyState.OFF)
+    private val table = ModifierTransitionTable()
 
-    val shiftState: StateFlow<ModifierKeyState> = _shiftState.asStateFlow()
-    val ctrlState: StateFlow<ModifierKeyState> = _ctrlState.asStateFlow()
-    val altState: StateFlow<ModifierKeyState> = _altState.asStateFlow()
-    val metaState: StateFlow<ModifierKeyState> = _metaState.asStateFlow()
+    val shiftState: StateFlow<ModifierKeyState> = table.shiftFlow.asStateFlow()
+    val ctrlState:  StateFlow<ModifierKeyState> = table.ctrlFlow.asStateFlow()
+    val altState:   StateFlow<ModifierKeyState> = table.altFlow.asStateFlow()
+    val metaState:  StateFlow<ModifierKeyState> = table.metaFlow.asStateFlow()
 
-    private val allModifierFlows = listOf(_shiftState, _ctrlState, _altState, _metaState)
+    fun isShiftActive(): Boolean = table.shiftFlow.value != ModifierKeyState.OFF
+    fun isCtrlActive():  Boolean = table.ctrlFlow.value  != ModifierKeyState.OFF
+    fun isAltActive():   Boolean = table.altFlow.value   != ModifierKeyState.OFF
+    fun isMetaActive():  Boolean = table.metaFlow.value  != ModifierKeyState.OFF
 
-    // Pointer tracking for HELD state
-    private var shiftHeldPointerId: Int? = null
-    private var ctrlHeldPointerId: Int? = null
-    private var altHeldPointerId: Int? = null
-    private var metaHeldPointerId: Int? = null
+    fun isActive(type: ModifierType): Boolean =
+        table.getFlow(type).value != ModifierKeyState.OFF
 
-    // Last tap time for double-tap detection
-    private var shiftLastTapTime: Long = 0L
-    private var ctrlLastTapTime: Long = 0L
-    private var altLastTapTime: Long = 0L
-    private var metaLastTapTime: Long = 0L
-
-    // State before the most recent onModifierDown call.
-    // Used by onModifierTap to detect double-tap when down/up cycle
-    // has already reset the state back to OFF.
-    private var shiftStateBeforeDown: ModifierKeyState = ModifierKeyState.OFF
-    private var ctrlStateBeforeDown: ModifierKeyState = ModifierKeyState.OFF
-    private var altStateBeforeDown: ModifierKeyState = ModifierKeyState.OFF
-    private var metaStateBeforeDown: ModifierKeyState = ModifierKeyState.OFF
-
-    fun isShiftActive(): Boolean = _shiftState.value != ModifierKeyState.OFF
-    fun isCtrlActive(): Boolean = _ctrlState.value != ModifierKeyState.OFF
-    fun isAltActive(): Boolean = _altState.value != ModifierKeyState.OFF
-    fun isMetaActive(): Boolean = _metaState.value != ModifierKeyState.OFF
-
-    fun isActive(type: ModifierType): Boolean = getFlow(type).value != ModifierKeyState.OFF
+    /** Returns true if the given modifier is in the CHORDING state. */
+    fun isChording(type: ModifierType): Boolean =
+        table.getFlow(type).value == ModifierKeyState.CHORDING
 
     /**
-     * Returns true if the given modifier is in the CHORDING state
-     * (being held while another key is pressed).
-     */
-    fun isChording(type: ModifierType): Boolean = getFlow(type).value == ModifierKeyState.CHORDING
-
-    /**
-     * Handle a modifier tap. Cycles: OFF -> ONE_SHOT, ONE_SHOT -> LOCKED (if double-tap), LOCKED -> OFF.
+     * Handle a modifier tap. Cycles: OFF -> ONE_SHOT, ONE_SHOT -> LOCKED (double-tap), LOCKED -> OFF.
      *
-     * Note: In the real event flow (KeyView), the sequence is always
-     * onModifierDown → onModifierUp → onModifierTap. The down/up cycle converts
-     * ONE_SHOT → HELD → OFF, so by the time tap runs the state is OFF. We use
-     * [stateBeforeDown] to recover the pre-down state for double-tap detection.
+     * In the real event flow (KeyView) the sequence is onModifierDown -> onModifierUp ->
+     * onModifierTap. The down/up cycle converts ONE_SHOT -> HELD -> OFF, so tap sees OFF.
+     * [stateBeforeDown] is used to recover the pre-down state for double-tap detection.
      */
     @MainThread
     fun onModifierTap(type: ModifierType) {
-        val flow = getFlow(type)
+        val flow = table.getFlow(type)
         val now = timeProvider()
-        val lastTap = getLastTapTime(type)
-        val preDownState = getStateBeforeDown(type)
+        val lastTap = table.getLastTapTime(type)
+        val preDownState = table.getStateBeforeDown(type)
         val fromState = flow.value
 
         when (fromState) {
@@ -119,228 +70,92 @@ class ModifierStateManager(
                 }
             }
             ModifierKeyState.ONE_SHOT -> {
-                if (now - lastTap <= DOUBLE_TAP_WINDOW_MS) {
-                    flow.value = ModifierKeyState.LOCKED
+                flow.value = if (now - lastTap <= DOUBLE_TAP_WINDOW_MS) {
+                    ModifierKeyState.LOCKED
                 } else {
-                    // Single tap again after window expired -- reset to ONE_SHOT
-                    flow.value = ModifierKeyState.ONE_SHOT
+                    ModifierKeyState.ONE_SHOT // window expired — restart
                 }
             }
-            ModifierKeyState.LOCKED -> {
-                flow.value = ModifierKeyState.OFF
-            }
-            ModifierKeyState.HELD, ModifierKeyState.CHORDING -> {
-                // Ignore taps while held or chording
-            }
+            ModifierKeyState.LOCKED -> flow.value = ModifierKeyState.OFF
+            ModifierKeyState.HELD, ModifierKeyState.CHORDING -> { /* ignore */ }
         }
 
-        if (flow.value != fromState) {
-            logTransition(type, "tap", fromState, flow.value)
-        }
-        setLastTapTime(type, now)
+        if (flow.value != fromState) table.logTransition(type, "tap", fromState, flow.value)
+        table.setLastTapTime(type, now)
     }
 
-    /**
-     * Emit a structured modifier transition event to both the legacy
-     * `DevKeyPress` tag (format `ModifierTransition SHIFT tap ONE_SHOT` —
-     * harness regex compatible) AND the structured `DevKey/MOD` category so
-     * the driver `/wait` endpoint can gate on it.
-     *
-     * FROM SPEC: Phase 3 defect #17 (`.claude/plans/2026-04-09-pre-release-phase3.md`)
-     *            — Tests `test_modifiers.test_{shift,ctrl}_*` match on the
-     *            `ModifierTransition.*<TYPE>.*<action>.*<toState>` pattern.
-     * IMPORTANT: No content leakage — modifier types and states are structural.
-     */
-    private fun logTransition(
-        type: ModifierType,
-        action: String,
-        from: ModifierKeyState,
-        to: ModifierKeyState
-    ) {
-        // Legacy DevKeyPress tag for the capture_logcat harness path.
-        android.util.Log.d(
-            "DevKeyPress",
-            "ModifierTransition ${type.name} $action $from -> $to"
-        )
-        // Structured category for the driver-server /wait path.
-        DevKeyLogger.modifier(
-            "modifier_transition",
-            mapOf(
-                "type" to type.name,
-                "action" to action,
-                "from" to from.name,
-                "to" to to.name
-            )
-        )
-    }
-
-    /**
-     * Handle modifier pointer down. Enters HELD state.
-     * Saves the pre-down state so [onModifierTap] can detect double-taps.
-     */
+    /** Handle modifier pointer down. Enters HELD state (saves pre-down state for double-tap). */
     @MainThread
     fun onModifierDown(type: ModifierType, pointerId: Int) {
-        val flow = getFlow(type)
+        val flow = table.getFlow(type)
         val fromState = flow.value
-        setStateBeforeDown(type, fromState)
-        // Only enter HELD if not already locked
+        table.setStateBeforeDown(type, fromState)
         if (fromState != ModifierKeyState.LOCKED) {
             flow.value = ModifierKeyState.HELD
-            logTransition(type, "down", fromState, ModifierKeyState.HELD)
+            table.logTransition(type, "down", fromState, ModifierKeyState.HELD)
         }
-        setHeldPointerId(type, pointerId)
+        table.setHeldPointerId(type, pointerId)
     }
 
-    /**
-     * Handle modifier pointer up. Exits HELD/CHORDING state (only if matching pointer).
-     */
+    /** Handle modifier pointer up. Exits HELD/CHORDING (only if pointer ID matches). */
     @MainThread
     fun onModifierUp(type: ModifierType, pointerId: Int) {
-        val heldId = getHeldPointerId(type)
-        if (heldId == pointerId) {
-            val flow = getFlow(type)
+        if (table.getHeldPointerId(type) == pointerId) {
+            val flow = table.getFlow(type)
             val fromState = flow.value
             if (fromState == ModifierKeyState.HELD || fromState == ModifierKeyState.CHORDING) {
                 flow.value = ModifierKeyState.OFF
-                logTransition(type, "up", fromState, ModifierKeyState.OFF)
+                table.logTransition(type, "up", fromState, ModifierKeyState.OFF)
             }
-            setHeldPointerId(type, null)
+            table.setHeldPointerId(type, null)
         }
     }
 
     /**
      * Called when a non-modifier key is pressed.
-     * Transitions any HELD modifier to CHORDING state.
-     * Also consumes ONE_SHOT modifiers (resets to OFF).
+     * Transitions any HELD modifier to CHORDING; ONE_SHOT modifiers are consumed in [consumeOneShot].
      */
     @MainThread
     fun onOtherKeyPressed() {
-        for ((idx, flow) in allModifierFlows.withIndex()) {
+        for ((idx, flow) in table.allFlows.withIndex()) {
             if (flow.value == ModifierKeyState.HELD) {
                 flow.value = ModifierKeyState.CHORDING
-                logTransition(
-                    ModifierType.values()[idx],
-                    "other_key",
-                    ModifierKeyState.HELD,
-                    ModifierKeyState.CHORDING
+                table.logTransition(
+                    ModifierType.values()[idx], "other_key",
+                    ModifierKeyState.HELD, ModifierKeyState.CHORDING
                 )
             }
         }
     }
 
-    /**
-     * Called after a non-modifier key press.
-     * If any modifier is ONE_SHOT, reset it to OFF.
-     */
+    /** Called after a non-modifier key press. Resets any ONE_SHOT modifier to OFF. */
     @MainThread
     fun consumeOneShot() {
-        if (_shiftState.value == ModifierKeyState.ONE_SHOT) {
-            _shiftState.value = ModifierKeyState.OFF
-            logTransition(ModifierType.SHIFT, "consume", ModifierKeyState.ONE_SHOT, ModifierKeyState.OFF)
-        }
-        if (_ctrlState.value == ModifierKeyState.ONE_SHOT) {
-            _ctrlState.value = ModifierKeyState.OFF
-            logTransition(ModifierType.CTRL, "consume", ModifierKeyState.ONE_SHOT, ModifierKeyState.OFF)
-        }
-        if (_altState.value == ModifierKeyState.ONE_SHOT) {
-            _altState.value = ModifierKeyState.OFF
-            logTransition(ModifierType.ALT, "consume", ModifierKeyState.ONE_SHOT, ModifierKeyState.OFF)
-        }
-        if (_metaState.value == ModifierKeyState.ONE_SHOT) {
-            _metaState.value = ModifierKeyState.OFF
-            logTransition(ModifierType.META, "consume", ModifierKeyState.ONE_SHOT, ModifierKeyState.OFF)
+        for (type in ModifierType.values()) {
+            val flow = table.getFlow(type)
+            if (flow.value == ModifierKeyState.ONE_SHOT) {
+                flow.value = ModifierKeyState.OFF
+                table.logTransition(type, "consume", ModifierKeyState.ONE_SHOT, ModifierKeyState.OFF)
+            }
         }
     }
 
     /**
-     * Reset all modifier state to OFF. Used by the debug-only
-     * RESET_KEYBOARD_MODE receiver so the e2e harness can recover from
-     * a prior test that left Shift LOCKED or a stale HELD pointer.
+     * Reset all modifier state to OFF. Used by the debug-only RESET_KEYBOARD_MODE receiver
+     * so the e2e harness can recover from a prior test that left Shift LOCKED or HELD.
      */
     @MainThread
     fun resetAll() {
-        _shiftState.value = ModifierKeyState.OFF
-        _ctrlState.value = ModifierKeyState.OFF
-        _altState.value = ModifierKeyState.OFF
-        _metaState.value = ModifierKeyState.OFF
-        shiftStateBeforeDown = ModifierKeyState.OFF
-        ctrlStateBeforeDown = ModifierKeyState.OFF
-        altStateBeforeDown = ModifierKeyState.OFF
-        metaStateBeforeDown = ModifierKeyState.OFF
-        shiftHeldPointerId = null
-        ctrlHeldPointerId = null
-        altHeldPointerId = null
-        metaHeldPointerId = null
-        shiftLastTapTime = 0L
-        ctrlLastTapTime = 0L
-        altLastTapTime = 0L
-        metaLastTapTime = 0L
+        table.resetAll()
     }
 
-    /**
-     * Computes the android.view.KeyEvent meta state flags from the current modifier state.
-     */
+    /** Computes android.view.KeyEvent meta state flags from the current modifier state. */
     fun getKeyEventMetaState(shifted: Boolean): Int {
         var meta = 0
-        if (shifted) meta = meta or (android.view.KeyEvent.META_SHIFT_ON or android.view.KeyEvent.META_SHIFT_LEFT_ON)
-        if (isCtrlActive()) meta = meta or (android.view.KeyEvent.META_CTRL_ON or android.view.KeyEvent.META_CTRL_LEFT_ON)
-        if (isAltActive()) meta = meta or (android.view.KeyEvent.META_ALT_ON or android.view.KeyEvent.META_ALT_LEFT_ON)
-        if (isMetaActive()) meta = meta or (android.view.KeyEvent.META_META_ON or android.view.KeyEvent.META_META_LEFT_ON)
+        if (shifted)        meta = meta or (android.view.KeyEvent.META_SHIFT_ON or android.view.KeyEvent.META_SHIFT_LEFT_ON)
+        if (isCtrlActive()) meta = meta or (android.view.KeyEvent.META_CTRL_ON  or android.view.KeyEvent.META_CTRL_LEFT_ON)
+        if (isAltActive())  meta = meta or (android.view.KeyEvent.META_ALT_ON   or android.view.KeyEvent.META_ALT_LEFT_ON)
+        if (isMetaActive()) meta = meta or (android.view.KeyEvent.META_META_ON  or android.view.KeyEvent.META_META_LEFT_ON)
         return meta
-    }
-
-    private fun getFlow(type: ModifierType): MutableStateFlow<ModifierKeyState> = when (type) {
-        ModifierType.SHIFT -> _shiftState
-        ModifierType.CTRL -> _ctrlState
-        ModifierType.ALT -> _altState
-        ModifierType.META -> _metaState
-    }
-
-    private fun getLastTapTime(type: ModifierType): Long = when (type) {
-        ModifierType.SHIFT -> shiftLastTapTime
-        ModifierType.CTRL -> ctrlLastTapTime
-        ModifierType.ALT -> altLastTapTime
-        ModifierType.META -> metaLastTapTime
-    }
-
-    private fun setLastTapTime(type: ModifierType, time: Long) {
-        when (type) {
-            ModifierType.SHIFT -> shiftLastTapTime = time
-            ModifierType.CTRL -> ctrlLastTapTime = time
-            ModifierType.ALT -> altLastTapTime = time
-            ModifierType.META -> metaLastTapTime = time
-        }
-    }
-
-    private fun getHeldPointerId(type: ModifierType): Int? = when (type) {
-        ModifierType.SHIFT -> shiftHeldPointerId
-        ModifierType.CTRL -> ctrlHeldPointerId
-        ModifierType.ALT -> altHeldPointerId
-        ModifierType.META -> metaHeldPointerId
-    }
-
-    private fun setHeldPointerId(type: ModifierType, pointerId: Int?) {
-        when (type) {
-            ModifierType.SHIFT -> shiftHeldPointerId = pointerId
-            ModifierType.CTRL -> ctrlHeldPointerId = pointerId
-            ModifierType.ALT -> altHeldPointerId = pointerId
-            ModifierType.META -> metaHeldPointerId = pointerId
-        }
-    }
-
-    private fun getStateBeforeDown(type: ModifierType): ModifierKeyState = when (type) {
-        ModifierType.SHIFT -> shiftStateBeforeDown
-        ModifierType.CTRL -> ctrlStateBeforeDown
-        ModifierType.ALT -> altStateBeforeDown
-        ModifierType.META -> metaStateBeforeDown
-    }
-
-    private fun setStateBeforeDown(type: ModifierType, state: ModifierKeyState) {
-        when (type) {
-            ModifierType.SHIFT -> shiftStateBeforeDown = state
-            ModifierType.CTRL -> ctrlStateBeforeDown = state
-            ModifierType.ALT -> altStateBeforeDown = state
-            ModifierType.META -> metaStateBeforeDown = state
-        }
     }
 }

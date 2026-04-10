@@ -253,6 +253,31 @@ class ModifierStateManager(
     }
 
     /**
+     * Reset all modifier state to OFF. Used by the debug-only
+     * RESET_KEYBOARD_MODE receiver so the e2e harness can recover from
+     * a prior test that left Shift LOCKED or a stale HELD pointer.
+     */
+    @MainThread
+    fun resetAll() {
+        _shiftState.value = ModifierKeyState.OFF
+        _ctrlState.value = ModifierKeyState.OFF
+        _altState.value = ModifierKeyState.OFF
+        _metaState.value = ModifierKeyState.OFF
+        shiftStateBeforeDown = ModifierKeyState.OFF
+        ctrlStateBeforeDown = ModifierKeyState.OFF
+        altStateBeforeDown = ModifierKeyState.OFF
+        metaStateBeforeDown = ModifierKeyState.OFF
+        shiftHeldPointerId = null
+        ctrlHeldPointerId = null
+        altHeldPointerId = null
+        metaHeldPointerId = null
+        shiftLastTapTime = 0L
+        ctrlLastTapTime = 0L
+        altLastTapTime = 0L
+        metaLastTapTime = 0L
+    }
+
+    /**
      * Computes the android.view.KeyEvent meta state flags from the current modifier state.
      */
     fun getKeyEventMetaState(shifted: Boolean): Int {

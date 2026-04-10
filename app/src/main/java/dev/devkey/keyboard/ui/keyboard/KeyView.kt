@@ -44,6 +44,7 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import dev.devkey.keyboard.Keyboard
 import dev.devkey.keyboard.core.KeyPressLogger
+import dev.devkey.keyboard.debug.DevKeyLogger
 import dev.devkey.keyboard.core.ModifierKeyState
 import dev.devkey.keyboard.core.ModifierStateManager
 import dev.devkey.keyboard.core.ModifierType
@@ -292,6 +293,14 @@ fun KeyView(
                         if (longPressTriggered && codes != null) {
                             // Dispatch selected candidate
                             val selectedCode = codes[popupActiveIndex]
+                            DevKeyLogger.text(
+                                "long_press_fired",
+                                mapOf(
+                                    "label" to key.primaryLabel,
+                                    "code" to key.primaryCode,
+                                    "lp_code" to selectedCode,
+                                )
+                            )
                             onKeyAction(selectedCode)
                             // Clear popup state
                             popupCodes = null
@@ -321,6 +330,14 @@ fun KeyView(
                                 )
                                 KeyPressLogger.logLongPress(key.primaryLabel, key.primaryCode, key.longPressCode)
                                 if (key.longPressCode != null) {
+                                    DevKeyLogger.text(
+                                        "long_press_fired",
+                                        mapOf(
+                                            "label" to key.primaryLabel,
+                                            "code" to key.primaryCode,
+                                            "lp_code" to key.longPressCode,
+                                        )
+                                    )
                                     onKeyAction(key.longPressCode)
                                 } else if (key.isRepeatable) {
                                     var repeatCount = 0

@@ -141,10 +141,11 @@ fun DevKeyKeyboard(
     //      left the keyboard in Symbols/Voice/Macro state can't poison
     //      coordinate lookups for the next test.
     if (KeyMapGenerator.isDebugBuild(context)) {
-        DisposableEffect(modeManager) {
+        DisposableEffect(modeManager, modifierState) {
             val receiver = object : android.content.BroadcastReceiver() {
                 override fun onReceive(c: android.content.Context, i: android.content.Intent) {
                     modeManager.setMode(KeyboardMode.Normal)
+                    modifierState.resetAll()
                     DevKeyLogger.ime("keyboard_mode_reset", mapOf("to" to "Normal"))
                 }
             }

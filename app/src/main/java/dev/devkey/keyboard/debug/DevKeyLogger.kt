@@ -137,7 +137,18 @@ object DevKeyLogger {
                 val json = JSONObject().apply {
                     put("category", category)
                     put("message", message)
-                    put("data", JSONObject(data.mapValues { it.value?.toString() }))
+                    put("data", JSONObject().apply {
+                        for ((k, v) in data) {
+                            when (v) {
+                                is Boolean -> put(k, v)
+                                is Int -> put(k, v)
+                                is Long -> put(k, v)
+                                is Double -> put(k, v)
+                                null -> put(k, JSONObject.NULL)
+                                else -> put(k, v.toString())
+                            }
+                        }
+                    })
                     hypothesisId?.let { put("hypothesis", it) }
                 }
                 val conn = URL("$url/log").openConnection() as HttpURLConnection

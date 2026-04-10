@@ -104,16 +104,20 @@ Naming: Use a short slug that identifies the bug area, e.g.:
 
 ## Research Agent Management (Deep Mode)
 
-When entering Deep mode, spawn the `debug-research-agent` in the background to parallelize codebase research while you instrument and reproduce the bug.
+When entering Deep mode, you may dispatch `debug-research-agent` for parallel,
+read-only codebase tracing while the main thread instruments and reproduces the
+bug.
 
 How to launch:
-- Use the `run_in_background` parameter when invoking the agent.
-- Provide the symptom description, area, and hypothesis H001 as the prompt.
-- The agent will search the codebase, query GH Issues for known patterns, and produce a research report.
-- Continue with Phases 2-4 in the main thread while the agent runs.
-- When the agent completes, incorporate its findings into your Phase 5 log analysis.
 
-The agent is read-only on code (no Edit/Write). Its Bash access is limited to `gh issue list` queries only.
+- Provide the symptom description, scoped files or suspected paths, and the
+  current hypothesis.
+- Continue with reproduction and instrumentation in the main thread while the
+  agent traces likely paths.
+- Fold the agent's findings back into root-cause analysis before proposing a
+  fix.
+
+The agent is read-only and should be used only for scoped exploration.
 
 ---
 

@@ -1,89 +1,59 @@
 ---
 name: brainstorming
-description: "You MUST use this before any creative work - creating features, building components, adding functionality, or modifying behavior. Explores user intent, requirements and design before implementation."
+description: "Use for large, ambiguous, or cross-cutting work that needs scope, success criteria, and constraints locked before planning."
+user-invocable: true
+disable-model-invocation: true
 ---
 
-# Brainstorming Ideas Into Designs
+# Brainstorming
 
-## Overview
+Turn an idea into an approved spec at
+`.claude/specs/YYYY-MM-DD-<slug>-spec.md`.
 
-Help turn ideas into fully formed designs and specs through natural collaborative dialogue.
+## When To Use
 
-Start by understanding the current project context, then ask questions one at a time to refine the idea. Once you understand what you're building, present the design and get user approval.
+Use this skill when the work is:
 
-<HARD-GATE>
-Do NOT invoke any implementation skill, write any code, scaffold any project, or take any implementation action until you have presented a design and the user has approved it. This applies to EVERY project regardless of perceived simplicity.
-</HARD-GATE>
+- large or cross-cutting
+- ambiguous or under-specified
+- behavior-changing enough that success criteria need to be locked first
+- risky enough that implementation should not start from assumptions
 
-## Anti-Pattern: "This Is Too Simple To Need A Design"
+Skip it for small, clear, implementation-ready requests.
 
-Every project goes through this process. A todo list, a single-function utility, a config change — all of them. "Simple" projects are where unexamined assumptions cause the most wasted work. The design can be short (a few sentences for truly simple projects), but you MUST present it and get approval.
+## Hard Gate
 
-## Checklist
+If brainstorming is warranted, do not plan or implement until the spec is
+written and approved by the user.
 
-You MUST create a task for each of these items and complete them in order:
+## Workflow
 
-1. **Explore project context** — check files, docs, recent commits
-2. **Ask clarifying questions** — one at a time, understand purpose/constraints/success criteria
-3. **Propose 2-3 approaches** — with trade-offs and your recommendation
-4. **Present design** — in sections scaled to their complexity, get user approval after each section
-5. **Write spec** — save to `.claude/specs/YYYY-MM-DD-<topic>-spec.md`
+1. Explore the current repo surface that the idea will touch.
+2. Ask focused questions to lock:
+   - user goal
+   - success criteria
+   - constraints
+   - non-goals
+3. Present 2-3 approaches with a recommendation.
+4. Present the proposed design in compact sections.
+5. Revise until the user approves.
+6. Write the approved spec to `.claude/specs/YYYY-MM-DD-<slug>-spec.md`.
 
-## Process Flow
+## Spec Expectations
 
-```dot
-digraph brainstorming {
-    "Explore project context" [shape=box];
-    "Ask clarifying questions" [shape=box];
-    "Propose 2-3 approaches" [shape=box];
-    "Present design sections" [shape=box];
-    "User approves design?" [shape=diamond];
-    "Write spec" [shape=doublecircle];
+The spec should be decision-complete enough for `/tailor` and `/writing-plans`.
+Include:
 
-    "Explore project context" -> "Ask clarifying questions";
-    "Ask clarifying questions" -> "Propose 2-3 approaches";
-    "Propose 2-3 approaches" -> "Present design sections";
-    "Present design sections" -> "User approves design?";
-    "User approves design?" -> "Present design sections" [label="no, revise"];
-    "User approves design?" -> "Write spec" [label="yes"];
-}
-```
+- user-visible goal
+- scope and non-goals
+- architecture or flow summary
+- acceptance criteria
+- constraints and risks
+- touched files or subsystems when already known
 
-**The terminal state is writing the spec file.** Do NOT invoke any implementation skill or write code. After writing the spec, offer to invoke `/writing-plans` next.
+## Output
 
-## The Process
+After saving the spec, point to the saved file and recommend the next step:
 
-**Understanding the idea:**
-- Check out the current project state first (files, docs, recent commits)
-- Ask questions one at a time to refine the idea
-- Prefer multiple choice questions when possible, but open-ended is fine too
-- Only one question per message - if a topic needs more exploration, break it into multiple questions
-- Focus on understanding: purpose, constraints, success criteria
-
-**Exploring approaches:**
-- Propose 2-3 different approaches with trade-offs
-- Present options conversationally with your recommendation and reasoning
-- Lead with your recommended option and explain why
-
-**Presenting the design:**
-- Once you believe you understand what you're building, present the design
-- Scale each section to its complexity: a few sentences if straightforward, up to 200-300 words if nuanced
-- Ask after each section whether it looks right so far
-- Cover: architecture, components, data flow, error handling, testing
-- Be ready to go back and clarify if something doesn't make sense
-
-## After the Design
-
-**Spec file:**
-- Write the validated design to `.claude/specs/YYYY-MM-DD-<topic>-spec.md`
-- Use elements-of-style:writing-clearly-and-concisely skill if available
-- Offer to invoke `/writing-plans` next to produce an implementation plan from the spec
-
-## Key Principles
-
-- **One question at a time** - Don't overwhelm with multiple questions
-- **Multiple choice preferred** - Easier to answer than open-ended when possible
-- **YAGNI ruthlessly** - Remove unnecessary features from all designs
-- **Explore alternatives** - Always propose 2-3 approaches before settling
-- **Incremental validation** - Present design, get approval before moving on
-- **Be flexible** - Go back and clarify when something doesn't make sense
+- `/tailor` if implementation context still needs to be mapped
+- `/writing-plans` if the spec already names the implementation surface clearly

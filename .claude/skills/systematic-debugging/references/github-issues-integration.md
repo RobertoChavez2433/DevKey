@@ -71,23 +71,17 @@ gh issue list --repo RobertoChavez2433/DevKey --label "area:<area>" --state open
 
 ---
 
-## Phase 10 (DEFECT LOG) Creation Command
+## Defect Filing Template
 
-```bash
-gh issue create --repo RobertoChavez2433/DevKey \
-  --title "[CATEGORY] YYYY-MM-DD: Brief Title" \
-  --label "defect,category:<CAT>,area:<AREA>,priority:<P>" \
-  --body "$(cat <<'EOF'
-**Pattern**: ...
-**Prevention**: ...
-**Ref**: file:line
-EOF
-)"
-```
+If the user wants a new GitHub defect recorded, capture:
 
-Replace:
-- `[CATEGORY]` with one of: `IME`, `UI`, `MODIFIER`, `NATIVE`, `BUILD`, `TEXT`, `VOICE`, `ANDROID`
-- `YYYY-MM-DD` with today's date
-- `<CAT>` with the lowercase category (e.g., `IME`)
-- `<AREA>` with the area slug (e.g., `ime-lifecycle`)
-- `<P>` with priority: `critical`, `high`, `medium`, or `low`
+- title
+- category
+- area
+- priority
+- short pattern summary
+- short prevention note
+- `file:line` references
+
+Use the existing repo issue workflow for creation instead of inventing a local
+defect file.

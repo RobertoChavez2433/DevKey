@@ -1,165 +1,83 @@
 ---
 name: implement
-description: "Spawn an orchestrator agent to implement a plan. Main window stays clean as a pure supervisor."
+description: "Execute approved implementation plans with generic workers, per-phase completeness checks, and a final scoped review gate."
 user-invocable: true
+disable-model-invocation: true
 ---
 
-# /implement — Pure Supervisor
+# Implement
 
-You are the **supervisor**. You spawn orchestrator agents via the Agent tool (Task) and handle handoffs. You do NOT read source files, review agent output, or write code.
+Execute an approved plan as a thin orchestrator. The main conversation stays
+small, reads only the plan metadata plus the active phase slice, and dispatches
+all real implementation work through generic workers and scoped reviewers.
 
-<IRON-LAW>
-1. **NEVER use headless mode.** No `claude --bare`, no `claude --agent`, no `--print`, no CLI invocations of Claude. Everything goes through the Agent tool (Task).
-2. **Supervisor never edits source.** Allowed writes: ONLY `.claude/state/implement-checkpoint.json` (initialize or delete).
-3. **Supervisor never reads plan content.** Only plan metadata (phase names, line ranges). The orchestrator and implementers read the plan themselves.
-</IRON-LAW>
+## Iron Laws
 
----
+1. The orchestrator does not edit source files directly.
+2. The orchestrator does not load the full plan body into context at once.
+3. The orchestrator does not use checkpoint files or headless Claude flows.
+4. The orchestrator does not commit, push, or rewrite history.
+5. Workers and reviewers must receive only the scope they need.
 
-## Step 1: Accept the Plan
+## Allowed Tools
 
-1. User invokes `/implement <plan-path>` — bare filename searches `.claude/plans/` if needed
-2. Read the plan file **header only** — extract phase names + line ranges, `**Spec:**` path, `**Tailor:**` path (if present)
-3. Checkpoint path: `.claude/state/implement-checkpoint.json`
-4. Checkpoint existence check:
-   - **Missing** → start fresh
-   - **Exists + same plan path** → ask user "Resume from checkpoint (phases done: N) or start fresh?"
-   - **Exists + different plan** → delete checkpoint, start fresh
-5. Present phase list to user and confirm before starting
+The main conversation may use:
 
----
+- Read
+- Glob
+- Grep
+- Task
 
-## Step 2: Initialize Checkpoint (if starting fresh)
+## Inputs
 
-Write `.claude/state/implement-checkpoint.json`:
+Required:
 
-```json
-{
-  "plan": "<absolute plan path>",
-  "spec": "<absolute spec path or null>",
-  "tailor": "<absolute tailor path or null>",
-  "phases": {
-    "1": {
-      "name": "...",
-      "plan_lines": "10-85",
-      "status": "pending",
-      "files_modified": [],
-      "decisions": [],
-      "completeness": { "verdict": null, "findings": [], "correction_rounds": 0 },
-      "build": null,
-      "fix_attempts": 0
-    }
-  },
-  "modified_files": [],
-  "decisions": [],
-  "end_gate": {
-    "status": "pending",
-    "cycles": [],
-    "low_findings": []
-  },
-  "blocked": []
-}
-```
+- plan path
 
-Add one entry per phase extracted from the plan header.
+Optional but usually present:
 
----
+- spec path
+- tailor path
 
-## Step 3: Dispatch Orchestrator via Agent Tool
+## Workflow
 
-Spawn a single foreground Task:
+1. Read the plan header and `Phase Ranges`.
+2. For each phase:
+   - read only the phase slice being executed
+   - identify files in scope
+   - dispatch 1-3 generic implementation workers with:
+     - the phase slice
+     - files in scope
+     - matching path-scoped rules
+     - `.claude/skills/implement/references/worker-rules.md`
+   - collect returned file lists and decisions
+   - run `completeness-review-agent` on that phase before moving on
+3. If phase completeness review finds issues, dispatch a generic fixer worker
+   with the same worker rules and rerun completeness review.
+4. After all phases are complete, run these reviewers in parallel:
+   - `code-review-agent`
+   - `security-agent`
+   - `completeness-review-agent`
+5. If the final review gate finds issues, dispatch a generic fixer worker and
+   rerun the full final gate up to 3 cycles.
+6. Report files changed, decisions made, verification status, and any open
+   risks.
 
-```
-Task tool call:
-  subagent_type: implement-orchestrator
-  description: "Execute implementation plan"
-  prompt: |
-    Plan file: {{PLAN_PATH}}
-    Spec file: {{SPEC_PATH}}
-    Tailor dir: {{TAILOR_PATH}}
-    Checkpoint file: {{CHECKPOINT_PATH}}
+## Worker Expectations
 
-    Execute the full orchestration loop defined in your agent frontmatter.
-    Return DONE, HANDOFF, or BLOCKED.
-```
+- Generic workers own code edits and local verification.
+- Generic workers must read the matching path-scoped rules before editing.
+- Worker prompts must inline
+  `.claude/skills/implement/references/worker-rules.md`.
+- Reviewer prompts must inline
+  `.claude/skills/implement/references/reviewer-rules.md`.
 
-Replace `{{PLAN_PATH}}`, `{{SPEC_PATH}}`, `{{TAILOR_PATH}}`, `{{CHECKPOINT_PATH}}` with actual absolute paths. Set `{{SPEC_PATH}}` and `{{TAILOR_PATH}}` to `null` if not present.
+## Hard Gates
 
-No headless flags. No `--print`. No `--json-schema`. No `tee` pipelines. No `stream-filter.py`. No `extract-result.py`. Just one Task call.
+Do not start implementation until the plan exists and includes `Phase Ranges`.
 
----
+Do not present implementation as complete until:
 
-## Step 4: Handle Return Status (loop)
-
-```
-while status != DONE:
-  result = Task(subagent_type=implement-orchestrator, ...)
-  status = parse(result)
-
-  if status == HANDOFF:
-    log cycle count
-    spawn a fresh orchestrator (Step 3 again)
-
-  if status == BLOCKED:
-    present blocked item(s) to user
-    options: fix manually / skip / adjust plan
-    if user resolves → update checkpoint, spawn again
-    if user gives up → break
-
-  if status == DONE:
-    break
-```
-
-Each fresh orchestrator dispatch reads the checkpoint to determine where to resume.
-
----
-
-## Step 5: Final Summary
-
-Read checkpoint to compile the summary. Present to user:
-
-```
-## Implementation Complete
-
-**Plan**: [filename]
-**Orchestrator cycles**: N (M handoffs)
-**Phases**: N/N complete
-
-### Per-Phase Completeness
-Phase 1 — APPROVED (0 correction rounds)
-Phase 2 — APPROVED (1 correction round)
-...
-
-### End-of-Plan Quality Gate
-- Build: PASS
-- Lint: PASS
-- Code Review: PASS (cycle 1)
-- Security Review: PASS (cycle 1)
-- Completeness Review: PASS (cycle 1)
-
-### Files Modified
-[deduped list from checkpoint modified_files]
-
-### Decisions Made
-[list from checkpoint decisions]
-
-### Low Findings (logged, not fixed)
-[count from checkpoint end_gate.low_findings]
-
-Ready to review and commit.
-```
-
-**Supervisor does NOT commit or push.**
-
----
-
-## Troubleshooting
-
-| Symptom | Action |
-|---------|--------|
-| Orchestrator returns BLOCKED immediately | Read the `blocked` array in checkpoint. Resolve the blocker manually or skip the blocked step, then re-dispatch. |
-| Orchestrator returns HANDOFF after partial progress | Normal — context limit hit. Spawn fresh orchestrator; it will resume from checkpoint. |
-| Build fails repeatedly after 3 fixer attempts | Orchestrator will return BLOCKED. Present error to user; fix manually in editor, then re-dispatch. |
-| Checkpoint has stale data from a different plan | Delete `.claude/state/implement-checkpoint.json` and start fresh. |
-| User wants to skip a phase | Update checkpoint manually: set that phase's `status` to `"skipped"`, then re-dispatch. |
-| Orchestrator cycles exceed 10 | Investigate whether the plan has circular dependencies or the build is fundamentally broken. |
+1. every phase is executed
+2. per-phase completeness checks pass
+3. the final review gate passes or is explicitly escalated

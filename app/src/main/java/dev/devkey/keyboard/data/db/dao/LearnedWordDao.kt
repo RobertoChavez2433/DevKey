@@ -24,6 +24,12 @@ interface LearnedWordDao {
     @Query("SELECT * FROM learned_words WHERE word = :word AND context_app = :contextApp LIMIT 1")
     suspend fun findWord(word: String, contextApp: String?): LearnedWordEntity?
 
+    @Query("SELECT * FROM learned_words WHERE word = :word LIMIT 1")
+    suspend fun findWordAny(word: String): LearnedWordEntity?
+
+    @Query("SELECT * FROM learned_words WHERE is_user_added = 1 ORDER BY word ASC")
+    fun getUserAddedWords(): Flow<List<LearnedWordEntity>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(word: LearnedWordEntity): Long
 

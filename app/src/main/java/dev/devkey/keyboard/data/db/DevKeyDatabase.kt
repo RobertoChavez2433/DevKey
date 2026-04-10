@@ -13,6 +13,7 @@ import dev.devkey.keyboard.data.db.entity.ClipboardHistoryEntity
 import dev.devkey.keyboard.data.db.entity.CommandAppEntity
 import dev.devkey.keyboard.data.db.entity.LearnedWordEntity
 import dev.devkey.keyboard.data.db.entity.MacroEntity
+import androidx.room.migration.Migration
 import dev.devkey.keyboard.feature.macro.DefaultMacros
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -26,7 +27,7 @@ import kotlinx.coroutines.launch
         ClipboardHistoryEntity::class,
         CommandAppEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = true
 )
 abstract class DevKeyDatabase : RoomDatabase() {
@@ -48,12 +49,19 @@ abstract class DevKeyDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_2_3 = Migration(2, 3) { db ->
+            db.execSQL(
+                "ALTER TABLE learned_words ADD COLUMN is_user_added INTEGER NOT NULL DEFAULT 0"
+            )
+        }
+
         private fun buildDatabase(context: Context): DevKeyDatabase {
             return Room.databaseBuilder(
                 context.applicationContext,
                 DevKeyDatabase::class.java,
                 DATABASE_NAME
-            ).fallbackToDestructiveMigration()
+            ).addMigrations(MIGRATION_2_3)
+            .fallbackToDestructiveMigration()
             .addCallback(object : RoomDatabase.Callback() {
                 override fun onCreate(db: SupportSQLiteDatabase) {
                     super.onCreate(db)

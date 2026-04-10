@@ -19,5 +19,8 @@ data class LearnedWordEntity(
     val contextApp: String? = null,
 
     @ColumnInfo(name = "is_command")
-    val isCommand: Boolean = false
+    val isCommand: Boolean = false,
+
+    @ColumnInfo(name = "is_user_added", defaultValue = "0")
+    val isUserAdded: Boolean = false
 )

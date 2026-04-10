@@ -1,59 +1,69 @@
-# .claude/ Documentation Index
+# .claude Index
 
-## Skills
+This index describes the live Claude workflow surface for DevKey. Treat plans,
+tailor output, logs, and test artifacts as support material, not default
+context.
 
-| Skill | File | Purpose |
-|-------|------|---------|
-| `/brainstorming` | `skills/brainstorming/SKILL.md` | Collaborative design → spec |
-| `/writing-plans` | `skills/writing-plans/SKILL.md` | Spec → dependency graph → implementation plan |
-| `/implement` | `skills/implement/SKILL.md` | Plan → autonomous execution (dispatch, review, verify) |
-| `/systematic-debugging` | `skills/systematic-debugging/SKILL.md` | 10-phase root cause analysis |
-| `/test` | `skills/test/SKILL.md` | ADB automated keyboard testing |
-| `/audit-config` | `skills/audit-config/SKILL.md` | `.claude/` health check |
-| `/tailor` | `skills/tailor/SKILL.md` | Tailor a spec for implementation planning |
-| `/resume-session` | `skills/resume-session/SKILL.md` | Session start — load HOT context |
-| `/end-session` | `skills/end-session/SKILL.md` | Session end — save state with auto-archiving |
+## Stable References
 
-## Agents
+| Path | Purpose |
+|------|---------|
+| `specs/pre-release-spec.md` | Active umbrella pre-release spec |
+| `docs/reference/key-coordinates.md` | Durable coordinate fallback reference |
 
-| Agent | File | Model | Tools | Scope |
-|-------|------|-------|-------|-------|
-| `implement-orchestrator` | `agents/implement-orchestrator.md` | opus | Read, Glob, Grep, Task, Write | Orchestrates plan execution; dispatches to specialist agents |
-| `ime-core-agent` | `agents/ime-core-agent.md` | sonnet | Read, Edit, Write, Bash, Glob, Grep | IME core: LatinIME, KeyEventSender, ModifierStateManager, InputConnection |
-| `compose-ui-agent` | `agents/compose-ui-agent.md` | sonnet | Read, Edit, Write, Bash, Glob, Grep | Compose UI: keyboard layouts, themes, KeyView, ActionBridge |
-| `code-review-agent` | `agents/code-review-agent.md` | opus | Read, Grep, Glob, Bash | Read-only code quality reviewer; files defects via `gh issue` |
-| `security-agent` | `agents/security-agent.md` | opus | Read, Grep, Glob, Bash | Read-only security auditor across 8 IME-specific domains |
-| `debug-research-agent` | `agents/debug-research-agent.md` | sonnet | Read, Grep, Glob, Bash | Background research during deep debugging sessions |
-| `plan-writer-agent` | `agents/plan-writer-agent.md` | opus | Read, Write, Glob, Grep | Writes plan fragments for large plans split across agents |
-| `plan-fixer-agent` | `agents/plan-fixer-agent.md` | opus | Read, Edit, Grep, Glob | Addresses review findings on a plan via surgical edits |
-| `completeness-review-agent` | `agents/completeness-review-agent.md` | opus | Read, Grep, Glob | Reviews a plan against its spec for drift, gaps, missing requirements |
-| `test-orchestrator-agent` | `agents/test-orchestrator-agent.md` | sonnet | Bash, Read, Write, Grep, Glob, Edit | Orchestrates ADB-based automated keyboard testing; builds APK, dispatches waves |
-| `test-wave-agent` | `agents/test-wave-agent.md` | sonnet | Bash, Read, Write, Edit | Executes a wave of keyboard test flows on ADB-connected device |
+## Live Skills
 
-## Rules
+| Skill | Purpose |
+|-------|---------|
+| `/brainstorming` | Lock intent and write an approved spec for larger or ambiguous work |
+| `/tailor` | Build a CodeMunch-backed context package for an approved spec |
+| `/writing-plans` | Turn approved spec + tailor output into an executable plan |
+| `/implement` | Execute an approved plan with generic workers and scoped reviewers |
+| `/systematic-debugging` | Run evidence-first debugging without skipping to fixes |
+| `/test` | Run the existing ADB/HTTP-driver test harness and capture artifacts |
+| `/audit-config` | Audit the live `.claude` surface for drift and stale references |
+| `/resume-session` | Load hot status only |
+| `/end-session` | Compress session state and handoff notes |
 
-Auto-loaded by Claude when matching files are opened.
+## Live Agents
 
-| Rule File | Paths Trigger | Covers |
-|-----------|--------------|--------|
-| `rules/ime-lifecycle.md` | `**/LatinIME.kt`, `**/InputMethodService*` | IME lifecycle, onCreate() init order, serviceScope |
-| `rules/compose-keyboard.md` | `**/ui/keyboard/**`, `**/ui/theme/**` | Compose keyboard layout, theme tokens, bridge pattern |
-| `rules/jni-bridge.md` | `**/pckeyboard/**` | JNI bridge — never rename the Java class |
-| `rules/build-config.md` | `**/build.gradle*`, `**/proguard*` | Gradle DSL, version catalogs, ProGuard |
+| Agent | Purpose |
+|-------|---------|
+| `code-review-agent` | Scoped read-only correctness and maintainability review |
+| `security-agent` | Scoped read-only security review |
+| `completeness-review-agent` | Spec/plan/implementation drift review |
+| `debug-research-agent` | Read-only tracing support for deep debugging |
+| `plan-writer-agent` | Writes plan fragments for unusually large plans |
 
-## State Files
+## Path-Scoped Rules
 
-| File | Location | Purpose |
-|------|----------|---------|
-| `_state.md` | `autoload/_state.md` | Hot session state — auto-loaded each session (max 5 entries) |
-| `PROJECT-STATE.json` | `state/PROJECT-STATE.json` | Structured project state: feature matrix, sessions, milestones |
-| `FEATURE-MATRIX.json` | `state/FEATURE-MATRIX.json` | Feature completion tracking matrix |
-| `implement-checkpoint.json` | `state/implement-checkpoint.json` | Checkpoint file for `/implement` plan execution progress |
+| Rule | Covers |
+|------|--------|
+| `rules/build-config.md` | Gradle, SDK, dependency, and release-config rules |
+| `rules/compose-keyboard.md` | Compose keyboard UI, theme tokens, bridge boundaries |
+| `rules/ime-lifecycle.md` | IME startup, lifecycle, and service-scope behavior |
+| `rules/jni-bridge.md` | Locked JNI package/class and native bridge safety |
+| `rules/modifier-state.md` | Modifier state transitions and mode-reset behavior |
+| `rules/settings-data.md` | Settings, Room, repositories, and export/import safety |
+| `rules/testing-infra.md` | Debug server, E2E harness, and test artifact conventions |
 
-## Defects
+## Hot State
 
-Defects live as GitHub Issues on `RobertoChavez2433/DevKey` with the `defect` label.
+| File | Purpose |
+|------|---------|
+| `autoload/_state.md` | Current phase, blockers, recent sessions |
+| `memory/MEMORY.md` | Durable project truths and high-value gotchas |
+| `state/PROJECT-STATE.json` | Structured project metadata when explicitly needed |
+| `state/FEATURE-MATRIX.json` | Structured feature status when explicitly needed |
 
-- All open defects: `gh issue list --repo RobertoChavez2433/DevKey --label defect --state open`
-- By area: `gh issue list --repo RobertoChavez2433/DevKey --label "area:<area>"` (see label taxonomy in `skills/systematic-debugging/references/github-issues-integration.md`)
-- Historical archive: `.claude/logs/defects-archive-final.md` (snapshot at migration time — NOT updated)
+## Artifact Stores
+
+Load these only when the task needs them:
+
+- `plans/`
+- `tailor/`
+- `logs/`
+- `test-flows/`
+- `test-results/`
+- `archive/`
+- `outputs/`

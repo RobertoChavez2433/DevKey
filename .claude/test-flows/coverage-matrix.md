@@ -1,6 +1,6 @@
 # Phase 2.5 Coverage Matrix
 
-Maps every Phase 1 feature (from `.claude/specs/2026-04-08-pre-release-vision-spec.md` §2.1)
+Maps every Phase 1 feature (from `.claude/specs/pre-release-spec.md` §2.1)
 to its backing automated test flow(s). Per spec §6 Phase 2 item 2.5 every Phase 1 feature
 must have at least one automated test flow — Phase 2 delivers that bar.
 

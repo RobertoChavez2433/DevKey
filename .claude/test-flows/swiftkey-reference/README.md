@@ -1,6 +1,6 @@
 # SwiftKey Reference Screenshots (internal-use-only)
 
-**Scope**: Spec `.claude/specs/2026-04-08-pre-release-vision-spec.md` §4.4 Ground Truth.
+**Scope**: Spec `.claude/specs/pre-release-spec.md` §4.4 Ground Truth.
 **Legal**: Per spec §8 Risk Register — "capture reference screenshots for
 internal comparison only, do not redistribute them." These files must NOT
 leave this repository and MUST NOT be published to any mirror, release

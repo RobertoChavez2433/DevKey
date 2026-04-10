@@ -7,9 +7,9 @@
 
 ## Steps
 
-### Step 1: Update `key-coordinates.md` with calibrated Y values
+### Step 1: Update `.claude/docs/reference/key-coordinates.md` with calibrated Y values
 
-**File**: `.claude/logs/key-coordinates.md`
+**File**: `.claude/docs/reference/key-coordinates.md`
 
 1. Replace all FULL mode row Y centers with calibrated values:
    - Number: 1599 → 1475

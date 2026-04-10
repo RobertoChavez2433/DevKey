@@ -1,7 +1,7 @@
 # Phase 1.6 — Voice E2E Verification Checklist
 
-**Spec**: `.claude/specs/2026-04-08-pre-release-vision-spec.md` §5.3
-**Plan**: `.claude/plans/2026-04-08-pre-release-phase1.md` Phase 7
+**Spec**: `.claude/specs/pre-release-spec.md` §5.3
+**Plan**: `.claude/archive/2026-04-08-pre-release/plans/phase1.md` Phase 7
 
 ## Preconditions
 

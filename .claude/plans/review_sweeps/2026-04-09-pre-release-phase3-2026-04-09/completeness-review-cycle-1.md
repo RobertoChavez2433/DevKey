@@ -1,7 +1,7 @@
 # Completeness Review: Phase 3 Regression Gate Plan — 2026-04-09 (Cycle 1)
 
 **Plan:** `.claude/plans/2026-04-09-pre-release-phase3.md`
-**Spec:** `.claude/specs/2026-04-08-pre-release-vision-spec.md`
+**Spec:** `.claude/specs/pre-release-spec.md`
 **Reviewer:** completeness-review-agent (cycle 1)
 
 ## Summary

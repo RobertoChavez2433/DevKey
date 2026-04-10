@@ -73,7 +73,7 @@ gh issue create \
 | List open defects | `gh issue list --repo RobertoChavez2433/DevKey --label defect --state open` |
 | Record a Phase 3 gate re-run | Append to `tier-stabilization-status.md` with commit SHA + mode |
 | Commit a stabilization-in-place fix | Normal commit on main (plan tracks it) |
-| Bounce to Phase 1 | Update `.claude/plans/2026-04-08-pre-release-phase1.md` with the re-open block |
+| Bounce to Phase 1 | Update `.claude/archive/2026-04-08-pre-release/plans/phase1.md` with the re-open block |
 
 ## Anti-patterns
 - **Do not** silently patch app code under a Phase 3 commit. Every app

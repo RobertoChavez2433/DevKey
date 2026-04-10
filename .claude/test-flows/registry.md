@@ -53,7 +53,7 @@ When `/test` runs with no arguments:
      - 4b. **Cache**: Read `.claude/test-flows/calibration.json` if it exists (device-specific runtime data)
      - 4c. **Y-scan probe (slow path)**: Binary search for keyboard top Y by tapping at candidate Y positions and checking logcat. Saves results to `calibration.json` for future runs.
   5. Tap the 'h' key at coordinates from the resolved coordinate table and verify `DevKeyPress` logcat entry with `code=104` appears
-  6. If all calibration tiers fail, use pre-calibrated coordinates from key-coordinates.md as final fallback
+  6. If all calibration tiers fail, use pre-calibrated coordinates from `.claude/docs/reference/key-coordinates.md` as final fallback
 - **verify**: Keyboard is visible in screenshot in Normal mode. At least one key tap produces a `DevKeyPress` logcat entry. Key coordinates are resolved and passed to all wave agents. Calibration source is logged (broadcast/cache/scan/fallback).
 - **timeout**: 30s
 - **notes**: This flow is a dependency for all other flows. It establishes that the keyboard is functional and coordinates are calibrated. The orchestrator runs calibration (step 4) and passes resolved coordinates to ALL wave agents — agents never parse DevKeyMap themselves. Force-stop in step 2 guarantees a clean Normal mode start.

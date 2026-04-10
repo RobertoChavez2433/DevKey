@@ -7,7 +7,7 @@ current state — Phase 2 landed, tier stabilization deferred — to a green
 decision gate on §3.1–§3.7, escalating §3.2 / §3.5 gate-gaps per the
 defect-triage routing rules when upstream Phase 1 work is incomplete.
 
-**Spec:** `.claude/specs/2026-04-08-pre-release-vision-spec.md` (§6 Phase 3)
+**Spec:** `.claude/specs/pre-release-spec.md` (§6 Phase 3)
 **Tailor:** `.claude/tailor/2026-04-09-pre-release-phase3/`
 
 **Architecture:** Phase 3 is execution-shaped, not code-shaped. No production
@@ -636,7 +636,7 @@ user for a spec amendment.
    | COMPACT | <sha> | <n> | 0 | 0 | <n> | see `.claude/test-results/2026-04-09_phase3_gate/compact/summary.md` |
    | COMPACT_DEV | <sha> | <n> | 0 | 0 | <n> | see `.claude/test-results/2026-04-09_phase3_gate/compact_dev/summary.md` |
 
-   SKIPs are spec-sanctioned (see `.claude/specs/2026-04-08-pre-release-vision-spec.md`
+   SKIPs are spec-sanctioned (see `.claude/specs/pre-release-spec.md`
    §4.4.1 — reference capture gaps, §3.2 — voice model availability,
    `test_modifier_combos.py` — Tab absent from COMPACT layout).
    ```
@@ -921,7 +921,7 @@ left any tier red, this phase cannot produce a trustworthy signal.
    `artifacts/compact-*.png` and the SSIM score.
 
 5. **Do NOT lower the SSIM threshold in this plan.** The 0.92 floor was
-   chosen during Phase 2 planning (per `.claude/plans/2026-04-08-pre-release-phase2.md`
+   chosen during Phase 2 planning (per `.claude/archive/2026-04-08-pre-release/plans/phase2.md`
    design decisions) to accommodate emulator AA variance. Lowering it to
    paper over a real regression would violate spec §2.2 "Flaky tests must
    be stabilized, not suppressed." If the operator believes 0.92 is too
@@ -987,7 +987,7 @@ so "lint clean" becomes a build-native signal.
        // WHY: v1.0 Pre-Release Phase 3 §3.7 requires "lint clean" as a
        //      gate signal. With abortOnError=false the lint task exits 0
        //      regardless of errors — making the gate a no-op.
-       // FROM SPEC: .claude/specs/2026-04-08-pre-release-vision-spec.md §3.7.
+       // FROM SPEC: .claude/specs/pre-release-spec.md §3.7.
        // NOTE: If lint finds existing errors that predate Phase 3, triage
        //       them in sub-phase 4.3 (fix the high-severity ones, baseline
        //       the rest via updateLintBaseline and file follow-up issues).
@@ -1233,7 +1233,7 @@ red from earlier phases prevents this phase from closing.
    # Phase 3 Regression Gate — Decision Artifact
 
    **Plan:** `.claude/plans/2026-04-09-pre-release-phase3.md`
-   **Spec:** `.claude/specs/2026-04-08-pre-release-vision-spec.md` §6 Phase 3
+   **Spec:** `.claude/specs/pre-release-spec.md` §6 Phase 3
    **Date:** 2026-04-09
    **Operator:** <name or handle>
 

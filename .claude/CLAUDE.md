@@ -1,133 +1,75 @@
 # DevKey
 
-Open-source Android keyboard: Hacker's Keyboard power-user features + modern SwiftKey-inspired UX.
+Android IME fork of Hacker's Keyboard with Kotlin/Compose modernization,
+power-user key handling, and on-device-only input features.
 
-## Skills
+**Privacy is non-negotiable. Do not log typed text, weaken JNI safety, or turn
+test/debug helpers into production behavior.**
 
-| Skill | Purpose |
-|-------|---------|
-| `/brainstorming` | Collaborative design → spec |
-| `/writing-plans` | Spec → dependency graph → implementation plan |
-| `/implement` | Orchestrate plan execution (dispatch, review, verify) |
-| `/systematic-debugging` | 10-phase root cause analysis |
-| `/test` | ADB automated keyboard testing |
-| `/audit-config` | `.claude/` health check |
-| `/tailor` | Tailor a spec for implementation planning |
-| `/resume-session` | Load HOT context on session start |
-| `/end-session` | Session handoff with auto-archiving |
+## Startup Context
 
-### When to Use What
+- Use `.claude/autoload/_state.md` for current phase, blockers, and next tasks.
+- Use `.claude/memory/MEMORY.md` only for durable project patterns and gotchas.
+- Load only the `.claude/rules/` files that match the files being edited.
+- Do not preload broad historical artifacts from `.claude/plans/`, `.claude/tailor/`,
+  `.claude/test-results/`, or `.claude/archive/` unless the task needs them.
 
-| Situation | Use |
-|-----------|-----|
-| New feature or behavior change | `/brainstorming` → `/tailor` → `/writing-plans` → `/implement` |
-| Bug or unexpected behavior | `/systematic-debugging` |
-| Need tailored plan from a spec | `/tailor` then `/writing-plans` |
-| Writing or refining a plan | `/writing-plans` |
-| `.claude/` config drift or health | `/audit-config` |
-| Starting a session | `/resume-session` |
-| Ending a session | `/end-session` |
+## Working Rules
 
-## Tech Stack
+- For small, clear work, act directly. Use the full skill pipeline only for
+  medium or larger changes.
+- Keep `./gradlew assembleDebug` green. Use `./gradlew lint` when the touched
+  surface warrants it.
+- Do not use `./gradlew connectedAndroidTest` as a normal verification step; it
+  disrupts the installed IME state.
+- GitHub Issues are the durable defect record. Do not create local defect files.
+- Keep `.claude` live files lean. Plans, logs, tailor output, and test artifacts
+  are support material, not always-on context.
 
-| Component | Technology |
-|-----------|-----------|
-| Language | Kotlin (migrated from Java) + C++ NDK |
-| UI | Jetpack Compose |
-| AI/ML | TensorFlow Lite (on-device) |
-| Build | Gradle (Kotlin DSL) |
-| Min API | 26 (Android 8.0) |
-| Target API | 34 (Android 14) |
-| Base fork | github.com/klausw/hackerskeyboard |
+## Architecture
 
-## Domain Rules
+- Keep the project split intact: `core/`, `data/`, `feature/`, `ui/`, `debug/`.
+- `LatinIME.kt` is the Android boundary. New feature logic should not
+  accumulate there unless the IME lifecycle requires it.
+- `SettingsRepository` is the single source of truth for settings. Do not add
+  new direct `SharedPreferences` reads elsewhere.
+- Keep UI files thin: rendering and interaction belong in `ui/**`; persistence
+  and business logic belong outside the Compose surface.
+- Preserve the key dispatch chain: Compose/UI -> bridge -> `LatinIME` ->
+  `KeyEventSender`.
+- The JNI-bound dictionary path is locked to
+  `org.pocketworkstation.pckeyboard.BinaryDictionary`.
 
-Auto-loaded by Claude when matching files are opened. Details in `.claude/rules/`.
+## Build, Test, And Debug
 
-| Rule File | Paths Trigger | Covers |
-|-----------|--------------|--------|
-| `rules/ime-lifecycle.md` | `**/LatinIME.kt`, `**/InputMethodService*` | IME lifecycle, onCreate() init order, serviceScope |
-| `rules/compose-keyboard.md` | `**/ui/keyboard/**`, `**/ui/theme/**` | Compose keyboard layout, theme tokens, bridge pattern |
-| `rules/jni-bridge.md` | `**/pckeyboard/**` | JNI bridge — never rename the Java class |
-| `rules/build-config.md` | `**/build.gradle*`, `**/proguard*` | Gradle DSL, version catalogs, ProGuard |
+- Build and install commands live in Gradle plus the existing ADB/E2E harnesses.
+- On Windows, always use the Android emulator for verification; never use physical Android devices.
+- `adb install -r` does not reliably restart the IME process. Re-establish IME
+  state intentionally after installs.
+- The shared E2E harness lives under `tools/e2e/`; the HTTP debug/log server
+  lives under `tools/debug-server/`.
+- Prefer deterministic scripts and existing harness helpers over ad-hoc ADB
+  command sequences.
+- Debug logs may record structural state, key codes, and mode transitions, but
+  never typed content or credential-adjacent values.
 
-## Quick Reference Commands
+## Path-Scoped Rules
 
-```bash
-./gradlew assembleDebug    # Build debug APK
-./gradlew installDebug     # Install on connected device/emulator
-./gradlew lint             # Run lint checks
-```
+- `rules/build-config.md`
+- `rules/compose-keyboard.md`
+- `rules/ime-lifecycle.md`
+- `rules/jni-bridge.md`
+- `rules/modifier-state.md`
+- `rules/settings-data.md`
+- `rules/testing-infra.md`
 
-> Note: `./gradlew connectedAndroidTest` uninstalls the APK. Must reinstall + `ime enable` + `ime set` after.
+## On-Demand References
 
-## Common Mistakes
-
-1. **JNI bridge rename**: `org.pocketworkstation.pckeyboard.BinaryDictionary` is hardcoded in C++ — never rename.
-2. **Init order**: `sKeyboardSettings` MUST be initialized BEFORE `KeyboardSwitcher.init()` in `LatinIME.onCreate()`.
-3. **IME process survives `adb install -r`**: Always `am force-stop` + `ime set` after install for fresh code.
-4. **Compose lifecycle in IME**: `WindowRecomposer` resolves from the decor/root view's lifecycle. Share ONE lifecycle owner between decor and ComposeView via `ComposeKeyboardViewFactory.create()`.
-
-## Context Efficiency
-
-- **Parallel Tasks**: Dispatch independent sub-tasks concurrently; don't serialize what can overlap.
-- **Cap Explore at 3**: When researching unknown areas, limit initial file reads to 3 before forming a hypothesis.
-- **Summarize results**: After any research pass, summarize findings in 3-5 bullets before proceeding.
-
-## Directory Reference
-
-All directories under `.claude/`:
-
-| Directory | Purpose |
-|-----------|---------|
-| `agents/` | Specialist agent definitions (11 agents) |
-| `architecture-decisions/` | ADR log — architectural decisions with rationale |
-| `autoload/` | Hot state loaded every session (`_state.md`) |
-| `docs/` | Navigation index and reference documentation |
-| `hooks/` | Claude Code hook scripts |
-| `logs/` | Cold storage archives (state, test logs, key coordinates) |
-| `memory/` | Key learnings and patterns (`MEMORY.md`) |
-| `plans/` | Active implementation plans |
-| `plans/completed/` | Completed implementation plans |
-| `rules/` | Domain rules auto-loaded by file path pattern |
-| `skills/` | Skill definitions (9 skills) |
-| `specs/` | Feature specs (output of `/brainstorming`) |
-| `state/` | JSON state files (`PROJECT-STATE.json`, `FEATURE-MATRIX.json`) |
-| `test-flows/` | ADB test flow definitions and calibration data |
-| `test-results/` | Test run output and reports |
-| `agent-memory/` | Agent-specific memory and scratchpads |
-| `adversarial_reviews/` | Adversarial review outputs from plan review cycles |
-| `code-reviews/` | Code review reports from `code-review-agent` |
-| `dependency_graphs/` | Dependency graph outputs from `/writing-plans` |
-| `outputs/` | General agent outputs and artifacts |
-| `research/` | Research notes and reference documents |
-
-## Conventions
-
-### Kotlin/Android
-- **DI**: Manual — constructor injection
-- **UI**: Jetpack Compose with Material You
-- **State**: StateFlow + collectAsState()
-- **Async**: Kotlin Coroutines (structured concurrency, no GlobalScope)
-- **Database**: Room for learned data, clipboard, macros, command apps
-
-### IME-Specific
-- InputMethodService as core entry point
-- C++ NDK for dictionary lookup (liblatinime)
-- TF Lite for on-device voice recognition (Whisper)
-- Modifier keys: true multitouch state machine
-- Command mode: auto-detect terminal apps + manual toggle
-
-### Build
-- Gradle Kotlin DSL with version catalogs
-- ProGuard/R8 for release builds
-- Target both Play Store and F-Droid
-
-## Session
-
-- `/resume-session` — Load HOT context only
-- `/end-session` — Save state with auto-archiving
-- State: `.claude/autoload/_state.md` (max 5 sessions)
-- Defects: GitHub Issues on `RobertoChavez2433/DevKey` — filed via `gh issue create ... --label "defect,category:<CAT>,area:<AREA>,priority:<P>"`
-- Archives: `.claude/logs/state-archive.md`
-- All open defects: `gh issue list --repo RobertoChavez2433/DevKey --label defect --state open`
+- `.claude/docs/INDEX.md`
+- `.claude/docs/reference/`
+- `.claude/skills/`
+- `.claude/plans/`
+- `.claude/tailor/`
+- `.claude/test-flows/`
+- `.claude/test-results/`
+- `.claude/archive/`

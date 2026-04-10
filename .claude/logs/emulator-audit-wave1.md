@@ -9,7 +9,10 @@
 
 ## Summary
 
-First pass audit of DevKey on emulator after implementing the keyboard-layout-fix-plan. Found **8 bugs** across 3 severity levels. The app is functional as a basic keyboard, but the legacy Main activity landing page is severely outdated and several keyboard features don't work correctly.
+First pass audit of DevKey on emulator after the related keyboard-layout fix
+work landed. Found **8 bugs** across 3 severity levels. The app is functional
+as a basic keyboard, but the legacy Main activity landing page is severely
+outdated and several keyboard features don't work correctly.
 
 ---
 
@@ -58,7 +61,10 @@ First pass audit of DevKey on emulator after implementing the keyboard-layout-fi
 **Severity**: P1 — High
 **Screenshots**: `screen_kb_settings.png`, `screen_settings.png`
 
-**Description**: The keyboard-layout-fix-plan hardcoded keyboard height to 40% of screen. However, the DevKey Settings page has a "Height (Portrait)" slider set to **50%** and "Height (Landscape)" at **40%**. These two systems appear to conflict:
+**Description**: The related layout-fix work hardcoded keyboard height to 40%
+of screen. However, the DevKey Settings page has a "Height (Portrait)" slider
+set to **50%** and "Height (Landscape)" at **40%**. These two systems appear
+to conflict:
 
 - The Compose keyboard (`KeyboardView.kt`) calculates height as `screenHeightDp * 0.40`
 - The Settings UI exposes a user-adjustable height percentage
@@ -80,7 +86,10 @@ User reported "screen resizing didn't work" — the keyboard visually appears ro
 **Severity**: P2 — Medium
 **Screenshots**: `screen_settings.png`
 
-**Description**: The Settings page still shows "Suggestions in Landscape" toggle (enabled). The keyboard-layout-fix-plan **removed** the SuggestionBar composable from `DevKeyKeyboard.kt`. Settings related to suggestions/predictions may now be orphaned:
+**Description**: The Settings page still shows "Suggestions in Landscape"
+toggle (enabled). The related layout-fix work **removed** the SuggestionBar
+composable from `DevKeyKeyboard.kt`. Settings related to
+suggestions/predictions may now be orphaned:
 - "Suggestions in Landscape" toggle
 - "Candidate Scale" slider
 - "Show Suggestions" toggle

@@ -1,7 +1,7 @@
 # Phase 1.7 — Existing Feature Regression Smoke
 
-**Spec**: `.claude/specs/2026-04-08-pre-release-vision-spec.md` §2.1
-**Plan**: `.claude/plans/2026-04-08-pre-release-phase1.md` Phase 8
+**Spec**: `.claude/specs/pre-release-spec.md` §2.1
+**Plan**: `.claude/archive/2026-04-08-pre-release/plans/phase1.md` Phase 8
 **When to run**: AFTER Phase 1-7 of this plan have shipped AND before
 the Phase-2 umbrella spec (regression infrastructure) begins.
 

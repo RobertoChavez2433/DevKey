@@ -1,7 +1,7 @@
 # Phase 3 Regression Gate + SwiftKey Parity — In-Flight Progress
 
 **Plan:** `.claude/plans/2026-04-09-pre-release-phase3.md`
-**Spec:** `.claude/specs/2026-04-08-pre-release-vision-spec.md` (§6 Phase 3)
+**Spec:** `.claude/specs/pre-release-spec.md` (§6 Phase 3)
 **Started:** 2026-04-09
 **Updated:** 2026-04-09 (session 3 — parity gaps closed, visual_diff fixed, Whisper decision pending)
 **Status:** IN PROGRESS — UI parity **complete**; test suite **11p / 4f / 13e / 8s** after encoding fix (errors↑ because formerly-crashing tests now run to a real timeout instead of dying on cp1252).

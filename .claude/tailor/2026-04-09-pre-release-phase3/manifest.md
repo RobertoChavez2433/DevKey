@@ -1,6 +1,6 @@
 # Tailor Manifest — v1.0 Pre-Release Phase 3 (Regression Gate)
 
-**Spec:** `.claude/specs/2026-04-08-pre-release-vision-spec.md` §6 Phase 3
+**Spec:** `.claude/specs/pre-release-spec.md` §6 Phase 3
 **Slug:** `pre-release-phase3`
 **Tailor date:** 2026-04-09
 **Scope:** Phase 3 of the umbrella pre-release spec — the **Regression Gate**.
@@ -30,7 +30,7 @@ The Phase 3 plan therefore has two deliverable kinds:
 ## Files analyzed
 
 **Specs & checklists**
-- `.claude/specs/2026-04-08-pre-release-vision-spec.md` (§6 Phase 3 focus)
+- `.claude/specs/pre-release-spec.md` (§6 Phase 3 focus)
 - `.claude/test-flows/registry.md`
 - `.claude/test-flows/tier-stabilization-status.md` (the handoff from Phase 2 sub-phase 5.2)
 - `.claude/test-flows/coverage-matrix.md` (Phase 3 gate → mechanism mapping)
@@ -157,7 +157,7 @@ some steps reduce to no-ops):
 - [x] Step 2 — File outlines: not applicable (no production `.kt` files under
       modification; instrumentation signals verified by `Grep` instead).
 - [x] Step 3 — Dependency graph: covered via Phase 2 tailor artifacts
-      (`.claude/tailor/2026-04-08-pre-release-phase2/dependency-graph.md`) —
+      (`.claude/archive/2026-04-08-pre-release/tailor/phase2/dependency-graph.md`) —
       Phase 3 relies on the same graph, no new nodes.
 - [x] Step 4 — Blast radius: N/A (Phase 3 does not mutate production code).
 - [x] Step 5 — Find importers: N/A.

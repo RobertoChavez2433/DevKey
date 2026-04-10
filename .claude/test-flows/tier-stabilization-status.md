@@ -7,7 +7,7 @@
 ## Why deferred
 
 Sub-phase 5.2 of the v1.0 Pre-Release Phase 2 plan
-(`.claude/plans/2026-04-08-pre-release-phase2.md`) calls for iteratively running
+(`.claude/archive/2026-04-08-pre-release/plans/phase2.md`) calls for iteratively running
 `python tools/e2e/e2e_runner.py` across each of the three layout modes
 (FULL, COMPACT, COMPACT_DEV) until every test is green, classifying each failure
 as either a test-infrastructure defect (fix in-plan) or an app defect

@@ -100,7 +100,7 @@ DevKeyLogger.text("next_word_suggestions", mapOf("prev_word_length" to 0, "resul
 - `LatinIME.kt:403-422` — DUMP_KEY_MAP broadcast pattern (to mirror for `SET_LAYOUT_MODE`)
 - `SettingsRepository.KEY_LAYOUT_MODE` — preference key, values `"full"` / `"compact"` / `"compact_dev"`
 - `KeyMapGenerator.kt` — both precise and calculated coordinate paths
-- `.claude/logs/key-coordinates.md` — current FULL-only coordinate reference
+- `.claude/docs/reference/key-coordinates.md` — current FULL-only coordinate reference
 - `.claude/test-flows/registry.md:146-157` — `layout-modes` flow with "COMPACT/COMPACT_DEV not yet automated" note
 - `tools/e2e/lib/keyboard.py:45` — broken regex (Phase 2.4 bug fix)
 

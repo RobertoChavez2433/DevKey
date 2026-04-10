@@ -79,14 +79,14 @@
 **Changes**:
 - Add a debug-only broadcast to change the layout-mode preference (so tests don't need UIAutomator on the settings activity)
 - Fix whatever flakiness exists in the current 8 flows
-- Extend the coordinate calibration cascade to handle all 3 modes (currently `key-coordinates.md` documents FULL only)
+- Extend the coordinate calibration cascade to handle all 3 modes (currently `.claude/docs/reference/key-coordinates.md` documents FULL only)
 
 **Files likely touched**:
 | File | Direction | Why |
 |---|---|---|
 | `app/src/main/java/dev/devkey/keyboard/LatinIME.kt` | EDIT | Add `dev.devkey.keyboard.SET_LAYOUT_MODE` broadcast receiver (mirrors DUMP_KEY_MAP at line 404-422) |
 | `app/src/main/java/dev/devkey/keyboard/data/repository/SettingsRepository.kt` | NO EDIT | The preference key already exists (`KEY_LAYOUT_MODE`) |
-| `.claude/logs/key-coordinates.md` | EDIT | Add COMPACT + COMPACT_DEV rows (currently FULL-only) |
+| `.claude/docs/reference/key-coordinates.md` | EDIT | Add COMPACT + COMPACT_DEV rows (currently FULL-only) |
 | `.claude/test-flows/registry.md` | EDIT | Remove the "FULL mode only for now" note on layout-modes flow; add COMPACT/COMPACT_DEV variants |
 | `.claude/test-flows/calibration.json` | (generated at runtime, gitignored) | Regenerated per mode |
 

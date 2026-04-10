@@ -118,7 +118,7 @@ Binary search for keyboard top Y by tapping candidate positions and checking whi
 
 ## Pre-calibrated reference (final fallback)
 
-**File**: `.claude/logs/key-coordinates.md`
+**File**: `.claude/docs/reference/key-coordinates.md`
 
 Static table of coordinates calibrated on one emulator. FULL mode only. **Phase 2.4 must extend this file with COMPACT and COMPACT_DEV row tables.**
 

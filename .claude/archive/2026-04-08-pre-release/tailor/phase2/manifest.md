@@ -1,6 +1,6 @@
 # Tailor Manifest — v1.0 Pre-Release Phase 2 (Regression Infrastructure)
 
-**Spec**: `.claude/specs/2026-04-08-pre-release-vision-spec.md` (§6 Phase 2)
+**Spec**: `.claude/specs/pre-release-spec.md` (§6 Phase 2)
 **Slug**: `pre-release-phase2`
 **Tailor date**: 2026-04-08
 **Scope**: Phase 2 ONLY — items 2.1 through 2.5. Phases 1 (complete), 3, 4, 5 are out of scope.

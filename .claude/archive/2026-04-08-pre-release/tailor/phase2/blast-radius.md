@@ -94,7 +94,7 @@ None initially. AFTER Phase 2.4 stabilization, the plan may retire:
 
 ### Files touched in `.claude/`
 
-- `.claude/logs/key-coordinates.md` — add COMPACT + COMPACT_DEV rows
+- `.claude/docs/reference/key-coordinates.md` — add COMPACT + COMPACT_DEV rows
 - `.claude/test-flows/registry.md` — update layout-modes flow notes
 - `.claude/skills/test/references/ime-testing-patterns.md` — add COMPACT coordinate ranges
 

@@ -1,6 +1,6 @@
 # Tailor Manifest — DevKey Pre-Release Phase 1
 
-**Spec**: `.claude/specs/2026-04-08-pre-release-vision-spec.md`
+**Spec**: `.claude/specs/pre-release-spec.md`
 **Scope**: Phase 1 only (§6 Phase 1 in spec) — Feature Completion
 **Slug**: `2026-04-08-pre-release-phase1`
 **Tailor date**: 2026-04-08

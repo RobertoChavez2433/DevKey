@@ -4,8 +4,8 @@
 
 **Goal:** Stand up a sleep-free, HTTP-forwarded, state-gated regression infrastructure that covers every Phase 1 feature (voice, next-word, long-press, SwiftKey visual parity, mode switching) across FULL / COMPACT / COMPACT_DEV layouts.
 
-**Spec:** `.claude/specs/2026-04-08-pre-release-vision-spec.md` (§6 Phase 2)
-**Tailor:** `.claude/tailor/2026-04-08-pre-release-phase2/`
+**Spec:** `.claude/specs/pre-release-spec.md` (§6 Phase 2)
+**Tailor:** `.claude/archive/2026-04-08-pre-release/tailor/phase2/`
 
 **Architecture:** Phase 2 is overwhelmingly tooling work. IME-side changes are limited to two debug-only broadcast receivers (`ENABLE_DEBUG_SERVER`, `SET_LAYOUT_MODE`) and two new `DevKeyLogger.text` call sites inside `LatinIME.setNextSuggestions`. All heavy lifting happens in `tools/debug-server/` (extended into a test driver server with wave-gating and ADB dispatch) and `tools/e2e/` (Python harness upgraded from sleep-based assertions to HTTP-wait assertions, with new test modules for voice round-trip, next-word prediction, long-press coverage, and SwiftKey visual diff). Both run on the developer's machine — Node driver server and Python runner as separate processes, coupled via `http://127.0.0.1:3947`.
 
@@ -2037,14 +2037,14 @@ Adds one test module per new flow. Each module imports `from lib import driver, 
 
 Extends the existing FULL-mode coverage documentation to COMPACT and COMPACT_DEV, updates the `layout-modes` registry entry to remove the "FULL only for now" note, and creates a coverage matrix mapping every Phase 1 feature to its backing automated flow(s). Phase 5 is documentation-heavy — no new runtime code except one trivial regression-guard addition in the existing `test_modes.py`.
 
-### Sub-phase 5.1: Update key-coordinates.md with COMPACT/COMPACT_DEV rows
+### Sub-phase 5.1: Update `.claude/docs/reference/key-coordinates.md` with COMPACT/COMPACT_DEV rows
 
-**Files:** `.claude/logs/key-coordinates.md` (modify)
+**Files:** `.claude/docs/reference/key-coordinates.md` (modify)
 **Agent:** `general-purpose`
 
 **Steps:**
 
-1. Read the current `.claude/logs/key-coordinates.md`. It currently documents FULL mode only. Append two new sections:
+1. Read the current `.claude/docs/reference/key-coordinates.md`. It currently documents FULL mode only. Append two new sections:
 
    ```markdown
    ---
@@ -2198,7 +2198,7 @@ Extends the existing FULL-mode coverage documentation to COMPACT and COMPACT_DEV
    ```markdown
    # Phase 2.5 Coverage Matrix
 
-   Maps every Phase 1 feature (from `.claude/specs/2026-04-08-pre-release-vision-spec.md` §2.1)
+   Maps every Phase 1 feature (from `.claude/specs/pre-release-spec.md` §2.1)
    to its backing automated test flow(s). Per spec §6 Phase 2 item 2.5 every Phase 1 feature
    must have at least one automated test flow — Phase 2 delivers that bar.
 

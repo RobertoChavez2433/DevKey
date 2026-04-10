@@ -4,8 +4,8 @@
 
 **Goal:** Complete all v1.0 feature-completion work (voice asset bundle, SwiftKey reference capture, plugin security gate, next-word prediction wiring, long-press popup data fill, layout fidelity tuning, voice end-to-end verification, existing-feature regression) so that Phase 2 (regression infrastructure) can begin.
 
-**Spec:** `.claude/specs/2026-04-08-pre-release-vision-spec.md` (§6 Phase 1, items 1.1–1.8)
-**Tailor:** `.claude/tailor/2026-04-08-pre-release-phase1/`
+**Spec:** `.claude/specs/pre-release-spec.md` (§6 Phase 1, items 1.1–1.8)
+**Tailor:** `.claude/archive/2026-04-08-pre-release/tailor/phase1/`
 
 **Architecture:** No architectural churn. Edits are surgical: PluginManager gains a debug-build early-return, Suggest gains one new public method, LatinIME.setNextSuggestions is rewritten to call it, KeyData gets an optional `longPressCodes` field for multi-char popups, layout builders fill in long-press data, DevKeyTheme tokens are re-tuned against SwiftKey reference screenshots. Compose UI wiring, IME lifecycle, and the JNI bridge are untouched.
 
@@ -17,7 +17,7 @@
 
 ## Ground-Truth Discrepancies (from tailor — resolved here)
 
-All three discrepancies in `.claude/tailor/2026-04-08-pre-release-phase1/ground-truth.md` §Discrepancies are resolved as follows:
+All three discrepancies in `.claude/archive/2026-04-08-pre-release/tailor/phase1/ground-truth.md` §Discrepancies are resolved as follows:
 
 1. **Bigram gate `wordComposer.size() == 1`** (Suggest.kt:208) — resolved by adding a new public method `Suggest.getNextWordSuggestions(prevWord)` that runs the bigram path with `size() == 0` allowed via a fresh empty `WordComposer()`. Existing `getSuggestions()` is untouched; zero risk to current callers. See Phase 4.
 2. **COMPACT mode long-press scope vs spec §4.2** ("Same long-press popup on every key") — Deferred to user escalation — see Phase 5 gate. The existing `KeyData.kt:22` design comment says COMPACT has no long-press on letter keys; spec §4.2 conflicts. Resolution must be selected by the user before Phase 5 begins.
@@ -113,7 +113,7 @@ Create the `app/src/main/assets/` directory and scaffold provenance docs so a hu
 
    ## References
 
-   - Spec: `.claude/specs/2026-04-08-pre-release-vision-spec.md` §5
+   - Spec: `.claude/specs/pre-release-spec.md` §5
    - Code path: `app/src/main/java/dev/devkey/keyboard/feature/voice/VoiceInputEngine.kt:93-119`
    - GH issue (tracking): to be filed if blocked
    ```
@@ -162,7 +162,7 @@ Create the directory structure + README for the SwiftKey reference screenshots t
    ```markdown
    # SwiftKey Reference Screenshots (internal-use-only)
 
-   **Scope**: Spec `.claude/specs/2026-04-08-pre-release-vision-spec.md` §4.4 Ground Truth.
+   **Scope**: Spec `.claude/specs/pre-release-spec.md` §4.4 Ground Truth.
    **Legal**: Per spec §8 Risk Register — "capture reference screenshots for
    internal comparison only, do not redistribute them." These files must NOT
    leave this repository and MUST NOT be published to any mirror, release
@@ -891,8 +891,8 @@ Zero-to-minimal code change. This phase exercises the `VoiceInputEngine` integra
    ```markdown
    # Phase 1.6 — Voice E2E Verification Checklist
 
-   **Spec**: `.claude/specs/2026-04-08-pre-release-vision-spec.md` §5.3
-   **Plan**: `.claude/plans/2026-04-08-pre-release-phase1.md` Phase 7
+   **Spec**: `.claude/specs/pre-release-spec.md` §5.3
+   **Plan**: `.claude/archive/2026-04-08-pre-release/plans/phase1.md` Phase 7
 
    ## Preconditions
 
@@ -943,8 +943,8 @@ Verify clipboard panel, macro system, command mode, and plugin system still work
    ```markdown
    # Phase 1.7 — Existing Feature Regression Smoke
 
-   **Spec**: `.claude/specs/2026-04-08-pre-release-vision-spec.md` §2.1
-   **Plan**: `.claude/plans/2026-04-08-pre-release-phase1.md` Phase 8
+   **Spec**: `.claude/specs/pre-release-spec.md` §2.1
+   **Plan**: `.claude/archive/2026-04-08-pre-release/plans/phase1.md` Phase 8
    **When to run**: AFTER Phase 1-7 of this plan have shipped AND before
    the Phase-2 umbrella spec (regression infrastructure) begins.
 

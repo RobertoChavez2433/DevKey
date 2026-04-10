@@ -18,7 +18,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import dev.devkey.keyboard.ui.keyboard.KeyboardMode
-import dev.devkey.keyboard.ui.theme.DevKeyTheme
+import dev.devkey.keyboard.ui.theme.DevKeyThemeColors
+import dev.devkey.keyboard.ui.theme.DevKeyThemeDimensions
+import dev.devkey.keyboard.ui.theme.DevKeyThemeTypography
 
 /**
  * Toolbar row displayed at the top of the keyboard.
@@ -54,8 +56,8 @@ fun ToolbarRow(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(DevKeyTheme.toolbarHeight)
-                .background(DevKeyTheme.kbBg),
+                .height(DevKeyThemeDimensions.toolbarHeight)
+                .background(DevKeyThemeColors.kbBg),
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -89,8 +91,8 @@ fun ToolbarRow(
                         activeMode is KeyboardMode.MacroRecording
                 Text(
                     text = "\u26A1", // lightning bolt
-                    color = if (macroActive) DevKeyTheme.keyText else DevKeyTheme.iconColor,
-                    fontSize = DevKeyTheme.fontToolbarIcon
+                    color = if (macroActive) DevKeyThemeColors.keyText else DevKeyThemeColors.iconColor,
+                    fontSize = DevKeyThemeTypography.fontToolbarIcon
                 )
             }
             // Overflow button — toggles command mode for now (proper menu in Session 5)
@@ -106,26 +108,26 @@ fun ToolbarRow(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = "\u00B7\u00B7\u00B7", // middle dots (···)
-                        color = DevKeyTheme.iconColor,
-                        fontSize = DevKeyTheme.fontToolbarIcon
+                        color = DevKeyThemeColors.iconColor,
+                        fontSize = DevKeyThemeTypography.fontToolbarIcon
                     )
                     // CMD badge — shown when command mode is active
                     if (isCommandMode) {
                         Box(
                             modifier = Modifier
-                                .padding(start = DevKeyTheme.cmdBadgeStartPad)
-                                .height(DevKeyTheme.cmdBadgeHeight)
+                                .padding(start = DevKeyThemeDimensions.cmdBadgeStartPad)
+                                .height(DevKeyThemeDimensions.cmdBadgeHeight)
                                 .background(
-                                    color = DevKeyTheme.cmdBadgeBg,
-                                    shape = RoundedCornerShape(DevKeyTheme.cmdBadgeRadius)
+                                    color = DevKeyThemeColors.cmdBadgeBg,
+                                    shape = RoundedCornerShape(DevKeyThemeDimensions.cmdBadgeRadius)
                                 )
-                                .padding(horizontal = DevKeyTheme.cmdBadgePadding),
+                                .padding(horizontal = DevKeyThemeDimensions.cmdBadgePadding),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
                                 text = "CMD",
-                                color = DevKeyTheme.cmdBadgeText,
-                                fontSize = DevKeyTheme.cmdBadgeTextSize
+                                color = DevKeyThemeColors.cmdBadgeText,
+                                fontSize = DevKeyThemeTypography.cmdBadgeTextSize
                             )
                         }
                     }
@@ -137,8 +139,8 @@ fun ToolbarRow(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(DevKeyTheme.dividerThickness)
-                .background(DevKeyTheme.dividerColor)
+                .height(DevKeyThemeDimensions.dividerThickness)
+                .background(DevKeyThemeColors.dividerColor)
         )
     }
 }
@@ -157,8 +159,8 @@ private fun ToolbarButton(
     ) {
         Text(
             text = label,
-            color = if (isActive) DevKeyTheme.keyText else DevKeyTheme.iconColor,
-            fontSize = DevKeyTheme.fontToolbarIcon
+            color = if (isActive) DevKeyThemeColors.keyText else DevKeyThemeColors.iconColor,
+            fontSize = DevKeyThemeTypography.fontToolbarIcon
         )
     }
 }

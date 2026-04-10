@@ -10,7 +10,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import dev.devkey.keyboard.ui.theme.DevKeyTheme
+import dev.devkey.keyboard.ui.theme.DevKeyThemeColors
+import dev.devkey.keyboard.ui.theme.DevKeyThemeDimensions
+import dev.devkey.keyboard.ui.theme.DevKeyThemeTypography
 
 /**
  * Slim expand/collapse chevron row shown above the keyboard.
@@ -35,16 +37,16 @@ fun ToolbarChevronBar(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(DevKeyTheme.chevronRowHeight)
-            .background(DevKeyTheme.kbBg)
+            .height(DevKeyThemeDimensions.chevronRowHeight)
+            .background(DevKeyThemeColors.kbBg)
             .clickable { onToggle() }
-            .padding(horizontal = DevKeyTheme.chevronRowIconPad),
+            .padding(horizontal = DevKeyThemeDimensions.chevronRowIconPad),
         contentAlignment = Alignment.CenterStart
     ) {
         Text(
             text = if (expanded) "\u02C4" else "\u02C5",  // ˄ / ˅
-            color = DevKeyTheme.keyHint,
-            fontSize = DevKeyTheme.fontKeyHint
+            color = DevKeyThemeColors.keyHint,
+            fontSize = DevKeyThemeTypography.fontKeyHint
         )
     }
 }

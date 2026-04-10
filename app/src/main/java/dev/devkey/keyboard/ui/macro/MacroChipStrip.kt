@@ -18,7 +18,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import dev.devkey.keyboard.data.db.entity.MacroEntity
-import dev.devkey.keyboard.ui.theme.DevKeyTheme
+import dev.devkey.keyboard.ui.theme.DevKeyThemeColors
+import dev.devkey.keyboard.ui.theme.DevKeyThemeDimensions
+import dev.devkey.keyboard.ui.theme.DevKeyThemeTypography
 
 /**
  * Horizontal chip strip showing macros in the suggestion bar area.
@@ -40,33 +42,33 @@ fun MacroChipStrip(
 ) {
     Row(
         modifier = Modifier
-            .height(DevKeyTheme.suggestionBarHeight)
-            .background(DevKeyTheme.kbBg),
+            .height(DevKeyThemeDimensions.suggestionBarHeight)
+            .background(DevKeyThemeColors.kbBg),
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Collapse arrow
         Box(
             modifier = Modifier
                 .clickable { onCollapse() }
-                .padding(horizontal = DevKeyTheme.suggestionBarPadH)
+                .padding(horizontal = DevKeyThemeDimensions.suggestionBarPadH)
                 .fillMaxHeight(),
             contentAlignment = Alignment.Center
         ) {
             Text(
                 text = "\u25C0", // ◀
-                color = DevKeyTheme.suggestionText,
-                fontSize = DevKeyTheme.suggestionTextSize
+                color = DevKeyThemeColors.suggestionText,
+                fontSize = DevKeyThemeTypography.suggestionTextSize
             )
         }
 
         // Macro chips in a scrollable row
         LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(DevKeyTheme.chipStripSpacing),
+            horizontalArrangement = Arrangement.spacedBy(DevKeyThemeDimensions.chipStripSpacing),
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .weight(1f)
                 .fillMaxHeight()
-                .padding(end = DevKeyTheme.suggestionBarPadH)
+                .padding(end = DevKeyThemeDimensions.suggestionBarPadH)
         ) {
             items(macros, key = { it.id }) { macro ->
                 MacroChip(
@@ -88,45 +90,45 @@ private fun MacroChip(
     macro: MacroEntity,
     onClick: () -> Unit
 ) {
-    val chipShape = RoundedCornerShape(DevKeyTheme.chipRadius)
+    val chipShape = RoundedCornerShape(DevKeyThemeDimensions.chipRadius)
     Row(
         modifier = Modifier
             .clip(chipShape)
-            .background(DevKeyTheme.chipBg)
-            .border(DevKeyTheme.dividerThickness, DevKeyTheme.chipBorder, chipShape)
+            .background(DevKeyThemeColors.chipBg)
+            .border(DevKeyThemeDimensions.dividerThickness, DevKeyThemeColors.chipBorder, chipShape)
             .clickable { onClick() }
-            .padding(horizontal = DevKeyTheme.chipPadH, vertical = DevKeyTheme.chipPadV),
+            .padding(horizontal = DevKeyThemeDimensions.chipPadH, vertical = DevKeyThemeDimensions.chipPadV),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(DevKeyTheme.chipInnerSpacing)
+        horizontalArrangement = Arrangement.spacedBy(DevKeyThemeDimensions.chipInnerSpacing)
     ) {
         Text(
             text = "\u26A1", // ⚡
-            fontSize = DevKeyTheme.macroChipTextSize,
-            color = DevKeyTheme.keyText
+            fontSize = DevKeyThemeTypography.macroChipTextSize,
+            color = DevKeyThemeColors.keyText
         )
         Text(
             text = macro.name,
-            fontSize = DevKeyTheme.macroChipTextSize,
-            color = DevKeyTheme.keyText
+            fontSize = DevKeyThemeTypography.macroChipTextSize,
+            color = DevKeyThemeColors.keyText
         )
     }
 }
 
 @Composable
 private fun AddChip(onClick: () -> Unit) {
-    val chipShape = RoundedCornerShape(DevKeyTheme.chipRadius)
+    val chipShape = RoundedCornerShape(DevKeyThemeDimensions.chipRadius)
     Box(
         modifier = Modifier
             .clip(chipShape)
-            .border(DevKeyTheme.dividerThickness, DevKeyTheme.dashedBorder, chipShape)
+            .border(DevKeyThemeDimensions.dividerThickness, DevKeyThemeColors.dashedBorder, chipShape)
             .clickable { onClick() }
-            .padding(horizontal = DevKeyTheme.chipPadH, vertical = DevKeyTheme.chipPadV),
+            .padding(horizontal = DevKeyThemeDimensions.chipPadH, vertical = DevKeyThemeDimensions.chipPadV),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = "+ Add",
-            fontSize = DevKeyTheme.macroChipTextSize,
-            color = DevKeyTheme.dashedBorder
+            fontSize = DevKeyThemeTypography.macroChipTextSize,
+            color = DevKeyThemeColors.dashedBorder
         )
     }
 }

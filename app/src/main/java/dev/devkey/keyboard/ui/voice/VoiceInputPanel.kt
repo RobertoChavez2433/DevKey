@@ -28,7 +28,9 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.text.font.FontWeight
 import dev.devkey.keyboard.feature.voice.VoiceInputEngine
-import dev.devkey.keyboard.ui.theme.DevKeyTheme
+import dev.devkey.keyboard.ui.theme.DevKeyThemeColors
+import dev.devkey.keyboard.ui.theme.DevKeyThemeDimensions
+import dev.devkey.keyboard.ui.theme.DevKeyThemeTypography
 
 /**
  * Voice input panel shown when the keyboard is in voice mode.
@@ -66,8 +68,8 @@ fun VoiceInputPanel(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .height(DevKeyTheme.voicePanelHeight)
-            .background(DevKeyTheme.voicePanelBg),
+            .height(DevKeyThemeDimensions.voicePanelHeight)
+            .background(DevKeyThemeColors.voicePanelBg),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -79,17 +81,17 @@ fun VoiceInputPanel(
                 VoiceInputEngine.VoiceState.ERROR -> "Error"
                 else -> ""
             },
-            color = DevKeyTheme.voiceStatusText,
-            fontSize = DevKeyTheme.voiceStatusSize,
+            color = DevKeyThemeColors.voiceStatusText,
+            fontSize = DevKeyThemeTypography.voiceStatusSize,
             fontWeight = FontWeight.Medium
         )
 
-        Spacer(modifier = Modifier.height(DevKeyTheme.voiceSpacerLg))
+        Spacer(modifier = Modifier.height(DevKeyThemeDimensions.voiceSpacerLg))
 
         // Mic icon
         Box(
             modifier = Modifier
-                .size(DevKeyTheme.voiceMicSize)
+                .size(DevKeyThemeDimensions.voiceMicSize)
                 .let { mod ->
                     if (voiceState == VoiceInputEngine.VoiceState.LISTENING) {
                         mod.scale(pulseScale)
@@ -99,9 +101,9 @@ fun VoiceInputPanel(
                 }
                 .background(
                     color = if (voiceState == VoiceInputEngine.VoiceState.LISTENING) {
-                        DevKeyTheme.voiceMicActive
+                        DevKeyThemeColors.voiceMicActive
                     } else {
-                        DevKeyTheme.voiceMicInactive
+                        DevKeyThemeColors.voiceMicInactive
                     },
                     shape = CircleShape
                 ),
@@ -109,18 +111,18 @@ fun VoiceInputPanel(
         ) {
             Text(
                 text = "\uD83C\uDFA4", // microphone emoji
-                fontSize = DevKeyTheme.fontVoiceMic
+                fontSize = DevKeyThemeTypography.fontVoiceMic
             )
         }
 
-        Spacer(modifier = Modifier.height(DevKeyTheme.voiceSpacerMd))
+        Spacer(modifier = Modifier.height(DevKeyThemeDimensions.voiceSpacerMd))
 
         // Waveform visualization (only visible when listening)
         if (voiceState == VoiceInputEngine.VoiceState.LISTENING) {
             Canvas(
                 modifier = Modifier
-                    .width(DevKeyTheme.voiceWaveformWidth)
-                    .height(DevKeyTheme.voiceWaveformHeight)
+                    .width(DevKeyThemeDimensions.voiceWaveformWidth)
+                    .height(DevKeyThemeDimensions.voiceWaveformHeight)
             ) {
                 val barCount = 7
                 val barWidth = size.width / (barCount * 2)
@@ -135,7 +137,7 @@ fun VoiceInputPanel(
                     val x = barWidth + i * barWidth * 2
 
                     drawLine(
-                        color = DevKeyTheme.voiceWaveform,
+                        color = DevKeyThemeColors.voiceWaveform,
                         start = Offset(x, centerY - barHeight / 2),
                         end = Offset(x, centerY + barHeight / 2),
                         strokeWidth = barWidth * 0.8f
@@ -144,32 +146,32 @@ fun VoiceInputPanel(
             }
         }
 
-        Spacer(modifier = Modifier.height(DevKeyTheme.voiceSpacerMd))
+        Spacer(modifier = Modifier.height(DevKeyThemeDimensions.voiceSpacerMd))
 
         // Buttons / Progress
         when (voiceState) {
             VoiceInputEngine.VoiceState.PROCESSING -> {
                 CircularProgressIndicator(
-                    color = DevKeyTheme.voiceMicActive,
-                    modifier = Modifier.size(DevKeyTheme.voiceProgressSize),
-                    strokeWidth = DevKeyTheme.voiceProgressStrokeWidth
+                    color = DevKeyThemeColors.voiceMicActive,
+                    modifier = Modifier.size(DevKeyThemeDimensions.voiceProgressSize),
+                    strokeWidth = DevKeyThemeDimensions.voiceProgressStrokeWidth
                 )
             }
             VoiceInputEngine.VoiceState.LISTENING -> {
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(DevKeyTheme.voiceButtonSpacing),
+                    horizontalArrangement = Arrangement.spacedBy(DevKeyThemeDimensions.voiceButtonSpacing),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     TextButton(onClick = onCancel) {
                         Text(
                             text = "Cancel",
-                            color = DevKeyTheme.voiceMicInactive
+                            color = DevKeyThemeColors.voiceMicInactive
                         )
                     }
                     TextButton(onClick = onStop) {
                         Text(
                             text = "Done",
-                            color = DevKeyTheme.voiceMicActive,
+                            color = DevKeyThemeColors.voiceMicActive,
                             fontWeight = FontWeight.Bold
                         )
                     }
@@ -179,7 +181,7 @@ fun VoiceInputPanel(
                 TextButton(onClick = onCancel) {
                     Text(
                         text = "Cancel",
-                        color = DevKeyTheme.voiceMicInactive
+                        color = DevKeyThemeColors.voiceMicInactive
                     )
                 }
             }

@@ -18,7 +18,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import dev.devkey.keyboard.feature.prediction.PredictionResult
-import dev.devkey.keyboard.ui.theme.DevKeyTheme
+import dev.devkey.keyboard.ui.theme.DevKeyThemeColors
+import dev.devkey.keyboard.ui.theme.DevKeyThemeDimensions
+import dev.devkey.keyboard.ui.theme.DevKeyThemeTypography
 
 /**
  * Suggestion bar displayed above the keyboard rows.
@@ -46,8 +48,8 @@ fun SuggestionBar(
         modifier = Modifier
             .fillMaxWidth()
             .animateContentSize()
-            .height(if (isCollapsed) DevKeyTheme.collapsedHeight else DevKeyTheme.suggestionBarHeight)
-            .background(DevKeyTheme.kbBg),
+            .height(if (isCollapsed) DevKeyThemeDimensions.collapsedHeight else DevKeyThemeDimensions.suggestionBarHeight)
+            .background(DevKeyThemeColors.kbBg),
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (!isCollapsed) {
@@ -55,14 +57,14 @@ fun SuggestionBar(
             Box(
                 modifier = Modifier
                     .clickable { onCollapseToggle() }
-                    .padding(horizontal = DevKeyTheme.suggestionBarPadH)
+                    .padding(horizontal = DevKeyThemeDimensions.suggestionBarPadH)
                     .fillMaxHeight(),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = "\u25C0", // ◀
-                    color = DevKeyTheme.suggestionText,
-                    fontSize = DevKeyTheme.suggestionTextSize
+                    color = DevKeyThemeColors.suggestionText,
+                    fontSize = DevKeyThemeTypography.suggestionTextSize
                 )
             }
 
@@ -73,9 +75,9 @@ fun SuggestionBar(
                     // Vertical divider
                     Box(
                         modifier = Modifier
-                            .width(DevKeyTheme.dividerThickness)
+                            .width(DevKeyThemeDimensions.dividerThickness)
                             .fillMaxHeight()
-                            .background(DevKeyTheme.dividerColor)
+                            .background(DevKeyThemeColors.dividerColor)
                     )
                 }
                 Box(
@@ -90,8 +92,8 @@ fun SuggestionBar(
                 ) {
                     Text(
                         text = prediction.word,
-                        color = DevKeyTheme.suggestionText,
-                        fontSize = DevKeyTheme.suggestionTextSize,
+                        color = DevKeyThemeColors.suggestionText,
+                        fontSize = DevKeyThemeTypography.suggestionTextSize,
                         fontWeight = if (prediction.isAutocorrect) FontWeight.Bold else FontWeight.Normal
                     )
                 }

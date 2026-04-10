@@ -27,7 +27,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import dev.devkey.keyboard.feature.macro.MacroStep
-import dev.devkey.keyboard.ui.theme.DevKeyTheme
+import dev.devkey.keyboard.ui.theme.DevKeyThemeColors
+import dev.devkey.keyboard.ui.theme.DevKeyThemeDimensions
+import dev.devkey.keyboard.ui.theme.DevKeyThemeTypography
 
 /**
  * Recording bar displayed during macro recording.
@@ -67,15 +69,15 @@ fun MacroRecordingBar(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(DevKeyTheme.recordingBarHeight)
-            .background(DevKeyTheme.kbBg)
+            .height(DevKeyThemeDimensions.recordingBarHeight)
+            .background(DevKeyThemeColors.kbBg)
     ) {
         // Red top border
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(DevKeyTheme.macroRecordingTopBorderH)
-                .background(DevKeyTheme.macroRecordingRed)
+                .height(DevKeyThemeDimensions.macroRecordingTopBorderH)
+                .background(DevKeyThemeColors.macroRecordingRed)
                 .align(Alignment.TopCenter)
         )
 
@@ -83,8 +85,8 @@ fun MacroRecordingBar(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(
-                    horizontal = DevKeyTheme.macroRecordingBarPadH,
-                    vertical = DevKeyTheme.macroRecordingBarPadV
+                    horizontal = DevKeyThemeDimensions.macroRecordingBarPadH,
+                    vertical = DevKeyThemeDimensions.macroRecordingBarPadV
                 )
                 .align(Alignment.Center),
             verticalAlignment = Alignment.CenterVertically
@@ -92,19 +94,19 @@ fun MacroRecordingBar(
             // Left: Pulsing red circle + "Recording..."
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(DevKeyTheme.macroRecordingIndicatorSpacing)
+                horizontalArrangement = Arrangement.spacedBy(DevKeyThemeDimensions.macroRecordingIndicatorSpacing)
             ) {
                 Box(
                     modifier = Modifier
-                        .size(DevKeyTheme.macroRecordingDotSize)
+                        .size(DevKeyThemeDimensions.macroRecordingDotSize)
                         .alpha(pulseAlpha)
                         .clip(CircleShape)
-                        .background(DevKeyTheme.macroRecordingRed)
+                        .background(DevKeyThemeColors.macroRecordingRed)
                 )
                 Text(
                     text = "Recording...",
-                    color = DevKeyTheme.macroRecordingRed,
-                    fontSize = DevKeyTheme.macroChipTextSize
+                    color = DevKeyThemeColors.macroRecordingRed,
+                    fontSize = DevKeyThemeTypography.macroChipTextSize
                 )
             }
 
@@ -113,8 +115,8 @@ fun MacroRecordingBar(
                 state = listState,
                 modifier = Modifier
                     .weight(1f)
-                    .padding(horizontal = DevKeyTheme.macroRecordingBarPadH),
-                horizontalArrangement = Arrangement.spacedBy(DevKeyTheme.macroStepSpacing),
+                    .padding(horizontal = DevKeyThemeDimensions.macroRecordingBarPadH),
+                horizontalArrangement = Arrangement.spacedBy(DevKeyThemeDimensions.macroStepSpacing),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 itemsIndexed(capturedSteps, key = { index, _ -> index }) { index, step ->
@@ -127,15 +129,15 @@ fun MacroRecordingBar(
                     }
                     Text(
                         text = stepText,
-                        color = DevKeyTheme.keyText,
-                        fontSize = DevKeyTheme.clipboardTimestampSize
+                        color = DevKeyThemeColors.keyText,
+                        fontSize = DevKeyThemeTypography.clipboardTimestampSize
                     )
                     if (capturedSteps.isNotEmpty() && step != capturedSteps.lastOrNull()) {
                         Text(
                             text = "\u2192", // →
-                            color = DevKeyTheme.timestampText,
-                            fontSize = DevKeyTheme.clipboardTimestampSize,
-                            modifier = Modifier.padding(horizontal = DevKeyTheme.macroStepArrowPadH)
+                            color = DevKeyThemeColors.timestampText,
+                            fontSize = DevKeyThemeTypography.clipboardTimestampSize,
+                            modifier = Modifier.padding(horizontal = DevKeyThemeDimensions.macroStepArrowPadH)
                         )
                     }
                 }
@@ -145,15 +147,15 @@ fun MacroRecordingBar(
             TextButton(onClick = onCancel) {
                 Text(
                     text = "Cancel",
-                    color = DevKeyTheme.timestampText,
-                    fontSize = DevKeyTheme.macroChipTextSize
+                    color = DevKeyThemeColors.timestampText,
+                    fontSize = DevKeyThemeTypography.macroChipTextSize
                 )
             }
             TextButton(onClick = onStop) {
                 Text(
                     text = "Stop",
-                    color = DevKeyTheme.macroRecordingRed,
-                    fontSize = DevKeyTheme.macroChipTextSize
+                    color = DevKeyThemeColors.macroRecordingRed,
+                    fontSize = DevKeyThemeTypography.macroChipTextSize
                 )
             }
         }

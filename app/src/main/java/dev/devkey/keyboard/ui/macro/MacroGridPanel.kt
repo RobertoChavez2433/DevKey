@@ -1,21 +1,14 @@
 package dev.devkey.keyboard.ui.macro
 
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -26,12 +19,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import dev.devkey.keyboard.data.db.entity.MacroEntity
 import dev.devkey.keyboard.debug.DevKeyLogger
-import dev.devkey.keyboard.ui.theme.DevKeyTheme
+import dev.devkey.keyboard.ui.theme.DevKeyThemeColors
+import dev.devkey.keyboard.ui.theme.DevKeyThemeDimensions
 
 /**
  * Grid panel displaying all macros in a 4-column grid.
@@ -46,7 +38,6 @@ import dev.devkey.keyboard.ui.theme.DevKeyTheme
  * @param onEditMacro Callback when a macro name is edited.
  * @param onDeleteMacro Callback when a macro is deleted.
  */
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun MacroGridPanel(
     macros: List<MacroEntity>,
@@ -68,11 +59,11 @@ fun MacroGridPanel(
         columns = GridCells.Fixed(4),
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(max = DevKeyTheme.macroGridMaxHeight)
-            .background(DevKeyTheme.kbBg)
-            .padding(horizontal = DevKeyTheme.macroGridPadH),
-        horizontalArrangement = Arrangement.spacedBy(DevKeyTheme.macroGridSpacing),
-        verticalArrangement = Arrangement.spacedBy(DevKeyTheme.macroGridSpacing)
+            .heightIn(max = DevKeyThemeDimensions.macroGridMaxHeight)
+            .background(DevKeyThemeColors.kbBg)
+            .padding(horizontal = DevKeyThemeDimensions.macroGridPadH),
+        horizontalArrangement = Arrangement.spacedBy(DevKeyThemeDimensions.macroGridSpacing),
+        verticalArrangement = Arrangement.spacedBy(DevKeyThemeDimensions.macroGridSpacing)
     ) {
         items(macros) { macro ->
             MacroGridCell(
@@ -105,7 +96,7 @@ fun MacroGridPanel(
                         onDeleteMacro(macro)
                         longPressedMacro = null
                     }) {
-                        Text("Delete", color = DevKeyTheme.macroRecordingRed)
+                        Text("Delete", color = DevKeyThemeColors.macroRecordingRed)
                     }
                 }
             },
@@ -149,64 +140,6 @@ fun MacroGridPanel(
                     Text("Cancel")
                 }
             }
-        )
-    }
-}
-
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-private fun MacroGridCell(
-    macro: MacroEntity,
-    onClick: () -> Unit,
-    onLongClick: () -> Unit
-) {
-    val cellShape = RoundedCornerShape(DevKeyTheme.macroCellRadius)
-    Column(
-        modifier = Modifier
-            .height(DevKeyTheme.macroGridCellHeight)
-            .clip(cellShape)
-            .background(DevKeyTheme.chipBg)
-            .combinedClickable(
-                onClick = onClick,
-                onLongClick = onLongClick
-            )
-            .padding(DevKeyTheme.macroCellPad),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        // Key combo in amber
-        Text(
-            text = formatFromJson(macro.keySequence),
-            color = DevKeyTheme.macroAmber,
-            fontSize = DevKeyTheme.macroChipTextSize,
-            maxLines = 1
-        )
-        // Macro name in grey
-        Text(
-            text = macro.name,
-            color = DevKeyTheme.timestampText,
-            fontSize = DevKeyTheme.clipboardTimestampSize,
-            maxLines = 1
-        )
-    }
-}
-
-@Composable
-private fun RecordCell(onClick: () -> Unit) {
-    val cellShape = RoundedCornerShape(DevKeyTheme.macroCellRadius)
-    Box(
-        modifier = Modifier
-            .height(DevKeyTheme.macroGridCellHeight)
-            .clip(cellShape)
-            .border(DevKeyTheme.dividerThickness, DevKeyTheme.dashedBorder, cellShape)
-            .clickable { onClick() }
-            .padding(DevKeyTheme.macroCellPad),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = "+ Record",
-            color = DevKeyTheme.dashedBorder,
-            fontSize = DevKeyTheme.macroChipTextSize
         )
     }
 }

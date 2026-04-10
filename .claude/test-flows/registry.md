@@ -152,9 +152,16 @@ When `/test` runs with no arguments:
   1. **FULL mode**: Verify 6 rows visible in screenshot. Tap number '5' in row 0 → verify code=53. Tap Esc in utility row → verify code=27.
   2. **Number row**: Tap each number key 1-0 → verify codes 49-57, 48.
   3. **Arrow keys** (FULL mode): Tap Left → verify code. Tap Down, Up, Right → verify codes.
+  4. **Mode switching via broadcast**: Switch to COMPACT via
+     `adb shell am broadcast -a dev.devkey.keyboard.SET_LAYOUT_MODE --es mode compact`,
+     reload key map, verify at least 10 letter keys resolve. Repeat for COMPACT_DEV and FULL.
 - **verify**: All rows render correctly. Number row and utility row keys produce correct keycodes.
 - **timeout**: 25s
-- **notes**: COMPACT and COMPACT_DEV mode testing requires changing the layout preference, which is not yet automated. This flow tests FULL mode only for now.
+- **notes**: COMPACT and COMPACT_DEV mode switching is now automated via the
+  `dev.devkey.keyboard.SET_LAYOUT_MODE` debug broadcast (added Phase 2 sub-phase 1.2).
+  The Python harness's `keyboard.set_layout_mode(mode, serial)` helper issues the
+  broadcast and re-loads the key map. See `test_modes.py::test_layout_mode_round_trip`
+  for the smoke test that guards this path.
 
 ---
 
@@ -171,6 +178,81 @@ When `/test` runs with no arguments:
 - **verify**: No crashes. No ANRs in logcat. Key events are not permanently lost (allow transient drops under stress).
 - **timeout**: 20s
 - **notes**: This catches race conditions in the modifier state machine and Compose recomposition. Performance regression if >10% key drops.
+
+---
+
+## voice-round-trip
+
+- **feature**: voice
+- **deps**: [ime-setup]
+- **precondition**: Keyboard visible, voice button shows (non-password text field), driver server running, ENABLE_DEBUG_SERVER broadcast sent, Whisper model present.
+- **steps**:
+  1. Clear driver logs
+  2. Tap voice key (code=-102)
+  3. Wait for DevKey/VOX state_transition{state=LISTENING} via `driver.wait_for`
+  4. Inject audio sample (emulator only — SKIP on physical devices)
+  5. Wait for DevKey/VOX state_transition{state=PROCESSING}
+  6. Wait for DevKey/VOX processing_complete
+  7. Assert result_length > 0
+  8. Wait for DevKey/VOX state_transition{state=IDLE, reason=inference_complete}
+- **verify**: All wait_for calls succeed, processing_complete has result_length > 0.
+- **timeout**: 35s
+- **notes**: Privacy: NEVER assert on transcript content. result_length only. Test SKIPs gracefully when voice is disabled or audio injection is unavailable.
+
+---
+
+## next-word-prediction
+
+- **feature**: ime
+- **deps**: [ime-setup, typing]
+- **precondition**: Keyboard visible in Normal mode, HTTP forwarding enabled.
+- **steps**:
+  1. Clear driver logs
+  2. Type "the"
+  3. Tap space (code=32)
+  4. Wait for DevKey/TXT next_word_suggestions
+  5. Assert source ∈ {bigram_hit, bigram_miss, no_prev_word}
+  6. Assert payload contains only prev_word_length, result_count, source (privacy guard)
+- **verify**: Event arrives within 3s, payload is structural-only.
+- **timeout**: 15s
+- **notes**: SKIP the bigram-hit sub-test if the default dict lacks bigrams for "the" — it's not a code defect.
+
+---
+
+## long-press-coverage
+
+- **feature**: ui-keyboard
+- **deps**: [ime-setup]
+- **precondition**: Keyboard visible, layout mode switchable, long-press expectation JSON files committed under `.claude/test-flows/long-press-expectations/<mode>.json`, `KeyPressLogger.logLongPress` instrumented with `DevKeyLogger.text("long_press_fired", ...)` per Phase 2 sub-phase 1.5.
+- **steps**:
+  1. For each mode in [full, compact, compact_dev, symbols]:
+     - Switch to mode via SET_LAYOUT_MODE broadcast + wait_for layout_mode_recomposed
+     - Load key map for the mode
+     - Read `long-press-expectations/<mode>.json` — list of `{label, code, lp_code, popup_codes?}` entries derived from QwertyLayout.buildXxxLayout() / SymbolsLayout
+     - For each expected entry: clear logs → swipe-hold 500ms on key → `driver.wait_for("DevKey/TXT", "long_press_fired", match={"label": label})` with 2s timeout → assert `lp_code` matches expected
+     - For entries with `popup_codes` (multi-char popups): screencap popup region → SSIM against `swiftkey-reference/popups/<mode>/<label>.png` if present, SKIP otherwise
+- **verify**: Every key listed in the expectation JSONs produces a matching `long_press_fired` event via HTTP forwarding (no legacy DevKeyPress scraping). Popup content matches SwiftKey reference where a reference exists.
+- **timeout**: 240s total (iteration across 4 modes × all keys with long-press data)
+- **notes**: Expectation JSONs authored during sub-phase 4.3 from live `QwertyLayout.kt` / `SymbolsLayout.kt` source by the implementing agent. Flow routes exclusively through `DevKeyLogger.text` + driver `wait_for` — no sleeps, no legacy logcat scrape.
+
+---
+
+## swiftkey-visual-diff
+
+- **feature**: ui-theme
+- **deps**: [ime-setup]
+- **precondition**: Reference screenshots exist in .claude/test-flows/swiftkey-reference/, scikit-image installed.
+- **steps**:
+  1. For each (mode, reference) pair:
+     - SKIP if reference file missing
+     - Switch to mode via SET_LAYOUT_MODE broadcast
+     - Ensure keyboard visible
+     - Capture screenshot via adb exec-out screencap
+     - Compute SSIM against reference
+     - Assert SSIM >= DEVKEY_SSIM_THRESHOLD (default 0.92)
+- **verify**: Captured screenshots score above threshold.
+- **timeout**: 30s per mode
+- **notes**: Phase 2 references (Session 42): compact-dark only. Other modes SKIP until captured per spec §4.4.1. Adjust threshold via DEVKEY_SSIM_THRESHOLD env var.
 
 ---
 

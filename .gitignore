@@ -31,6 +31,12 @@ tools/e2e/fixtures/
 # SwiftKey reference captures (local-only per spec §4.4.1)
 .claude/test-flows/swiftkey-reference/
 
+# Whisper model assets — bundled into the APK at build time but not
+# checked into git (~42 MB blob). See app/src/main/assets/MODEL_PROVENANCE.md
+# for source URL + SHA256.
+app/src/main/assets/whisper-tiny.en.tflite
+app/src/main/assets/filters_vocab_en.bin
+
 # Claude Code
 .claude/settings.local.json
 .claude/screenshots/

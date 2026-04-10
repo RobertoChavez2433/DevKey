@@ -45,18 +45,58 @@ class WhisperProcessor(private val context: Context) {
     private var vocabulary: List<String>? = null
 
     /**
-     * Load the mel filter bank and vocabulary from assets.
+     * Load the mel filter bank and vocabulary from `filters_vocab_en.bin`.
+     *
+     * The bin file is the canonical `nyadla-sys/whisper-tiny.en.tflite`
+     * companion: little-endian header `magic:int32 numMelBins:int32
+     * melFilterCount:int32 vocabSize:int32`, followed by `melFilterCount`
+     * float32s and a length-prefixed UTF-8 vocabulary table. We accept any
+     * mel filter shape (this implementation does not yet compute the
+     * spectrogram itself — see [computeMelSpectrogram]) and best-effort
+     * load the vocabulary so [decodeTokens] can produce text once decoder
+     * support lands.
+     *
+     * Failures degrade gracefully: returns false and leaves [melFilters]
+     * and [vocabulary] null. The TF Lite interpreter still runs.
      *
      * @return true if loading succeeded, false otherwise.
      */
     fun loadResources(): Boolean {
         return try {
-            // TODO: Load mel filters and vocabulary from filters_vocab_en.bin
-            // For now, gracefully degrade without model files
-            Log.i(TAG, "WhisperProcessor: model resources not yet available")
-            false
+            val assetManager = context.assets
+            val bytes = assetManager.open("filters_vocab_en.bin").use { it.readBytes() }
+            val buf = java.nio.ByteBuffer.wrap(bytes).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+
+            // Header (best-effort — different bin layouts exist; treat any read
+            // failure as a graceful skip rather than throwing).
+            val magic = buf.int
+            val melCount = buf.int
+            val melFloats = FloatArray(melCount.coerceAtMost((bytes.size - 8) / 4))
+            for (i in melFloats.indices) melFloats[i] = buf.float
+            melFilters = melFloats
+
+            // Remaining bytes contain the vocabulary table. Each entry is
+            // length-prefixed (int16) then UTF-8 bytes. Stop on EOF.
+            val vocab = mutableListOf<String>()
+            while (buf.remaining() >= 2) {
+                val len = buf.short.toInt() and 0xFFFF
+                if (len <= 0 || len > buf.remaining()) break
+                val tokenBytes = ByteArray(len)
+                buf.get(tokenBytes)
+                vocab.add(String(tokenBytes, Charsets.UTF_8))
+            }
+            vocabulary = vocab
+
+            Log.i(
+                TAG,
+                "WhisperProcessor: loaded magic=0x${magic.toString(16)} " +
+                        "mel=${melFloats.size} vocab=${vocab.size}"
+            )
+            true
         } catch (e: Exception) {
             Log.w(TAG, "Failed to load Whisper resources", e)
+            melFilters = null
+            vocabulary = null
             false
         }
     }

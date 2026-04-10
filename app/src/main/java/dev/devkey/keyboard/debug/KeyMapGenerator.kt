@@ -12,6 +12,7 @@ import dev.devkey.keyboard.data.repository.SettingsRepository
 import dev.devkey.keyboard.ui.keyboard.KeyBounds
 import dev.devkey.keyboard.ui.keyboard.LayoutMode
 import dev.devkey.keyboard.ui.keyboard.QwertyLayout
+import dev.devkey.keyboard.ui.keyboard.SymbolsLayout
 import dev.devkey.keyboard.ui.keyboard.computeKeyBounds
 import dev.devkey.keyboard.ui.keyboard.getRowWeightsForMode
 
@@ -52,7 +53,7 @@ object KeyMapGenerator {
         val dm = getDisplayMetrics(context)
         val density = dm.density
 
-        val layout = QwertyLayout.getLayout(layoutMode)
+        val layout = QwertyLayout.getLayout(layoutMode, includeNumberRow = isNumberRowEnabled(context))
         val keyboardWidthPx = dm.widthPixels.toFloat()
 
         // Get keyboard view's position on screen
@@ -105,7 +106,7 @@ object KeyMapGenerator {
         val dm = getDisplayMetrics(context)
         val density = dm.density
 
-        val layout = QwertyLayout.getLayout(layoutMode)
+        val layout = QwertyLayout.getLayout(layoutMode, includeNumberRow = isNumberRowEnabled(context))
         val keyboardWidthPx = dm.widthPixels.toFloat()
 
         val prefs = PreferenceManager.getDefaultSharedPreferences(context)
@@ -193,7 +194,89 @@ object KeyMapGenerator {
             Log.d(TAG, "KEY label=${kb.adbLabel} code=${kb.code} x=${kb.centerX.toInt()} y=${kb.centerY.toInt()}")
         }
 
-        Log.d(TAG, "=== End Key Map (${bounds.size} keys) ===")
+        // WHY: Phase 3 defect — tests driving Symbols mode (ABC return, 123 round-trip)
+        //      need coordinates for keys that only exist in SymbolsLayout (ABC=-200, @, #, $...).
+        //      Symbols uses the SAME keyboard area but a different row structure, so we re-run
+        //      computeKeyBounds with SymbolsLayout + equal row weights (it has no rowWeights
+        //      override in DevKeyTheme — symbols UI renders with default equal-height rows).
+        //      We prefix with `SYM_KEY` so the harness can distinguish overlapping labels.
+        val symbolsBounds = computeSymbolsBounds(context, keyboardView, keyboardWidthPx = dm.widthPixels.toFloat())
+        for (kb in symbolsBounds) {
+            Log.d(TAG, "SYM_KEY label=${kb.adbLabel} code=${kb.code} x=${kb.centerX.toInt()} y=${kb.centerY.toInt()}")
+        }
+
+        Log.d(TAG, "=== End Key Map (${bounds.size} keys, ${symbolsBounds.size} symbols keys) ===")
+        // WHY: Phase 2 Python harness replaces its `time.sleep(0.3)` after the DUMP_KEY_MAP
+        //      broadcast with a wait_for on this event — see tools/e2e/lib/keyboard.py load_key_map.
+        DevKeyLogger.ime(
+            "keymap_dump_complete",
+            mapOf(
+                "mode" to layoutMode.name,
+                "key_count" to bounds.size
+            )
+        )
+    }
+
+    /**
+     * Compute bounds for the Symbols layer at the current keyboard dimensions.
+     * Symbols uses equal-height rows (no rowWeights override). Returns absolute screen
+     * coordinates (offset by the keyboard view's on-screen Y if available).
+     */
+    private fun computeSymbolsBounds(
+        context: Context,
+        keyboardView: View?,
+        keyboardWidthPx: Float
+    ): List<KeyBounds> {
+        val dm = getDisplayMetrics(context)
+        val density = dm.density
+
+        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
+        val isLandscape = context.resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+        val heightKey = if (isLandscape) SettingsRepository.KEY_HEIGHT_LANDSCAPE else SettingsRepository.KEY_HEIGHT_PORTRAIT
+        val heightDefault = if (isLandscape) SettingsRepository.DEFAULT_HEIGHT_LANDSCAPE else SettingsRepository.DEFAULT_HEIGHT_PORTRAIT
+        val heightPercent = prefs.getInt(heightKey, heightDefault) / 100f
+
+        val screenHeightDp = dm.heightPixels / density
+        val rawHeightDp = screenHeightDp * heightPercent - TOOLBAR_HEIGHT_DP
+        val keyAreaHeightDp = rawHeightDp.coerceAtLeast(48f)
+        val keyAreaHeightPx = keyAreaHeightDp * density
+
+        val bounds = computeKeyBounds(
+            layout = SymbolsLayout.layout,
+            keyboardWidthPx = keyboardWidthPx,
+            keyboardHeightPx = keyAreaHeightPx,
+            horizontalPaddingPx = HORIZONTAL_PADDING_DP * density,
+            rowGapPx = ROW_GAP_DP * density,
+            keyGapPx = KEY_GAP_DP * density,
+            rowWeights = null
+        )
+
+        val keyboardTopY = if (keyboardView != null) {
+            val location = IntArray(2)
+            keyboardView.getLocationOnScreen(location)
+            location[1].toFloat()
+        } else {
+            // Estimate — mirrors getKeyMapCalculated
+            val toolbarHeightPx = TOOLBAR_HEIGHT_DP * density
+            dm.heightPixels - toolbarHeightPx - keyAreaHeightPx
+        }
+
+        return bounds.map { kb ->
+            kb.copy(
+                top = kb.top + keyboardTopY,
+                bottom = kb.bottom + keyboardTopY,
+                centerY = kb.centerY + keyboardTopY
+            )
+        }
+    }
+
+    /**
+     * Read the `devkey_show_number_row` pref so dumped coordinates match what the
+     * user actually sees on screen. Default true for SwiftKey parity.
+     */
+    private fun isNumberRowEnabled(context: Context): Boolean {
+        return PreferenceManager.getDefaultSharedPreferences(context)
+            .getBoolean(SettingsRepository.KEY_SHOW_NUMBER_ROW, true)
     }
 
     @Suppress("DEPRECATION")

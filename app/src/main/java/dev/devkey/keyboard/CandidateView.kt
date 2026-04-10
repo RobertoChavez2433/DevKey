@@ -32,6 +32,7 @@ import android.view.ViewGroup
 import android.widget.PopupWindow
 import android.widget.TextView
 import androidx.core.content.ContextCompat
+import dev.devkey.keyboard.debug.DevKeyLogger
 
 class CandidateView @JvmOverloads constructor(
     context: Context,
@@ -323,6 +324,14 @@ class CandidateView @JvmOverloads constructor(
         drawSuggestions(null)
         invalidate()
         requestLayout()
+        // WHY: Phase 2.3 next-word test asserts that the candidate strip actually rendered,
+        //      not just that the prediction logic fired. This guards against regressions where
+        //      setNextSuggestions runs but the UI strip never reflects the result.
+        // IMPORTANT: PRIVACY — only the count is logged, never the suggestion strings themselves.
+        DevKeyLogger.ui(
+            "candidate_strip_rendered",
+            mapOf("suggestion_count" to mSuggestions.size)
+        )
     }
 
     fun isShowingAddToDictionaryHint(): Boolean = mShowingAddToDictionary

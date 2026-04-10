@@ -1,5 +1,6 @@
 package dev.devkey.keyboard.feature.command
 
+import dev.devkey.keyboard.debug.DevKeyLogger
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -74,6 +75,12 @@ class CommandModeDetector(private val repository: CommandModeRepository) {
 
         // Priority 3: Built-in terminal detection
         if (packageName != null && packageName in TERMINAL_PACKAGES) {
+            // Phase 4.8 — structural command-mode emit for E2E smoke tests.
+            // PRIVACY: trigger identifier only — NEVER log package name, command buffers, or typed content.
+            DevKeyLogger.ime(
+                "command_mode_auto_enabled",
+                mapOf("trigger" to "terminal_detect")
+            )
             _inputMode.value = InputMode.COMMAND
             return
         }
@@ -104,6 +111,14 @@ class CommandModeDetector(private val repository: CommandModeRepository) {
             InputMode.NORMAL
         }
         _inputMode.value = manualOverride!!
+        // Phase 4.8 — structural command-mode manual-toggle emit for E2E smoke tests.
+        // PRIVACY: state-name only — NEVER log command buffers or typed content.
+        if (manualOverride == InputMode.COMMAND) {
+            DevKeyLogger.ime(
+                "command_mode_manual_enabled",
+                mapOf("trigger" to "user_toggle")
+            )
+        }
     }
 
     /**

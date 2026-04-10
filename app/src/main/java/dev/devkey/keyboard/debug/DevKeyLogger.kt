@@ -9,6 +9,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicLong
 import org.json.JSONObject
 
 /**
@@ -31,7 +33,35 @@ object DevKeyLogger {
     }
 
     @Volatile private var serverUrl: String? = null
-    private val scope = CoroutineScope(Dispatchers.IO)
+    // WHY: Limit parallelism so a slow/unreachable driver can never saturate the
+    //      full Dispatchers.IO pool (64 threads by default on Android). If we let
+    //      every log call grab an IO thread, a flurry of events with a stalled
+    //      driver can queue ~100+ POSTs each holding a thread for the full socket
+    //      timeout, starving the rest of the IME's background work and cascading
+    //      into a main-thread ANR when some binder call waits for an IO-bound worker.
+    //      limitedParallelism(2) caps us at 2 concurrent POSTs; the rest are queued
+    //      in the coroutine dispatcher queue and run when the prior POSTs complete
+    //      or time out.
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    private val scope = CoroutineScope(Dispatchers.IO.limitedParallelism(2))
+
+    // WHY: Phase 3 gate ANR root cause — when the driver goes unreachable mid-run
+    //      (reinstall, killed process, network hiccup) every log call fires an HTTP
+    //      POST that times out after 1s. With ~50 events/sec during test runs the
+    //      Dispatchers.IO pool saturates, backing up to the main thread via any
+    //      blocking IPC and causing a 239-second binder ANR that crashes the IME.
+    //      Fix: circuit-breaker — after 3 consecutive failures, suppress POSTs
+    //      entirely for 5 seconds. Reset on the next successful POST.
+    private val consecutiveFailures = AtomicInteger(0)
+    private val circuitBreakerUntilMs = AtomicLong(0L)
+    // Fail fast — a single failure trips the breaker for the cooldown window.
+    // Any driver that is genuinely reachable will succeed on the first POST.
+    private const val CIRCUIT_BREAKER_TRIP_COUNT = 1
+    private const val CIRCUIT_BREAKER_COOLDOWN_MS = 10000L
+    // Tight timeouts — the driver is on localhost via emulator NAT, so real
+    // POSTs complete in <100ms. 300ms is plenty; anything slower is a stall.
+    private const val HTTP_CONNECT_TIMEOUT_MS = 300
+    private const val HTTP_READ_TIMEOUT_MS = 300
 
     /** Enable HTTP server forwarding for Deep debug mode. */
     fun enableServer(url: String) {
@@ -95,6 +125,13 @@ object DevKeyLogger {
         hypothesisId: String? = null
     ) {
         val url = serverUrl ?: return
+        // Circuit breaker — if the driver has failed N times in a row, suppress
+        // POSTs for the cooldown window. Reads are cheap (single volatile + long
+        // compare) so this runs unconditionally on the main thread.
+        val now = System.currentTimeMillis()
+        val breakerUntil = circuitBreakerUntilMs.get()
+        if (now < breakerUntil) return
+
         scope.launch {
             try {
                 val json = JSONObject().apply {
@@ -107,15 +144,29 @@ object DevKeyLogger {
                 conn.requestMethod = "POST"
                 conn.setRequestProperty("Content-Type", "application/json")
                 conn.doOutput = true
-                conn.connectTimeout = 5000
-                conn.readTimeout = 5000
+                conn.connectTimeout = HTTP_CONNECT_TIMEOUT_MS
+                conn.readTimeout = HTTP_READ_TIMEOUT_MS
                 conn.outputStream.use { it.write(json.toString().toByteArray()) }
                 conn.responseCode // trigger send
                 conn.disconnect()
+                // Success — reset the failure counter so the next failure starts fresh.
+                consecutiveFailures.set(0)
             } catch (e: Exception) {
-                // Silent fail in release; debug surfaces the error to logcat so the
-                // Phase 3 gate can diagnose why forwarding isn't reaching the driver.
-                Log.w("DevKey/SRV", "sendToServer failed: ${e.javaClass.simpleName}: ${e.message}")
+                val failures = consecutiveFailures.incrementAndGet()
+                if (failures == CIRCUIT_BREAKER_TRIP_COUNT) {
+                    // First trip — log once, then go silent for the cooldown window.
+                    circuitBreakerUntilMs.set(
+                        System.currentTimeMillis() + CIRCUIT_BREAKER_COOLDOWN_MS
+                    )
+                    Log.w(
+                        "DevKey/SRV",
+                        "Circuit breaker tripped after $failures consecutive failures: " +
+                            "${e.javaClass.simpleName}: ${e.message}. " +
+                            "Suppressing server forwarding for ${CIRCUIT_BREAKER_COOLDOWN_MS}ms."
+                    )
+                }
+                // Below the trip count, stay completely silent — Phase 3 gate ANR
+                // root cause was a Log.w per failed POST flooding the system log.
             }
         }
     }

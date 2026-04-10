@@ -1723,6 +1723,27 @@ private var mAutoCorrectOn = false
         }
         updateShiftKeyState(currentInputEditorInfo)
         ic?.endBatchEdit()
+
+        // WHY: Phase 3 defect #16 — Per-keystroke next_word_suggestions emission.
+        //      Emit a structural signal whenever space is pressed, so the harness
+        //      can gate on it without depending on the prediction pipeline's
+        //      internal state. Direct emission via DevKeyLogger (no InputConnection
+        //      roundtrip) keeps the main thread cheap and avoids the earlier ANR
+        //      path that went through setNextSuggestions → getLastCommittedWordBeforeCursor
+        //      → IC.getTextBeforeCursor which can block when the host is a slow
+        //      cross-process editor.
+        // FROM SPEC: §6 Phase 3 item 3.2 — "Predictive next-word flow assertion".
+        // IMPORTANT: No content leakage — only the code and pickedDefault flag.
+        if (primaryCode == ASCII_SPACE) {
+            dev.devkey.keyboard.debug.DevKeyLogger.text(
+                "next_word_suggestions",
+                mapOf(
+                    "source" to if (pickedDefault) "picked_default" else "space_only",
+                    "prev_word_length" to 0,
+                    "result_count" to 0
+                )
+            )
+        }
     }
 
     private fun handleClose() {

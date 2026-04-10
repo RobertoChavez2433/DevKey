@@ -7,6 +7,7 @@ import android.content.pm.PackageManager
 import android.content.res.Resources
 import android.util.Log
 import dev.devkey.keyboard.BuildConfig
+import dev.devkey.keyboard.debug.DevKeyLogger
 import org.xmlpull.v1.XmlPullParserException
 import java.io.IOException
 import java.io.InputStream
@@ -238,12 +239,24 @@ class PluginManager(private val mIME: LatinIME) : BroadcastReceiver() {
             if (!arePluginsEnabled()) {
                 Log.i(TAG, "Plugin dictionaries disabled in release build (GH #4)")
                 mPluginDicts.clear()
+                // Phase 4.9 — structural plugin_scan_complete emit for E2E smoke tests.
+                // PRIVACY: count only — NEVER plugin metadata / names / paths.
+                DevKeyLogger.ime(
+                    "plugin_scan_complete",
+                    mapOf("plugin_count" to 0)
+                )
                 return
             }
             mPluginDicts.clear()
             val packageManager = context.packageManager
             getSoftKeyboardDictionaries(packageManager)
             getLegacyDictionaries(packageManager)
+            // Phase 4.9 — structural plugin_scan_complete emit for E2E smoke tests.
+            // PRIVACY: count only — NEVER plugin metadata / names / paths.
+            DevKeyLogger.ime(
+                "plugin_scan_complete",
+                mapOf("plugin_count" to mPluginDicts.size)
+            )
         }
 
         fun getDictionary(context: Context, lang: String): BinaryDictionary? {

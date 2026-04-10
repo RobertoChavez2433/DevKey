@@ -43,7 +43,8 @@ enum class SettingsNav {
     BACKUP,
     ABOUT,
     MACRO_MANAGER,
-    COMMAND_APPS
+    COMMAND_APPS,
+    CUSTOM_DICTIONARY
 }
 
 class DevKeySettingsActivity : ComponentActivity() {
@@ -95,6 +96,7 @@ class DevKeySettingsActivity : ComponentActivity() {
                     SettingsNav.MAIN -> finish()
                     SettingsNav.MACRO_MANAGER -> currentNav = SettingsNav.MACROS
                     SettingsNav.COMMAND_APPS -> currentNav = SettingsNav.COMMAND_MODE
+                    SettingsNav.CUSTOM_DICTIONARY -> currentNav = SettingsNav.PREDICTION
                     else -> currentNav = SettingsNav.MAIN
                 }
             }
@@ -147,6 +149,7 @@ class DevKeySettingsActivity : ComponentActivity() {
                         SettingsNav.PREDICTION -> {
                             PredictionSettingsScreen(
                                 settingsRepository = settingsRepository,
+                                onNavigateToCustomDictionary = { currentNav = SettingsNav.CUSTOM_DICTIONARY },
                                 onBack = { currentNav = SettingsNav.MAIN }
                             )
                         }
@@ -216,6 +219,13 @@ class DevKeySettingsActivity : ComponentActivity() {
                             CommandAppManagerScreen(
                                 repository = commandModeRepository,
                                 onBack = { currentNav = SettingsNav.COMMAND_MODE }
+                            )
+                        }
+
+                        SettingsNav.CUSTOM_DICTIONARY -> {
+                            CustomDictionaryScreen(
+                                database = database,
+                                onBack = { currentNav = SettingsNav.PREDICTION }
                             )
                         }
                     }

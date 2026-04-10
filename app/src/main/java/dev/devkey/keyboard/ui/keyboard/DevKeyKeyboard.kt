@@ -32,6 +32,7 @@ import dev.devkey.keyboard.feature.clipboard.ClipboardRepository
 import dev.devkey.keyboard.feature.command.CommandModeDetector
 import dev.devkey.keyboard.feature.command.CommandModeRepository
 import dev.devkey.keyboard.feature.command.InputMode
+import dev.devkey.keyboard.feature.prediction.PredictionResult
 import dev.devkey.keyboard.feature.macro.MacroEngine
 import dev.devkey.keyboard.feature.macro.MacroRepository
 import dev.devkey.keyboard.feature.macro.MacroSerializer
@@ -45,9 +46,13 @@ import dev.devkey.keyboard.ui.macro.MacroChipStrip
 import dev.devkey.keyboard.ui.macro.MacroGridPanel
 import dev.devkey.keyboard.ui.macro.MacroNameDialog
 import dev.devkey.keyboard.ui.macro.MacroRecordingBar
+import dev.devkey.keyboard.ui.suggestion.SuggestionBar
 import dev.devkey.keyboard.ui.toolbar.ToolbarChevronBar
 import dev.devkey.keyboard.ui.toolbar.ToolbarRow
 import dev.devkey.keyboard.ui.voice.VoiceInputPanel
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 
 /**
@@ -100,6 +105,29 @@ fun DevKeyKeyboard(
 
     // Debug: dump key coordinate map when layout mode changes
     val currentView = LocalView.current
+
+    // WHY: The DUMP_KEY_MAP receiver in LatinIME passes null for the View,
+    //      so it uses estimated coordinates which are wrong when nav bar is
+    //      present. This Compose-layer receiver uses the actual View for
+    //      precise on-screen coordinates.
+    if (KeyMapGenerator.isDebugBuild(context)) {
+        DisposableEffect(currentView, layoutMode) {
+            val dumpReceiver = object : android.content.BroadcastReceiver() {
+                override fun onReceive(c: android.content.Context, i: android.content.Intent) {
+                    KeyMapGenerator.dumpToLogcat(c, currentView, layoutMode)
+                }
+            }
+            context.registerReceiver(
+                dumpReceiver,
+                android.content.IntentFilter("dev.devkey.keyboard.DUMP_KEY_MAP"),
+                android.content.Context.RECEIVER_EXPORTED
+            )
+            onDispose {
+                try { context.unregisterReceiver(dumpReceiver) } catch (_: IllegalArgumentException) {}
+            }
+        }
+    }
+
     LaunchedEffect(layoutMode) {
         if (KeyMapGenerator.isDebugBuild(context)) {
             KeyMapGenerator.dumpToLogcatWhenReady(context, currentView, layoutMode)
@@ -144,6 +172,10 @@ fun DevKeyKeyboard(
         DisposableEffect(modeManager, modifierState) {
             val receiver = object : android.content.BroadcastReceiver() {
                 override fun onReceive(c: android.content.Context, i: android.content.Intent) {
+                    // Cancel voice if active so VoiceInputEngine returns to IDLE.
+                    if (modeManager.mode.value == KeyboardMode.Voice) {
+                        voiceInputEngine.cancelListening()
+                    }
                     modeManager.setMode(KeyboardMode.Normal)
                     modifierState.resetAll()
                     DevKeyLogger.ime("keyboard_mode_reset", mapOf("to" to "Normal"))
@@ -154,8 +186,57 @@ fun DevKeyKeyboard(
                 android.content.IntentFilter("dev.devkey.keyboard.RESET_KEYBOARD_MODE"),
                 android.content.Context.RECEIVER_EXPORTED
             )
+            // WHY: Phase 3 E2E — SET_KEYBOARD_MODE lets the harness open any panel
+            //      (Clipboard, Voice, MacroGrid, etc.) via broadcast so tests don't
+            //      need toolbar tap coordinates.
+            val setModeReceiver = object : android.content.BroadcastReceiver() {
+                override fun onReceive(c: android.content.Context, i: android.content.Intent) {
+                    val modeName = i.getStringExtra("mode") ?: return
+                    val mode = when (modeName.lowercase()) {
+                        "normal" -> KeyboardMode.Normal
+                        "clipboard" -> KeyboardMode.Clipboard
+                        "voice" -> KeyboardMode.Voice
+                        "symbols" -> KeyboardMode.Symbols
+                        "macro_chips" -> KeyboardMode.MacroChips
+                        "macro_grid" -> KeyboardMode.MacroGrid
+                        else -> {
+                            DevKeyLogger.error("set_keyboard_mode_rejected", mapOf("mode" to modeName))
+                            return
+                        }
+                    }
+                    modeManager.setMode(mode)
+                    // WHY: Voice mode needs startListening() alongside the mode
+                    //      change — the toolbar onVoice callback does both.
+                    if (mode == KeyboardMode.Voice) {
+                        coroutineScope.launch { voiceInputEngine.startListening() }
+                    }
+                    DevKeyLogger.ime("keyboard_mode_set", mapOf("mode" to modeName.lowercase()))
+                }
+            }
+            context.registerReceiver(
+                setModeReceiver,
+                android.content.IntentFilter("dev.devkey.keyboard.SET_KEYBOARD_MODE"),
+                android.content.Context.RECEIVER_EXPORTED
+            )
+
+            // WHY: Phase 3 E2E — command mode test needs to toggle without a
+            //      terminal app installed. This broadcast triggers the same
+            //      toggleManualOverride() path the overflow button uses.
+            val toggleCmdReceiver = object : android.content.BroadcastReceiver() {
+                override fun onReceive(c: android.content.Context, i: android.content.Intent) {
+                    commandModeDetector.toggleManualOverride()
+                }
+            }
+            context.registerReceiver(
+                toggleCmdReceiver,
+                android.content.IntentFilter("dev.devkey.keyboard.TOGGLE_COMMAND_MODE"),
+                android.content.Context.RECEIVER_EXPORTED
+            )
+
             onDispose {
                 try { context.unregisterReceiver(receiver) } catch (_: IllegalArgumentException) {}
+                try { context.unregisterReceiver(setModeReceiver) } catch (_: IllegalArgumentException) {}
+                try { context.unregisterReceiver(toggleCmdReceiver) } catch (_: IllegalArgumentException) {}
             }
         }
     }
@@ -196,6 +277,25 @@ fun DevKeyKeyboard(
     // Settings > Input > `devkey_show_number_row`. Default true matches the reference.
     val showNumberRow = rememberPreference(prefs, SettingsRepository.KEY_SHOW_NUMBER_ROW, true) {
         p, k, d -> p.getBoolean(k, d)
+    }
+
+    // Prediction pipeline: collect composingWord, debounce, predict
+    var predictions by remember { mutableStateOf<List<PredictionResult>>(emptyList()) }
+    var suggestionBarCollapsed by remember { mutableStateOf(false) }
+
+    @OptIn(FlowPreview::class)
+    val composingWord by SessionDependencies.composingWord
+        .debounce(100L)
+        .distinctUntilChanged()
+        .collectAsState(initial = "")
+
+    LaunchedEffect(composingWord) {
+        val pe = SessionDependencies.predictionEngine
+        if (pe != null && composingWord.isNotEmpty()) {
+            predictions = pe.predict(composingWord)
+        } else {
+            predictions = emptyList()
+        }
     }
 
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -240,7 +340,55 @@ fun DevKeyKeyboard(
         // 2. Dynamic middle area
         when (keyboardMode) {
             KeyboardMode.Normal -> {
-                // SuggestionBar removed — predictions handled externally
+                if (predictions.isNotEmpty()) {
+                    SuggestionBar(
+                        predictions = predictions,
+                        onSuggestionClick = { result ->
+                            // Replace the composing text with the suggestion
+                            val ic = currentInputConnection?.invoke()
+                            if (ic != null) {
+                                ic.finishComposingText()
+                                val composingLen = SessionDependencies.composingWord.value.length
+                                if (composingLen > 0) {
+                                    ic.deleteSurroundingText(composingLen, 0)
+                                }
+                                ic.commitText(result.word + " ", 1)
+                            } else {
+                                bridge.onText(result.word + " ")
+                            }
+                            // Feed the learning engine
+                            SessionDependencies.learningEngine?.let { le ->
+                                coroutineScope.launch {
+                                    le.onWordCommitted(
+                                        result.word,
+                                        isCommand = inputMode == InputMode.COMMAND,
+                                        contextApp = SessionDependencies.currentPackageName
+                                    )
+                                }
+                            }
+                            SessionDependencies.composingWord.value = ""
+                            SessionDependencies.pendingCorrection.value = null
+                            predictions = emptyList()
+                        },
+                        onSuggestionLongPress = { result ->
+                            // Add the typed word (the composing word) to custom dictionary
+                            val typedWord = SessionDependencies.composingWord.value
+                            val wordToAdd = typedWord.ifBlank { result.word }
+                            SessionDependencies.learningEngine?.let { le ->
+                                coroutineScope.launch {
+                                    le.addCustomWord(wordToAdd)
+                                    android.widget.Toast.makeText(
+                                        context,
+                                        "\"$wordToAdd\" added to dictionary",
+                                        android.widget.Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            }
+                        },
+                        onCollapseToggle = { suggestionBarCollapsed = !suggestionBarCollapsed },
+                        isCollapsed = suggestionBarCollapsed
+                    )
+                }
             }
             KeyboardMode.MacroChips -> {
                 MacroChipStrip(

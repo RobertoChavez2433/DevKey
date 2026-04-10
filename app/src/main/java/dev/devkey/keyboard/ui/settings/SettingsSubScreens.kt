@@ -250,6 +250,7 @@ fun FeedbackSettingsScreen(
 @Composable
 fun PredictionSettingsScreen(
     settingsRepository: SettingsRepository,
+    onNavigateToCustomDictionary: () -> Unit = {},
     onBack: () -> Unit
 ) {
     val quickFixes by settingsRepository.observeBoolean(SettingsRepository.KEY_QUICK_FIXES, true).collectAsState(initial = settingsRepository.getBoolean(SettingsRepository.KEY_QUICK_FIXES, true))
@@ -262,9 +263,8 @@ fun PredictionSettingsScreen(
 
     SettingsSubScreen(title = "Prediction & Autocorrect", onBack = onBack) {
         item(key = "prediction_subtitle") {
-            // Subtitle preserved from Phase 5 (BUG-04)
             Text(
-                text = "Controls the legacy suggestion engine. Suggestion bar is not shown in current UI.",
+                text = "Controls suggestions and autocorrect behavior.",
                 fontSize = DevKeyTheme.fontSettingsSubtitle,
                 color = DevKeyTheme.keyHint,
                 style = MaterialTheme.typography.bodySmall,
@@ -276,6 +276,7 @@ fun PredictionSettingsScreen(
         item(key = "auto_complete") { ToggleSetting("Auto-Complete", "Accept suggestion on spacebar", autoComplete, enabled = showSuggestions) { settingsRepository.setBoolean(SettingsRepository.KEY_AUTO_COMPLETE, it) } }
         item(key = "suggested_punctuation") { TextInputSetting("Suggested Punctuation", suggestedPunctuation) { settingsRepository.setString(SettingsRepository.KEY_SUGGESTED_PUNCTUATION, it) } }
         item(key = "autocorrect_level") { DropdownSetting("Autocorrect Level", autocorrectLevel, autocorrectLevelOptions) { settingsRepository.setString(SettingsRepository.KEY_AUTOCORRECT_LEVEL, it) } }
+        item(key = "custom_dictionary") { ButtonSetting("Custom Dictionary", "Add words that won't be autocorrected", onClick = onNavigateToCustomDictionary) }
     }
 }
 

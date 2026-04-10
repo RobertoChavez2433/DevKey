@@ -16,6 +16,26 @@
     <uses-permission android:name="android.permission.INTERNET" />
 
     <application
+        android:enableOnBackInvokedCallback="true"
         android:usesCleartextTraffic="true"
-        tools:replace="android:usesCleartextTraffic" />
+        tools:replace="android:usesCleartextTraffic">
+
+        <!--
+            Debug-only test host activity. Provides a reliable EditText focus
+            target for the Phase 3 E2E harness. See TestHostActivity.kt for
+            the full rationale. Exported=true so shell UID (adb) can launch it.
+            This is debug-only — release builds do not ship this activity.
+        -->
+        <activity
+            android:name="dev.devkey.keyboard.debug.TestHostActivity"
+            android:exported="true"
+            android:label="DevKey Test Host"
+            android:theme="@android:style/Theme.DeviceDefault.Light"
+            android:windowSoftInputMode="stateVisible|adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+    </application>
 </manifest>

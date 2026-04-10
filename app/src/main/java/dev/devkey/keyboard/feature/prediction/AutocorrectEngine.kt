@@ -45,22 +45,15 @@ class AutocorrectEngine(private val dictionaryProvider: DictionaryProvider) {
         // Word is already valid — no correction needed
         if (dictionaryProvider.isValidWord(typed)) return AutocorrectResult.None
 
-        // Get dictionary suggestions
-        val suggestions = dictionaryProvider.getSuggestions(typed, maxResults = 3)
-        if (suggestions.isEmpty()) return AutocorrectResult.None
+        // Use fuzzy matching to find corrections within edit distance 2
+        val corrections = dictionaryProvider.getFuzzyCorrections(typed, maxResults = 3)
+        if (corrections.isEmpty()) return AutocorrectResult.None
 
-        // Check if the top suggestion is close enough
-        val topSuggestion = suggestions.first()
-        val distance = editDistance(typed.lowercase(), topSuggestion.lowercase())
-
-        return if (distance <= 2) {
-            AutocorrectResult.Suggestion(
-                correction = topSuggestion,
-                autoApply = aggressiveness == Aggressiveness.AGGRESSIVE
-            )
-        } else {
-            AutocorrectResult.None
-        }
+        val topCorrection = corrections.first()
+        return AutocorrectResult.Suggestion(
+            correction = topCorrection,
+            autoApply = aggressiveness == Aggressiveness.AGGRESSIVE
+        )
     }
 
     /**

@@ -4,42 +4,45 @@ import dev.devkey.keyboard.Suggest
 import dev.devkey.keyboard.WordComposer
 
 /**
- * Kotlin-friendly wrapper for the legacy Suggest/BinaryDictionary subsystem.
- *
- * Provides a simplified API for getting word suggestions and checking word
- * validity, abstracting away the WordComposer / View dependencies.
+ * Dictionary provider that uses a modern Kotlin [TrieDictionary] as the
+ * primary source and falls back to the legacy [Suggest] JNI pipeline.
  *
  * @param suggest The existing Suggest instance (nullable — may not be initialized yet).
  */
-class DictionaryProvider(private var suggest: Suggest?) {
+open class DictionaryProvider(private var suggest: Suggest?) {
 
-    /**
-     * Update the underlying Suggest reference (e.g., when LatinIME reinitializes).
-     */
+    /** Modern Kotlin-native trie dictionary. Set after async load completes. */
+    @Volatile
+    var trieDictionary: TrieDictionary? = null
+
     fun updateSuggest(newSuggest: Suggest?) {
         suggest = newSuggest
     }
 
     /**
      * Get word suggestions for the given typed word.
-     *
-     * @param word The word currently being typed.
-     * @param maxResults Maximum number of suggestions to return.
-     * @return List of suggested words, or empty list if unavailable.
+     * Prefers the modern TrieDictionary; falls back to legacy Suggest.
      */
-    fun getSuggestions(word: String, maxResults: Int = 3): List<String> {
-        val s = suggest ?: return emptyList()
+    open fun getSuggestions(word: String, maxResults: Int = 3): List<String> {
         if (word.isEmpty()) return emptyList()
 
+        // Primary: modern trie dictionary
+        val trie = trieDictionary
+        if (trie != null && trie.size > 0) {
+            val results = trie.getSuggestions(word, maxResults)
+            if (results.isNotEmpty()) {
+                return results.map { it.first }
+            }
+        }
+
+        // Fallback: legacy Suggest/JNI pipeline
+        val s = suggest ?: return emptyList()
         return try {
-            // Build a WordComposer from the typed characters
             val wordComposer = WordComposer()
             for (char in word) {
                 val code = char.code
                 wordComposer.add(code, intArrayOf(code))
             }
-
-            // Get suggestions — pass null view and no bigram context
             val suggestions = s.getSuggestions(null, wordComposer, false, null)
             suggestions
                 ?.filterNotNull()
@@ -53,14 +56,33 @@ class DictionaryProvider(private var suggest: Suggest?) {
     }
 
     /**
-     * Check whether the given word is a valid dictionary word.
-     *
-     * @param word The word to check.
-     * @return true if the word is recognized by any dictionary, false otherwise.
+     * Fuzzy matching for autocorrect: find words within edit distance 2
+     * of the typed word, sorted by frequency.
      */
-    fun isValidWord(word: String): Boolean {
-        val s = suggest ?: return false
+    open fun getFuzzyCorrections(word: String, maxResults: Int = 3): List<String> {
+        if (word.isEmpty()) return emptyList()
+        val trie = trieDictionary
+        if (trie != null && trie.size > 0) {
+            return trie.getFuzzyMatches(word, maxDistance = 2, maxResults = maxResults)
+                .map { it.first }
+        }
+        return emptyList()
+    }
+
+    /**
+     * Check whether the given word is a valid dictionary word.
+     */
+    open fun isValidWord(word: String): Boolean {
         if (word.isEmpty()) return false
+
+        // Primary: modern trie dictionary
+        val trie = trieDictionary
+        if (trie != null && trie.size > 0) {
+            return trie.isValidWord(word)
+        }
+
+        // Fallback: legacy Suggest
+        val s = suggest ?: return false
         return try {
             s.isValidWord(word)
         } catch (e: Exception) {

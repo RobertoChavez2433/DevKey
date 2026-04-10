@@ -2,6 +2,8 @@ package dev.devkey.keyboard.feature.prediction
 
 import dev.devkey.keyboard.data.db.dao.LearnedWordDao
 import dev.devkey.keyboard.data.db.entity.LearnedWordEntity
+import dev.devkey.keyboard.debug.DevKeyLogger
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import java.util.concurrent.ConcurrentHashMap
 
@@ -78,6 +80,61 @@ class LearningEngine(private val dao: LearnedWordDao) {
      * Get a snapshot of all learned words.
      */
     fun getLearnedWords(): Set<String> = learnedWordsCache.toSet()
+
+    /**
+     * Add a user-defined custom word to the dictionary.
+     * Custom words suppress autocorrect for that word.
+     */
+    suspend fun addCustomWord(word: String) {
+        if (word.isBlank()) return
+        try {
+            val existing = dao.findWordAny(word)
+            if (existing != null) {
+                dao.update(existing.copy(isUserAdded = true))
+            } else {
+                dao.insert(
+                    LearnedWordEntity(
+                        word = word,
+                        frequency = 1,
+                        contextApp = null,
+                        isCommand = false,
+                        isUserAdded = true
+                    )
+                )
+            }
+            learnedWordsCache.add(word)
+            DevKeyLogger.text(
+                "custom_word_changed",
+                mapOf("action" to "added", "word_length" to word.length)
+            )
+        } catch (e: Exception) {
+            // Don't crash the keyboard
+        }
+    }
+
+    /**
+     * Remove a user-defined custom word from the dictionary.
+     */
+    suspend fun removeCustomWord(word: String) {
+        try {
+            val existing = dao.findWordAny(word) ?: return
+            if (existing.isUserAdded) {
+                dao.delete(existing)
+                learnedWordsCache.remove(word)
+                DevKeyLogger.text(
+                    "custom_word_changed",
+                    mapOf("action" to "removed", "word_length" to word.length)
+                )
+            }
+        } catch (e: Exception) {
+            // Don't crash the keyboard
+        }
+    }
+
+    /**
+     * Get a Flow of all user-added custom words.
+     */
+    fun getCustomWordsFlow(): Flow<List<LearnedWordEntity>> = dao.getUserAddedWords()
 
     /**
      * Get command-mode suggestions matching a prefix, sorted by frequency.

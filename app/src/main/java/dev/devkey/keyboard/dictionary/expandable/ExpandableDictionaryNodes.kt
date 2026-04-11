@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package dev.devkey.keyboard
+package dev.devkey.keyboard.dictionary.expandable
 
 import java.util.LinkedList
 

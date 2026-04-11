@@ -1,6 +1,6 @@
 package dev.devkey.keyboard.core
 
-import dev.devkey.keyboard.AutoDictionary
+import dev.devkey.keyboard.dictionary.user.AutoDictionary
 import dev.devkey.keyboard.EditingUtil
 import dev.devkey.keyboard.keyboard.model.Keyboard
 import dev.devkey.keyboard.ASCII_SPACE

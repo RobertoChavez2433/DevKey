@@ -14,7 +14,10 @@
  * limitations under the License.
  */
 
-package dev.devkey.keyboard
+package dev.devkey.keyboard.dictionary.expandable
+import dev.devkey.keyboard.dictionary.base.*
+import dev.devkey.keyboard.dictionary.bigram.BigramTraversal
+import dev.devkey.keyboard.dictionary.trie.*
 import dev.devkey.keyboard.suggestion.word.WordComposer
 
 import android.content.Context

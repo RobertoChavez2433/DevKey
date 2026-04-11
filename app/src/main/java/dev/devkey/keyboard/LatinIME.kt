@@ -45,6 +45,11 @@ import dev.devkey.keyboard.keyboard.model.Keyboard
 import dev.devkey.keyboard.keyboard.switcher.KeyboardSwitcher
 import dev.devkey.keyboard.language.LanguageSwitcher
 import dev.devkey.keyboard.suggestion.engine.Suggest
+import dev.devkey.keyboard.dictionary.base.Dictionary
+import dev.devkey.keyboard.dictionary.bigram.UserBigramDictionary
+import dev.devkey.keyboard.dictionary.loader.PluginManager
+import dev.devkey.keyboard.dictionary.user.AutoDictionary
+import dev.devkey.keyboard.dictionary.user.UserDictionary
 import dev.devkey.keyboard.suggestion.engine.WordPromotionDelegate
 import dev.devkey.keyboard.suggestion.word.TypedWordAlternatives
 import dev.devkey.keyboard.suggestion.word.WordAlternatives

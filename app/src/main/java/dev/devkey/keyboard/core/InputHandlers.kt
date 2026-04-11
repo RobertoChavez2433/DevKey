@@ -3,7 +3,7 @@ package dev.devkey.keyboard.core
 import android.view.KeyEvent
 import android.view.inputmethod.InputConnection
 import dev.devkey.keyboard.ASCII_ENTER
-import dev.devkey.keyboard.AutoDictionary
+import dev.devkey.keyboard.dictionary.user.AutoDictionary
 import dev.devkey.keyboard.ASCII_PERIOD
 import dev.devkey.keyboard.ASCII_SPACE
 import dev.devkey.keyboard.DELETE_ACCELERATE_AT

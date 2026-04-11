@@ -14,11 +14,13 @@
  * limitations under the License.
  */
 
-package dev.devkey.keyboard
+package dev.devkey.keyboard.dictionary.trie
+import dev.devkey.keyboard.dictionary.base.Dictionary
+import dev.devkey.keyboard.dictionary.expandable.*
 import dev.devkey.keyboard.suggestion.word.WordComposer
 
-import dev.devkey.keyboard.Dictionary.DataType
-import dev.devkey.keyboard.Dictionary.WordCallback
+import dev.devkey.keyboard.dictionary.base.Dictionary.DataType
+import dev.devkey.keyboard.dictionary.base.Dictionary.WordCallback
 
 private const val QUOTE = '\''
 private const val INCLUDE_TYPED_WORD_IF_VALID = false

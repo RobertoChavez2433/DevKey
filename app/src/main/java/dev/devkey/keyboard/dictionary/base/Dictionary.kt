@@ -14,7 +14,7 @@
  * the License.
  */
 
-package dev.devkey.keyboard
+package dev.devkey.keyboard.dictionary.base
 import dev.devkey.keyboard.suggestion.word.WordComposer
 
 /**

@@ -2,13 +2,13 @@ package dev.devkey.keyboard.core
 
 import android.util.Log
 import androidx.preference.PreferenceManager
-import dev.devkey.keyboard.AutoDictionary
+import dev.devkey.keyboard.dictionary.user.AutoDictionary
 import dev.devkey.keyboard.LatinIME
 import dev.devkey.keyboard.PREF_QUICK_FIXES
 import dev.devkey.keyboard.R
 import dev.devkey.keyboard.suggestion.engine.Suggest
-import dev.devkey.keyboard.UserBigramDictionary
-import dev.devkey.keyboard.UserDictionary
+import dev.devkey.keyboard.dictionary.bigram.UserBigramDictionary
+import dev.devkey.keyboard.dictionary.user.UserDictionary
 import dev.devkey.keyboard.data.db.DevKeyDatabase
 import dev.devkey.keyboard.feature.prediction.AutocorrectEngine
 import dev.devkey.keyboard.feature.prediction.DictionaryProvider

@@ -1,4 +1,5 @@
-package dev.devkey.keyboard
+package dev.devkey.keyboard.dictionary.loader
+import dev.devkey.keyboard.dictionary.base.BinaryDictionary
 import dev.devkey.keyboard.suggestion.engine.Suggest
 
 import android.content.Context

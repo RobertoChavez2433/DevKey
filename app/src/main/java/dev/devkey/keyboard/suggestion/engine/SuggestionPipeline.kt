@@ -16,6 +16,8 @@
 
 package dev.devkey.keyboard.suggestion.engine
 import dev.devkey.keyboard.*
+import dev.devkey.keyboard.dictionary.base.*
+import dev.devkey.keyboard.dictionary.loader.PluginManager
 import dev.devkey.keyboard.suggestion.word.WordComposer
 
 import android.text.AutoText

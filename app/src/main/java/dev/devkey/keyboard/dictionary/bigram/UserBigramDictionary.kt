@@ -14,7 +14,8 @@
  * the License.
  */
 
-package dev.devkey.keyboard
+package dev.devkey.keyboard.dictionary.bigram
+import dev.devkey.keyboard.dictionary.expandable.ExpandableDictionary
 import dev.devkey.keyboard.suggestion.engine.WordPromotionDelegate
 
 import android.content.Context

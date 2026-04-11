@@ -22,6 +22,8 @@ import dev.devkey.keyboard.language.Loc
 import dev.devkey.keyboard.language.arrayContains
 import dev.devkey.keyboard.language.getUniqueLocales
 import dev.devkey.keyboard.suggestion.engine.Suggest
+import dev.devkey.keyboard.dictionary.base.BinaryDictionary
+import dev.devkey.keyboard.dictionary.loader.PluginManager
 
 import android.os.Bundle
 import android.preference.CheckBoxPreference

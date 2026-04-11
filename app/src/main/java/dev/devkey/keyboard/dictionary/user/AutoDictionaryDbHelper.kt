@@ -14,7 +14,7 @@
  * the License.
  */
 
-package dev.devkey.keyboard
+package dev.devkey.keyboard.dictionary.user
 
 import android.content.ContentValues
 import android.content.Context

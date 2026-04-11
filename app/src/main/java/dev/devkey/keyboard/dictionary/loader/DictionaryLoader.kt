@@ -14,7 +14,7 @@
  * the License.
  */
 
-package dev.devkey.keyboard
+package dev.devkey.keyboard.dictionary.loader
 
 import android.content.Context
 import android.util.Log

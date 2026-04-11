@@ -14,7 +14,7 @@
  * the License.
  */
 
-package dev.devkey.keyboard
+package dev.devkey.keyboard.dictionary.base
 
 /**
  * Lightweight container for the optional dictionaries referenced by the

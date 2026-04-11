@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-package dev.devkey.keyboard
+package dev.devkey.keyboard.dictionary.user
+import dev.devkey.keyboard.dictionary.expandable.ExpandableDictionary
 import dev.devkey.keyboard.suggestion.engine.Suggest
 import dev.devkey.keyboard.suggestion.word.WordComposer
 

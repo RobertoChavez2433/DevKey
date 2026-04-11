@@ -1,4 +1,4 @@
-package dev.devkey.keyboard
+package dev.devkey.keyboard.dictionary.loader
 
 import android.content.Intent
 import android.content.pm.PackageManager

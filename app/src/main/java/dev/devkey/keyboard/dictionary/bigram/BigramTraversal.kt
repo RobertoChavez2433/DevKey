@@ -14,9 +14,12 @@
  * limitations under the License.
  */
 
-package dev.devkey.keyboard
+package dev.devkey.keyboard.dictionary.bigram
+import dev.devkey.keyboard.dictionary.base.Dictionary
+import dev.devkey.keyboard.dictionary.expandable.*
+import dev.devkey.keyboard.dictionary.trie.TrieEditor
 
-import dev.devkey.keyboard.Dictionary.DataType
+import dev.devkey.keyboard.dictionary.base.Dictionary.DataType
 import java.util.LinkedList
 
 /**

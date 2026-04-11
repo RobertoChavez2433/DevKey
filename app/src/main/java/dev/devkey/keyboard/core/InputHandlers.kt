@@ -9,8 +9,6 @@ import dev.devkey.keyboard.ASCII_SPACE
 import dev.devkey.keyboard.DELETE_ACCELERATE_AT
 import dev.devkey.keyboard.keyboard.model.Keyboard
 import dev.devkey.keyboard.suggestion.engine.Suggest
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import dev.devkey.keyboard.core.input.TextEntryState
 import dev.devkey.keyboard.core.text.EditingUtil
 import dev.devkey.keyboard.debug.DevKeyLogger
@@ -150,7 +148,7 @@ internal class InputHandlers(
                     && acEngine.aggressiveness != AutocorrectEngine.Aggressiveness.OFF
                     && state.mComposing.isNotEmpty()
                 ) {
-                    val result = acEngine.getCorrection(state.mComposing.toString(), learnEngine.getLearnedWords())
+                    val result = acEngine.getCorrection(state.mComposing.toString(), learnEngine.getCustomWords())
                     if (result is AutocorrectResult.Suggestion && result.autoApply) {
                         ic?.finishComposingText()
                         ic?.deleteSurroundingText(state.mComposing.length, 0)
@@ -202,16 +200,7 @@ internal class InputHandlers(
                     TextEntryState.acceptedTyped(state.mComposing)
                 }
                 suggestionPicker.addToDictionaries(state.mComposing, AutoDictionary.FREQUENCY_FOR_TYPED)
-                val word = state.mComposing.toString()
-                SessionDependencies.learningEngine?.let { le ->
-                    state.serviceScope.launch(Dispatchers.IO) {
-                        le.onWordCommitted(
-                            word,
-                            isCommand = SessionDependencies.commandModeDetector?.isCommandMode() == true,
-                            contextApp = SessionDependencies.currentPackageName
-                        )
-                    }
-                }
+                SessionDependencies.commitWord(state.mComposing.toString(), state.serviceScope)
             }
             SessionDependencies.composingWord.value = ""
             SessionDependencies.pendingCorrection.value = null

@@ -28,17 +28,18 @@ class AutocorrectEngine(private val dictionaryProvider: DictionaryProvider) {
      * Determine whether the typed word should be corrected.
      *
      * @param typed The word as typed by the user.
-     * @param learnedWords Words the user has previously committed (should not be corrected).
+     * @param customWords Words the user has explicitly added to their dictionary
+     *   (via long-press "Add to dictionary"). Only these suppress autocorrect.
      * @return An [AutocorrectResult] indicating whether a correction is suggested.
      */
-    fun getCorrection(typed: String, learnedWords: Set<String>): AutocorrectResult {
+    fun getCorrection(typed: String, customWords: Set<String>): AutocorrectResult {
         if (aggressiveness == Aggressiveness.OFF) return AutocorrectResult.None
         if (typed.isEmpty()) return AutocorrectResult.None
 
-        // User has typed this word before — don't correct it
+        // User explicitly added this word — don't correct it
         val typedLower = typed.lowercase()
-        val learnedWordsLower = learnedWords.mapTo(HashSet(learnedWords.size)) { it.lowercase() }
-        if (typedLower in learnedWordsLower) {
+        val customWordsLower = customWords.mapTo(HashSet(customWords.size)) { it.lowercase() }
+        if (typedLower in customWordsLower) {
             return AutocorrectResult.None
         }
 

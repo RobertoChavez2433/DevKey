@@ -10,9 +10,8 @@ import dev.devkey.keyboard.suggestion.word.WordAlternatives
 import dev.devkey.keyboard.core.input.TextEntryState
 import dev.devkey.keyboard.suggestion.word.TypedWordAlternatives
 import dev.devkey.keyboard.suggestion.word.WordComposer
+import dev.devkey.keyboard.debug.DevKeyLogger
 import dev.devkey.keyboard.ui.keyboard.SessionDependencies
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 
 /**
  * Handles suggestion picking, acceptance, and dictionary writes.
@@ -35,10 +34,18 @@ internal class SuggestionPicker(
             coordinator.updateSuggestions()
         }
         if (state.mBestWord != null && state.mBestWord!!.isNotEmpty()) {
-            TextEntryState.acceptedDefault(state.mWord.getTypedWord(), state.mBestWord!!)
+            val typed = state.mWord.getTypedWord()
+            val best = state.mBestWord!!
+            TextEntryState.acceptedDefault(typed, best)
             state.mJustAccepted = true
-            pickSuggestion(state.mBestWord!!, false)
-            addToDictionaries(state.mBestWord!!, AutoDictionary.FREQUENCY_FOR_TYPED)
+            pickSuggestion(best, false)
+            addToDictionaries(best, AutoDictionary.FREQUENCY_FOR_TYPED)
+            if (typed != null && best.toString() != typed.toString()) {
+                DevKeyLogger.text("autocorrect_applied", mapOf(
+                    "action" to "applied",
+                    "level" to if (state.mAutoCorrectEnabled) "legacy_full" else "legacy_basic"
+                ))
+            }
             return true
         }
         return false
@@ -109,16 +116,7 @@ internal class SuggestionPicker(
         coordinator.saveWordInHistory(actualSuggestion)
         state.mPredicting = false
         state.mCommittedLength = actualSuggestion.length
-        val word = actualSuggestion.toString()
-        SessionDependencies.learningEngine?.let { le ->
-            state.serviceScope.launch(Dispatchers.IO) {
-                le.onWordCommitted(
-                    word,
-                    isCommand = SessionDependencies.commandModeDetector?.isCommandMode() == true,
-                    contextApp = SessionDependencies.currentPackageName
-                )
-            }
-        }
+        SessionDependencies.commitWord(actualSuggestion.toString(), state.serviceScope)
         SessionDependencies.composingWord.value = ""
         SessionDependencies.pendingCorrection.value = null
         if (!correcting) coordinator.setNextSuggestions()

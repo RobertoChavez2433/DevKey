@@ -20,6 +20,9 @@ class LearningEngine(private val dao: LearnedWordDao) {
     /** In-memory cache of learned words for fast lookup (thread-safe). */
     private val learnedWordsCache: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
+    /** In-memory cache of user-explicitly-added custom words (thread-safe). */
+    private val customWordsCache: MutableSet<String> = ConcurrentHashMap.newKeySet()
+
     /** Whether initialize() has been called. */
     private var initialized = false
 
@@ -32,6 +35,7 @@ class LearningEngine(private val dao: LearnedWordDao) {
         try {
             val words = dao.getAllWords().first()
             learnedWordsCache.addAll(words.map { it.word })
+            customWordsCache.addAll(words.filter { it.isUserAdded }.map { it.word })
             initialized = true
         } catch (e: Exception) {
             // If loading fails, continue with empty cache
@@ -77,9 +81,15 @@ class LearningEngine(private val dao: LearnedWordDao) {
     fun isLearnedWord(word: String): Boolean = word in learnedWordsCache
 
     /**
-     * Get a snapshot of all learned words.
+     * Get a snapshot of all learned words (frequency tracking).
      */
     fun getLearnedWords(): Set<String> = learnedWordsCache.toSet()
+
+    /**
+     * Get a snapshot of only user-explicitly-added custom words.
+     * These are the words that should suppress autocorrect.
+     */
+    fun getCustomWords(): Set<String> = customWordsCache.toSet()
 
     /**
      * Add a user-defined custom word to the dictionary.
@@ -103,6 +113,7 @@ class LearningEngine(private val dao: LearnedWordDao) {
                 )
             }
             learnedWordsCache.add(word)
+            customWordsCache.add(word)
             DevKeyLogger.text(
                 "custom_word_changed",
                 mapOf("action" to "added", "word_length" to word.length)
@@ -121,6 +132,7 @@ class LearningEngine(private val dao: LearnedWordDao) {
             if (existing.isUserAdded) {
                 dao.delete(existing)
                 learnedWordsCache.remove(word)
+                customWordsCache.remove(word)
                 DevKeyLogger.text(
                     "custom_word_changed",
                     mapOf("action" to "removed", "word_length" to word.length)
@@ -129,6 +141,17 @@ class LearningEngine(private val dao: LearnedWordDao) {
         } catch (e: Exception) {
             // Don't crash the keyboard
         }
+    }
+
+    /**
+     * Clear all learned words — debug/test only.
+     */
+    suspend fun clearAll() {
+        try {
+            dao.deleteAll()
+            learnedWordsCache.clear()
+            customWordsCache.clear()
+        } catch (_: Exception) {}
     }
 
     /**

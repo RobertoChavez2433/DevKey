@@ -8,7 +8,10 @@ import dev.devkey.keyboard.feature.prediction.DictionaryProvider
 import dev.devkey.keyboard.feature.prediction.LearningEngine
 import dev.devkey.keyboard.feature.prediction.PredictionEngine
 import dev.devkey.keyboard.feature.voice.VoiceInputEngine
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
 
 /**
  * Bridges the Java IME lifecycle with the Compose UI layer.
@@ -55,4 +58,27 @@ object SessionDependencies {
     /** Voice input engine instance, set from Compose initialization for debug access. */
     @Volatile
     var voiceInputEngine: VoiceInputEngine? = null
+
+    /**
+     * Canonical word-commit handler. ALL call sites that commit a word to the
+     * learning engine MUST go through this method — no direct calls to
+     * LearningEngine.onWordCommitted() elsewhere.
+     *
+     * Tracks word frequency for predictions. Does NOT add to the autocorrect
+     * suppression set — only explicit user actions (long-press "Add to dictionary")
+     * should do that via LearningEngine.addCustomWord().
+     *
+     * @param word The committed word.
+     * @param scope CoroutineScope to launch the IO work in.
+     */
+    fun commitWord(word: String, scope: CoroutineScope) {
+        val le = learningEngine ?: return
+        scope.launch(Dispatchers.IO) {
+            le.onWordCommitted(
+                word,
+                isCommand = commandModeDetector?.isCommandMode() == true,
+                contextApp = currentPackageName
+            )
+        }
+    }
 }

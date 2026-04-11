@@ -83,11 +83,7 @@ fun KeyboardDynamicPanel(
                     } else {
                         bridge.onText(result.word + " ")
                     }
-                    SessionDependencies.learningEngine?.let { le ->
-                        coroutineScope.launch {
-                            le.onWordCommitted(result.word, isCommand = inputMode == InputMode.COMMAND, contextApp = SessionDependencies.currentPackageName)
-                        }
-                    }
+                    SessionDependencies.commitWord(result.word, coroutineScope)
                     SessionDependencies.composingWord.value = ""
                     SessionDependencies.pendingCorrection.value = null
                 },

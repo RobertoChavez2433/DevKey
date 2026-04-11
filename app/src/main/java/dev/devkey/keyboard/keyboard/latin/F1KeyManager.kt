@@ -14,7 +14,9 @@
  * the License.
  */
 
-package dev.devkey.keyboard
+package dev.devkey.keyboard.keyboard.latin
+import dev.devkey.keyboard.KeyboardSwitcher
+import dev.devkey.keyboard.R
 import dev.devkey.keyboard.keyboard.model.Key
 
 import android.content.res.Resources

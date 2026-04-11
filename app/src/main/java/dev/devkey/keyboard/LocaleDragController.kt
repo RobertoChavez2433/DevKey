@@ -15,6 +15,7 @@
  */
 
 package dev.devkey.keyboard
+import dev.devkey.keyboard.keyboard.latin.SlidingLocaleDrawable
 import dev.devkey.keyboard.keyboard.model.Key
 
 import android.graphics.drawable.Drawable

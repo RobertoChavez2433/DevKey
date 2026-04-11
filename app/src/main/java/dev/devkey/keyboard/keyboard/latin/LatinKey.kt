@@ -14,7 +14,7 @@
  * the License.
  */
 
-package dev.devkey.keyboard
+package dev.devkey.keyboard.keyboard.latin
 import dev.devkey.keyboard.keyboard.model.Key
 import dev.devkey.keyboard.keyboard.model.Row
 

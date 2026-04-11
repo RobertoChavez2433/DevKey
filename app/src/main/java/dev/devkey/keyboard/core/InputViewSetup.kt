@@ -4,6 +4,7 @@ import android.util.Log
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.ExtractedTextRequest
 import dev.devkey.keyboard.keyboard.switcher.KeyboardSwitcher
+import dev.devkey.keyboard.language.LanguageSwitcher
 import dev.devkey.keyboard.LatinIME
 import dev.devkey.keyboard.TextEntryState
 import dev.devkey.keyboard.ui.keyboard.SessionDependencies

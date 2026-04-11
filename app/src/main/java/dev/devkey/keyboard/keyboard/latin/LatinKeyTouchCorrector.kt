@@ -1,7 +1,7 @@
 // Copyright (C) 2008 The Android Open Source Project. Licensed under the Apache License, Version 2.0.
 package dev.devkey.keyboard.keyboard.latin
-import dev.devkey.keyboard.LanguageSwitcher
-import dev.devkey.keyboard.LocaleDragController
+import dev.devkey.keyboard.language.LanguageSwitcher
+import dev.devkey.keyboard.language.LocaleDragController
 import dev.devkey.keyboard.keyboard.model.Keyboard
 import dev.devkey.keyboard.keyboard.proximity.KeyProximityResolver
 

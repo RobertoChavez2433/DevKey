@@ -15,7 +15,7 @@
  */
 
 package dev.devkey.keyboard.keyboard.latin
-import dev.devkey.keyboard.LanguageSwitcher
+import dev.devkey.keyboard.language.LanguageSwitcher
 import dev.devkey.keyboard.R
 
 import android.content.Context

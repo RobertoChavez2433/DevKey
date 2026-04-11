@@ -1,8 +1,10 @@
 // Copyright (C) 2010 Google Inc. Licensed under the Apache License, Version 2.0.
-package dev.devkey.keyboard
+package dev.devkey.keyboard.language
 
 import android.content.SharedPreferences
 import androidx.preference.PreferenceManager
+import dev.devkey.keyboard.InputLanguageSelection
+import dev.devkey.keyboard.LatinIME
 import java.util.Locale
 
 /**

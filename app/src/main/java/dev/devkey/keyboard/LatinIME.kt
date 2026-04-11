@@ -43,6 +43,7 @@ import dev.devkey.keyboard.compose.DeadAccentSequence
 import dev.devkey.keyboard.core.modifier.ChordeTracker
 import dev.devkey.keyboard.keyboard.model.Keyboard
 import dev.devkey.keyboard.keyboard.switcher.KeyboardSwitcher
+import dev.devkey.keyboard.language.LanguageSwitcher
 import dev.devkey.keyboard.core.FeedbackManager
 import dev.devkey.keyboard.core.ImeInitializer
 import dev.devkey.keyboard.core.InputDispatcher

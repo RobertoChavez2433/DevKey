@@ -1,5 +1,5 @@
 package dev.devkey.keyboard.keyboard.switcher
-import dev.devkey.keyboard.LanguageSwitcher
+import dev.devkey.keyboard.language.LanguageSwitcher
 import dev.devkey.keyboard.LatinIME
 import dev.devkey.keyboard.R
 import dev.devkey.keyboard.keyboard.latin.LatinKeyboard

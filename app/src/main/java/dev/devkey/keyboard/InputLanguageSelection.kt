@@ -15,6 +15,12 @@
  */
 
 package dev.devkey.keyboard
+import dev.devkey.keyboard.language.KBD_4_ROW
+import dev.devkey.keyboard.language.KBD_5_ROW
+import dev.devkey.keyboard.language.LanguageSwitcher
+import dev.devkey.keyboard.language.Loc
+import dev.devkey.keyboard.language.arrayContains
+import dev.devkey.keyboard.language.getUniqueLocales
 
 import android.os.Bundle
 import android.preference.CheckBoxPreference

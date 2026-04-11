@@ -14,7 +14,7 @@
  * the License.
  */
 
-package dev.devkey.keyboard
+package dev.devkey.keyboard.language
 import dev.devkey.keyboard.keyboard.latin.SlidingLocaleDrawable
 import dev.devkey.keyboard.keyboard.model.Key
 

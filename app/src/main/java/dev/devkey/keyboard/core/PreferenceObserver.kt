@@ -6,6 +6,7 @@ import android.widget.Toast
 import androidx.preference.PreferenceManager
 import dev.devkey.keyboard.*
 import dev.devkey.keyboard.keyboard.switcher.KeyboardSwitcher
+import dev.devkey.keyboard.language.LanguageSwitcher
 import dev.devkey.keyboard.data.repository.SettingsRepository
 import dev.devkey.keyboard.feature.prediction.AutocorrectEngine
 import dev.devkey.keyboard.ui.keyboard.SessionDependencies

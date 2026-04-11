@@ -255,3 +255,96 @@ The user's own words from Session 39 Q1:
 ## 11. Next Step
 
 Run `/writing-plans` against this spec to produce a phased implementation plan. The plan should split each of the five phases into concrete, dependency-ordered tasks dispatchable via `/implement`.
+
+---
+
+## 12. Session 49 Audit (2026-04-11) — Current State vs. Spec
+
+Full codebase audit performed against all spec criteria. Wave 8 DI seam refactor
+completed in Session 48 (ImeState, InputConnectionProvider, CandidateViewHost
+extracted; all collaborators decoupled from LatinIME).
+
+### 12.1 §2.1 Feature Completeness — Status
+
+| # | Criterion | Status | Finding |
+|---|---|---|---|
+| 1 | Voice input end-to-end | **PARTIAL** | Assets present, wiring complete. `WhisperProcessor.computeMelSpectrogram()` is a **stub** (returns zeros). Binary header parsing reads 2 of 4 fields (off-by-one). Model runs but produces garbage. |
+| 2 | SwiftKey layout parity | **PARTIAL** | COMPACT long-press retuned. `keyBgSpecial` token still mismatches SwiftKey (modifier keys darker than letter keys). 10/12 reference screenshots missing. Light theme deferred per §4.4.1. |
+| 3 | Long-press popup correctness | **DONE** | All letter/symbol keys have `longPressCode`/`longPressCodes`. Expectation JSONs complete for compact, compact_dev, full, symbols. |
+| 4 | Predictive next-word | **PARTIAL** | `setNextSuggestions()` exists and queries bigrams. Non-composing space path doesn't trigger it. Compose `SuggestionBar` and legacy `CandidateView` are separate pipelines — not in sync. |
+| 5 | Existing features functional | **DONE** | Clipboard, macros, command mode, plugin manager all complete. Plugins release-gated per §2.4. |
+| 6 | All keyboard modes | **DONE** | COMPACT, COMPACT_DEV, FULL, Symbols all present in Compose. Fn and symbols-shift exist in legacy XML (`kbd_full_fn.xml`, `kbd_compact_fn.xml`, `kbd_symbols_shift.xml`) and are wired through `KeyboardSwitcher.setFn()` / `toggleShift()`. |
+
+### 12.2 §2.2 Regression Bar — Status
+
+| # | Criterion | Status | Finding |
+|---|---|---|---|
+| 1 | Three test tiers green | **NOT DONE** | Latest run: 6 pass / 10 fail / 14 error / 6 skip. Stabilization DEFERRED. |
+| 2 | HTTP debug server in test loop | **DONE** | `DevKeyLogger.enableServer`, circuit breaker, auto-broadcast in `e2e_runner.py`. |
+| 3 | Test driver server | **DONE** | `tools/debug-server/server.js` with wave gate, ADB proxy, long-poll. |
+| 4 | New v1.0 test flows | **PARTIAL** | All 4 flows defined + Python test modules exist. All 4 are failing: voice key not in map, driver timeouts, SSIM=0.44 (threshold 0.92). |
+| 5 | No red tests | **NOT DONE** | 10 failures + 14 errors in latest run. |
+
+### 12.3 §2.3 Architecture Rule — Status
+
+| # | Criterion | Status | Finding |
+|---|---|---|---|
+| 1 | No .kt file > 400 lines | **NOT DONE** | `LatinIME.kt` at **623 lines** — sole violator. All other files under 400. |
+| 2 | No @Composable cyclo > 15 | **PARTIAL** | KeyView split done (197 lines). No automated enforcement. |
+| 3 | No function nesting > 4 | **PARTIAL** | LatinIME has depth > 4 in several methods. No automated enforcement. |
+| 4 | GH #9 closed | **NOT DONE** | Still open. |
+
+### 12.4 §2.4 Quality Gates — Status
+
+| # | Criterion | Status | Finding |
+|---|---|---|---|
+| 1 | Clean lint | **NOT DONE** | 747 errors: 45 locale files use wrong XML namespace (`apk/res/dev.devkey.keyboard` instead of removing it); `POST_NOTIFICATIONS` permission missing in manifest. 568 warnings. |
+| 2 | GH #4 plugin security | **DONE** | `BuildConfig.DEBUG` compile-time gate at two call sites. |
+
+### 12.5 §5 Voice — Status
+
+| # | Criterion | Status | Finding |
+|---|---|---|---|
+| 1 | Model assets | **DONE** | `whisper-tiny.en.tflite` (41.5 MB) + `filters_vocab_en.bin` (586 KB) present. |
+| 2 | VoiceInputEngine | **DONE** | 197 lines, code-complete. |
+| 3 | WhisperProcessor | **NOT DONE** | `computeMelSpectrogram()` stub + header parsing bug. |
+| 4 | Voice button wired | **DONE** | ToolbarRow mic button, VoiceInputPanel, wired in DevKeyKeyboard. |
+| 5 | RECORD_AUDIO permission | **DONE** | Manifest + PermissionActivity. |
+
+### 12.6 §4.D Compose Hotspots — Status
+
+| Spec Component | Status | Actual File |
+|---|---|---|
+| `KeyBackground` | DONE | `ui/keyboard/KeyBackground.kt` (81 lines) |
+| `KeyGlyph` | DONE | `ui/keyboard/KeyGlyph.kt` (145 lines) |
+| `KeyPopupPreview` | DONE | `ui/keyboard/KeyPopupPreview.kt` (83 lines) |
+| `KeyPressDetector` | NAME MISMATCH | `ui/keyboard/KeyGestureHandler.kt` (140 lines) |
+| `KeyboardGrid` | NAME MISMATCH | `ui/keyboard/KeyboardRenderLayer.kt` |
+| `ComposeSequenceHost` | N/A | Compose key processing is IME-level (`core/ComposeKeyProcessor.kt`) |
+| `KeyboardScaffold` | NAME MISMATCH | `ui/keyboard/DevKeyKeyboard.kt` (168 lines) |
+
+### 12.7 Phase 4 Architecture — Wave 8 DI Seam Refactor — COMPLETE
+
+Completed in Sessions 48–49:
+- `ImeState` extracted (168 lines) — plain data holder, no Android framework deps
+- `InputConnectionProvider` interface (15 lines) — narrow IC access
+- `CandidateViewHost` interface (13 lines) — candidate view + service bridge
+- `ComposeKeyProcessor` (18 lines) — compose/dead-key processing
+- `OptionsMenuHandler` (96 lines) — options dialog extracted from LatinIME
+- All 12 collaborators take `ImeState` + interfaces + lambdas, not `LatinIME`
+- `ImeInitializer` is the sole documented exception (one-shot factory needing IMS)
+- 0 collaborators in `core/` import `LatinIME` (verified by grep)
+- Business logic removed from ImeState: `processMultiKey` → `ComposeKeyProcessor`,
+  `saveWordInHistory` → `SuggestionCoordinator`, `isCursorTouchingWord` /
+  `sameAsTextBeforeCursor` → `EditingUtil`
+
+### 12.8 Remaining Blockers — Prioritized
+
+1. **LatinIME.kt under 400 lines** — extract CandidateViewManager, onKeyUp body,
+   Phase 2-4 onCreate wiring, updateKeyboardOptions, dump body, companion
+   wrappers (~206 lines removable → ~417, needs ~20 more from wrapper collapse)
+2. **WhisperProcessor functional** — implement mel spectrogram + fix header parsing
+3. **Lint clean** — fix 45 locale XML namespaces + POST_NOTIFICATIONS permission
+4. **Next-word prediction** — fix non-composing space path + unify dual pipeline
+5. **Test suite green** — depends on above fixes
+6. **GH #9 closed** — after architecture gate passes

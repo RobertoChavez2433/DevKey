@@ -25,7 +25,10 @@
 
 ---
 
-## 2. Violation Inventory (33 files over 200 lines)
+## 2. Violation Inventory (33 files over 200 lines — pre-refactor baseline)
+
+> **Note**: This section reflects the pre-refactor state from Session 47.
+> The current violation state after Waves 0-6 is in **Section 10.1**.
 
 ### Tier 1 — Massive (>600 lines, need 4+ output files each)
 
@@ -272,28 +275,33 @@ Corrections from line-by-line verification agents applied to this spec:
 
 ---
 
-## 8. Codemunch Audit Snapshot (2026-04-10)
+## 8. Codemunch Audit Snapshot (2026-04-10, updated Session 48)
 
 - **Index**: `local/Hackers_Keyboard_Fork-e04f25e5`
-- **Total files**: 417 | **Symbols**: 2,888
+- **Total files**: 525 | **Symbols**: 3,029
 - **Dependency cycles**: 0
 - **Layer violations**: 0 (ui/core/data/feature/debug boundaries clean)
-- **Avg cyclomatic complexity**: 3.31
+- **Avg cyclomatic complexity**: 3.1
 
 ### Top 10 Hotspots (complexity x churn, 180 days)
 
 | # | Symbol | File | Cyclo | Nesting | Churn | Score |
 |---|--------|------|------:|--------:|------:|------:|
-| 1 | `KeyView` | ui/keyboard/KeyView.kt:66 | 93 | 10 | 10 | 223.0 |
-| 2 | `DevKeyKeyboard` | ui/keyboard/DevKeyKeyboard.kt:69 | 74 | 9 | 13 | 195.3 |
-| 3 | `handleSeparator` | LatinIME.kt:1773 | 45 | 7 | 9 | 103.6 |
-| 4 | `getSuggestions` | Suggest.kt:189 | 53 | 7 | 4 | 85.3 |
-| 5 | `onStartInputView` | LatinIME.kt:826 | 33 | 6 | 9 | 76.0 |
-| 6 | `onKey` | LatinIME.kt:1441 | 33 | 5 | 9 | 76.0 |
-| 7 | `onUpdateSelection` | LatinIME.kt:1021 | 29 | 6 | 9 | 66.8 |
-| 8 | `pickSuggestionManually` | LatinIME.kt:2016 | 26 | 4 | 9 | 59.9 |
-| 9 | `getPopupKeyboardContent` | Keyboard.kt:405 | 43 | 6 | 3 | 59.6 |
-| 10 | `handleCharacter` | LatinIME.kt:1724 | 22 | 6 | 9 | 50.7 |
+| 1 | `KeyView` | ui/keyboard/KeyView.kt:43 | 30 | 3 | 12 | 77.0 |
+| 2 | `handleSeparator` | core/InputHandlers.kt:119 | 41 | 7 | 5 | 73.5 |
+| 3 | `getSuggestions` | suggestion/engine/SuggestionPipeline.kt:55 | 53 | 6 | 2 | 58.2 |
+| 4 | `onStartInputView` | core/InputViewSetup.kt:21 | 31 | 6 | 4 | 49.9 |
+| 5 | `onSelectionChanged` | core/SuggestionCoordinator.kt:161 | 29 | 6 | 4 | 46.7 |
+| 6 | `pickSuggestionManually` | core/SuggestionPicker.kt:41 | 25 | 4 | 5 | 44.8 |
+| 7 | `handleCharacter` | core/InputHandlers.kt:81 | 22 | 5 | 5 | 39.4 |
+| 8 | `onCreate` | InputLanguageSelection.kt:40 | 20 | 5 | 6 | 38.9 |
+| 9 | `getWordsRec` | cpp/dictionary.cpp:287 | 35 | 8 | 2 | 38.5 |
+| 10 | `dispatch` | core/ModifiableKeyDispatcher.kt:28 | 35 | 6 | 2 | 38.5 |
+
+**Shift from S47**: Hotspots moved from LatinIME monolith to extracted
+collaborators. The top-10 no longer contains any LatinIME symbol — all
+high-complexity code now lives in named, file-scoped units. The remaining
+concern is DI testability (see Section 11).
 
 ---
 
@@ -307,123 +315,204 @@ Corrections from line-by-line verification agents applied to this spec:
 
 ---
 
-## 10. Decomposition Audit (2026-04-10, Session 47)
+## 10. Decomposition Audit (2026-04-10, updated Session 48)
 
-**Finding: Waves 0-4 and 6 are already implemented.** The codebase has been
-refactored since this spec was written. Only LatinIME.kt remains over 200 lines.
+**Finding: All Waves 0-6 complete. Wave 5 extracted all 13 collaborators.**
+LatinIME shrank from 3,071 to 829 lines but remains a god class in disguise —
+the collaborators reach back into 118 mutable fields. The next milestone is DI
+seam refactoring (Wave 8), not further file splitting.
 
-### 10.1 Current Violation State
+### 10.1 Current Violation State (12 files over 200 lines)
 
-| Category | Count | Files |
-|----------|------:|-------|
-| Over 200 lines | 1 | `LatinIME.kt` (2,522) |
-| At exactly 200 lines (borderline) | 4 | `Suggest.kt`, `LatinKeyboard.kt`, `Key.kt`, `BinaryDictionary.kt` |
-| All other `.kt` files | — | Under 200 lines |
+| File | Lines | Package | Issue |
+|------|------:|---------|-------|
+| `LatinIME.kt` | 829 | root | God class residual — 118 fields, ~93 delegation wrappers |
+| `InputHandlers.kt` | 236 | `core/` | `handleSeparator` cyclo 41 |
+| `ModifierHandler.kt` | 225 | `core/` | Aggregated modifier dispatch |
+| `SuggestionCoordinator.kt` | 214 | `core/` | `onSelectionChanged` cyclo 29 |
+| `LatinKeyboard.kt` | 209 | `keyboard/latin/` | Legacy keyboard model |
+| `ExpandableDictionary.kt` | 205 | `dictionary/expandable/` | Dictionary traversal |
+| `Suggest.kt` | 204 | `suggestion/engine/` | Pipeline shell |
+| `Keyboard.kt` | 204 | `keyboard/model/` | Base keyboard model |
+| `BinaryDictionary.kt` | 202 | `dictionary/base/` | JNI bridge |
+| `KeyboardXmlParser.kt` | 201 | `keyboard/xml/` | XML parsing |
+| `Key.kt` | 201 | `keyboard/model/` | Key model |
+| `UserBigramDictionary.kt` | 201 | `dictionary/bigram/` | Bigram storage |
+
+Files 201-209 are acceptable — they contain single deterministic functions with
+no missing DI seams. The actionable violations are the top 4 (LatinIME +
+3 collaborators with high cyclomatic methods).
 
 ### 10.2 Wave Completion Status
 
 | Wave | Status | Notes |
 |------|--------|-------|
 | 0 — Pure data splits | **COMPLETE** | All 8 output files exist |
-| 1 — Low-risk extractions | **COMPLETE** | 10 of 11 outputs exist; `TerminalSequenceTable.kt` was absorbed — `KeyEventSender.kt` is 84 lines, no terminal sequence data remains |
+| 1 — Low-risk extractions | **COMPLETE** | 10 of 11 outputs; `TerminalSequenceTable.kt` absorbed |
 | 2 — Compose UI decomposition | **COMPLETE** | All 11 output files exist |
-| 3 — Legacy keyboard model | **COMPLETE** | 11 of 12 outputs exist; `PopupContentBuilder.kt` → `KeyPopup.kt` (127 lines) |
+| 3 — Legacy keyboard model | **COMPLETE** | 11 of 12 outputs; `PopupContentBuilder.kt` → `KeyPopup.kt` |
 | 4 — Dictionary and suggestion | **COMPLETE** | All 6 output files exist |
-| 5 — LatinIME god-class | **PARTIAL** | 4 of 12 collaborators extracted (see §10.3) |
-| 6 — Remaining Tier 3 splits | **COMPLETE** | 14 of 15 outputs exist; `WelcomeNavGraph.kt` not needed — `DevKeyWelcomeActivity.kt` is 198 lines |
-| 7 — Final gate | **NOT STARTED** | Blocked on Wave 5 |
+| 5 — LatinIME god-class | **COMPLETE** | All 13 collaborators extracted (see §10.3) |
+| 6 — Remaining Tier 3 splits | **COMPLETE** | 14 of 15 outputs; `WelcomeNavGraph.kt` not needed |
+| 7 — Final gate | **NOT STARTED** | Blocked on Wave 8 (DI seam refactor) |
+| 8 — DI seam refactor | **NOT STARTED** | See Section 12 |
 
-### 10.3 Wave 5 — What's Done vs. Remaining
+### 10.3 Wave 5 — All 13 Collaborators Extracted
 
-**Extracted (4 collaborators):**
+| Collaborator | Path | Lines | DI-clean? |
+|---|---|---:|:-:|
+| `FeedbackManager` | `core/FeedbackManager.kt` | 87 | YES |
+| `PunctuationHeuristics` | `core/PunctuationHeuristics.kt` | 111 | YES |
+| `SwipeActionHandler` | `core/SwipeActionHandler.kt` | 48 | YES |
+| `InputDispatcher` | `core/InputDispatcher.kt` | — | NO |
+| `SuggestionPicker` | `core/SuggestionPicker.kt` | — | NO |
+| `NotificationController` | `core/NotificationController.kt` | 76 | NO |
+| `InputHandlers` | `core/InputHandlers.kt` | 236 | NO |
+| `ModifierHandler` | `core/ModifierHandler.kt` | 225 | NO |
+| `SuggestionCoordinator` | `core/SuggestionCoordinator.kt` | 214 | NO |
+| `PreferenceObserver` | `core/PreferenceObserver.kt` | — | NO |
+| `InputViewSetup` | `core/InputViewSetup.kt` | — | NO |
+| `DictionaryManager` | `core/DictionaryManager.kt` | — | NO |
+| `ImeInitializer` | `core/ImeInitializer.kt` | — | NO |
 
-| Collaborator | Path | Lines |
-|---|---|---:|
-| `FeedbackManager` | `core/FeedbackManager.kt` | 87 |
-| `SwipeActionHandler` | `core/SwipeActionHandler.kt` | 48 |
-| `PunctuationHeuristics` | `core/PunctuationHeuristics.kt` | 111 |
-| `NotificationController` | `core/NotificationController.kt` | 76 |
+### 10.4 LatinIME.kt Residual Analysis (829 lines)
 
-**Not yet extracted (8 collaborators):**
+| Block | Lines | Issue |
+|-------|------:|-------|
+| Imports | ~70 | Expected |
+| **Field declarations** (77 var + 41 val) | **~140** | All mutable IME state still lives here |
+| `onCreate` wiring | ~20 | Thin — this is what the file should be |
+| Lifecycle callbacks with real logic | ~90 | `onConfigurationChanged`, `onDestroy`, `onCreateCandidatesView`, etc. |
+| `onKeyDown`/`onKeyUp` hardware routing | ~55 | Should be in a collaborator |
+| `showOptionsMenu` | ~30 | Should be in a collaborator |
+| `setCandidatesViewShownInternal` + view mgmt | ~50 | Should be in a collaborator |
+| Pure 1-line delegation wrappers | ~200 | ~93 functions that just call `mCollaborator.method()` |
+| `processMultiKey` + small logic methods | ~50 | Should be in InputDispatcher |
+| Companion object + utilities | ~40 | Some can move |
 
-| Spec task | Planned file | Status |
+**Root cause**: The collaborators were extracted as code-movers, not DI
+refactors. They take `private val ime: LatinIME` and reach back into 118 fields.
+The state never left LatinIME.
+
+### 10.5 Addressing 200-Line Violations
+
+| File | Lines | Deterministic? | Action |
+|------|------:|:-:|---|
+| `InputHandlers.kt` | 236 | `handleSeparator` cyclo 41 — **no** | Decompose after DI seam refactor |
+| `ModifierHandler.kt` | 225 | Mixed press/release — **mostly yes** | Acceptable after DI seam |
+| `SuggestionCoordinator.kt` | 214 | `onSelectionChanged` cyclo 29 — **no** | Decompose after DI seam refactor |
+| `LatinKeyboard.kt` | 209 | Legacy model — **yes** | Monitor |
+| `ExpandableDictionary.kt` | 205 | Dictionary traversal — **yes** | Monitor |
+| `Suggest.kt` | 204 | Pipeline shell — **yes** | Monitor |
+| Others 201-204 | ~201 | Single-purpose — **yes** | Monitor |
+
+---
+
+## 11. DI Seam Audit (Session 48)
+
+### 11.1 The Problem
+
+10 of 13 collaborators take raw `LatinIME` in their constructor. Every
+`ime.mSomething` call is a hidden dependency on the 118-field god object. These
+collaborators cannot be unit-tested without an Android `InputMethodService`
+instance.
+
+### 11.2 Collaborator Coupling Table
+
+| Collaborator | Constructor | Testable? |
 |---|---|---|
-| 5.3 | `DictionaryWriter.kt` | Not started |
-| 5.5 | `SuggestionCoordinator.kt` | Not started |
-| 5.6 | `ShiftStateMachine.kt` | Not started |
-| 5.7 | `InputDispatcher.kt` | Not started |
-| 5.8 | `SelectionTracker.kt` | Not started |
-| 5.9 | `PreferenceObserver.kt` | Not started |
-| 5.11 | `ImeLifecycleController.kt` + `ImeDependencyInitializer.kt` | Not started |
+| `FeedbackManager` | `(Context, Vibrator?, SettingsRepository)` | **YES** |
+| `PunctuationHeuristics` | `(() -> IC?, SettingsRepository, () -> Unit)` | **YES** |
+| `SwipeActionHandler` | `(lambdas)` | **YES** |
+| `InputDispatcher` | `(LatinIME, InputHandlers)` | NO |
+| `SuggestionPicker` | `(LatinIME, SuggestionCoordinator)` | NO |
+| `NotificationController` | `(Context, LatinIME)` | NO |
+| `InputHandlers` | `(LatinIME)` | NO |
+| `ModifierHandler` | `(LatinIME)` | NO |
+| `SuggestionCoordinator` | `(LatinIME)` | NO |
+| `PreferenceObserver` | `(LatinIME)` | NO |
+| `InputViewSetup` | `(LatinIME)` | NO |
+| `DictionaryManager` | `(LatinIME)` | NO |
+| `ImeInitializer` | `(LatinIME)` | NO |
 
-### 10.4 LatinIME.kt Line Reference Corrections
+### 11.3 Model Patterns (already working)
 
-**All §3 Wave 5 line references are invalid.** The file shrank from 3,071 to
-2,522 lines after the 4 collaborator extractions. References above L2522 point
-beyond EOF. Below are corrected ranges for the remaining 8 extractions, verified
-against the current file.
+These 3 collaborators demonstrate the target pattern:
 
-| Extraction | Spec claimed | Actual range (current) | Actual lines | Notes |
-|---|---|---|---:|---|
-| Lifecycle init | L277-719 | **L221-609** | ~389 | `onCreate` starts at L221, lifecycle callbacks through L609. Includes `initSuggest` (L464-532). |
-| Input view setup | (part of lifecycle) | **L616-792** | ~177 | `onStartInputView` (159 lines!) + `checkReCorrectionOnStart`. May merge with lifecycle or stand alone. |
-| Selection tracker | L1017-1082 | **L811-910** | ~100 | `onUpdateSelection` (L811-870) + `onExtractedTextClicked`, `hideWindow`, `onDisplayCompletions`. |
-| Shift state machine | L1272-1715 | **L1062-1155 + L1363-1415** | ~146 | Scattered: `updateShiftKeyState`/`getShiftState`/`getCursorCapsMode` (L1062-1100) + multitouch shift + `handleShiftInternal` (L1363-1415). Non-contiguous. |
-| Input dispatcher (onKey) | L1441-1885 | **L1172-1591** | ~420 | `onKey` (L1172, 118 lines), `onText`, `handleBackspace`, `handleCharacter`, `handleSeparator` (L1473, 111 lines), `handleClose`, `saveWordInHistory`. |
-| Suggestion coordinator | L1903-2270 | **L1603-1969** | ~367 | `postUpdateSuggestions` through `setNextSuggestions`. |
-| Dictionary writes | L1383-1387, L2271-2305, L2758-2761 | **L1971-2006** | ~36 | `addToDictionaries`, `addToBigramDictionary`, `checkAddToDictionary`. Too small for own file — absorb into SuggestionCoordinator. |
-| Preference observer | L2394-2530 | **L2092-2224** | ~133 | `onSharedPreferenceChanged`. |
-| Swipe dispatch | L2532-2597 | **L2226-2229** | 4 | Already delegation wrappers to extracted `SwipeActionHandler`. No extraction needed. |
-| Audio + vibration | L2711-2756 | **L2231-2308** | ~78 | `onPress`/`onRelease` handlers + `vibrate` wrapper. `FeedbackManager` already extracted; these are the remaining press/release callbacks. |
-| Notification controller | L575-638 | **L449** | 1 | Already fully extracted. Single delegation wrapper remains. |
+- **FeedbackManager**: takes `Context` + value types — no IME coupling
+- **PunctuationHeuristics**: takes lambdas + `SettingsRepository` — fully testable
+- **SwipeActionHandler**: takes 9 action lambdas — zero framework deps
 
-### 10.5 Additional Code Sections Not Covered by Original Spec
+---
 
-These LatinIME sections were not assigned to any extraction task:
+## 12. Wave 8 — DI Seam Refactor
 
-| Range | Content | Lines | Suggested home |
-|---|---|---:|---|
-| L911-964 | View management (`setCandidatesViewShownInternal`, `onComputeInsets`, `onEvaluateFullscreenMode`, etc.) | ~54 | ImeLifecycleController or shell |
-| L966-1030 | `onKeyDown`/`onKeyUp` (volume key handling, hardware key passthrough) + `reloadKeyboards` | ~65 | InputDispatcher |
-| L1032-1060 | `commitTyped` (with LearningEngine integration) | ~29 | SuggestionCoordinator |
-| L1115-1155 | `addWordToDictionary`, `onOptionKeyPressed`, `isShiftMod`, `sendModifiableKeyChar` | ~41 | Various (shell utilities) |
-| L1157-1170 | `processMultiKey` (compose/dead-key dispatch) | ~14 | InputDispatcher |
-| L2008-2090 | Text utilities (`isCursorTouchingWord`, `revertLastWord`, `toggleLanguage`, etc.) | ~83 | SuggestionCoordinator |
-| L2310-2355 | `promoteToUserDictionary`, `updateCorrectionMode`, `launchSettings` | ~46 | PreferenceObserver or shell |
-| L2356-2416 | `loadSettings`, `initSuggestPuncList` | ~61 | PreferenceObserver |
-| L2420-2481 | `showOptionsMenu`, `changeKeyboardMode`, `dump`, `onAutoCompletionStateChanged` | ~62 | Shell utilities |
-| L2483-2522 | Companion object (static helpers, `sInstance`, `sKeyboardSettings`) | ~40 | Shell (must stay in LatinIME) |
+**Goal**: Every collaborator constructor takes interfaces/lambdas/value types,
+not `LatinIME`. LatinIME becomes a ~50-80 line wiring shell.
 
-### 10.6 Revised Wave 5 Extraction Plan
+### 12.1 Strategy
 
-Given the current 2,522-line file and the 200-line max rule, the remaining work
-needs **8 extraction steps** producing **~10 new files** (some extractions need
-2 output files to stay under 200 lines). Recommended order (cleanest boundaries
-first, dependency-ordered):
+1. **Extract `ImeState`** — a plain data holder for the ~118 fields that
+   currently live in LatinIME. Collaborators that need mutable state receive
+   `ImeState` (a testable POJO), not `LatinIME` (an Android service).
 
-| Step | Extract | Source lines | New file(s) | Est. size | Lines removed |
-|------|---------|-------------|-------------|----------:|-------------:|
-| 5.A | Preference observer + settings loading | L2092-2224, L2310-2416 | `PreferenceObserver.kt` (~200) | ~200 | ~194 |
-| 5.B | Selection tracker + view management | L811-964 | `SelectionTracker.kt` (~155) | ~155 | ~154 |
-| 5.C | Suggestion display + picking | L1626-1854 | `SuggestionDisplay.kt` (~200) | ~200 | ~228 |
-| 5.D | Suggestion pipeline + dictionary writes + text utils | L1603-1625, L1854-2006, L2008-2090 | `SuggestionCoordinator.kt` (~200) | ~200 | ~248 |
-| 5.E | Shift state machine (scattered) | L1062-1155, L1363-1415 | `ShiftStateMachine.kt` (~146) | ~146 | ~146 |
-| 5.F | Input dispatcher (onKey + handle*) | L1172-1361, L1416-1591 | `InputDispatcher.kt` (~200) + `InputHandlers.kt` (~200) | ~400 | ~390 |
-| 5.G | Lifecycle init | L221-609 | `ImeLifecycleController.kt` (~200) + `ImeDependencyInitializer.kt` (~190) | ~390 | ~389 |
-| 5.H | Input view setup | L616-807 | `InputViewSetup.kt` (~195) | ~195 | ~192 |
+2. **Define narrow interfaces** — where collaborators need IME service calls
+   (`currentInputConnection`, `setCandidatesViewShown`), define small interfaces
+   (`InputConnectionProvider`, `CandidateViewHost`) that LatinIME implements.
+   Collaborators depend on the interface, not the concrete class.
 
-**After 5.H:** LatinIME.kt should be ~50-80 lines: companion object, field
-declarations pointing to collaborators, and single-line delegation wrappers.
+3. **Use lambdas for one-off callbacks** — follow the pattern already working in
+   `PunctuationHeuristics` and `SwipeActionHandler`.
 
-**Verification after each step:** `./gradlew assembleDebug`
-**After full wave:** E2E regression on emulator
+4. **LatinIME becomes wiring only** — `onCreate` constructs `ImeState`,
+   creates collaborators with interfaces/state, and registers lifecycle
+   callbacks. No field declarations beyond the collaborator references and
+   `ImeState`.
 
-### 10.7 Borderline Files (exactly 200 lines)
+### 12.2 Collaborator Migration Plan
 
-These 4 files sit at exactly 200 lines. They are technically compliant but may
-drift over with future changes. No immediate action required — monitor only.
+| Collaborator | Current deps on `ime.` | Target constructor |
+|---|---|---|
+| `InputHandlers` | `ime.mComposing`, `ime.mWord`, `ime.mPredicting`, `ime.mSuggest`, ~15 more | `(ImeState, InputConnectionProvider, SuggestionCoordinator, KeyboardProvider)` |
+| `ModifierHandler` | `ime.mShiftKeyState`, `ime.mCtrlKeyState`, 6 ChordeTrackers, `ime.mKeyboardSwitcher` | `(ImeState, KeyboardProvider, FeedbackManager)` |
+| `SuggestionCoordinator` | `ime.mSuggest`, `ime.mWord`, `ime.mCandidateView`, ~10 more | `(ImeState, Suggest, CandidateViewHost)` |
+| `PreferenceObserver` | `ime.sKeyboardSettings`, `ime.mLanguageSwitcher`, ~12 fields | `(ImeState, SettingsRepository, () -> Unit)` |
+| `InputViewSetup` | `ime.mKeyboardSwitcher`, `ime.mSuggest`, ~8 fields | `(ImeState, KeyboardProvider, InputConnectionProvider)` |
+| `DictionaryManager` | `ime.mSuggest`, `ime.mLanguageSwitcher`, dictionaries | `(ImeState, PluginManager, Context)` |
+| `InputDispatcher` | `ime` + `handlers` | `(ImeState, InputHandlers, ModifierHandler)` |
+| `SuggestionPicker` | `ime` + `coordinator` | `(ImeState, SuggestionCoordinator, InputConnectionProvider)` |
+| `NotificationController` | `Context` + `ime` for notification checks | `(Context, () -> Boolean)` — just needs `isKeyboardVisible` |
+| `ImeInitializer` | `ime` for full lifecycle init | `(ImeState, Context, SettingsRepository)` |
 
-- `Suggest.kt` (200) — shell after Wave 4 split
-- `LatinKeyboard.kt` (200) — shell after Wave 3 split
-- `Key.kt` (200) — extracted from `Keyboard.kt` in Wave 3
-- `BinaryDictionary.kt` (200) — after Wave 6 `DictionaryLoader` extraction
+### 12.3 Hard Rules
+
+- No collaborator may import `LatinIME`
+- `ImeState` is a plain class with no Android framework dependencies
+- Every collaborator must be constructible in a unit test without Android context
+  (except `FeedbackManager` and `NotificationController` which need `Context`)
+- Preserve existing `FeedbackManager`/`PunctuationHeuristics`/`SwipeActionHandler`
+  patterns as the model
+
+### 12.4 Post-Wave 8 Cleanup
+
+After DI seam refactor completes, address remaining high-cyclo methods:
+
+| Method | Cyclo | File | Action |
+|--------|------:|------|--------|
+| `handleSeparator` | 41 | `InputHandlers.kt` | Decompose into sub-methods |
+| `onSelectionChanged` | 29 | `SuggestionCoordinator.kt` | Decompose into sub-methods |
+| `onStartInputView` | 31 | `InputViewSetup.kt` | Decompose into sub-methods |
+
+These decompositions are deferred until after Wave 8 because the DI seam
+refactor will change the method signatures and dependencies.
+
+### 12.5 Wave 7 Gate (after Wave 8)
+
+Wave 7 remains the final gate but is now blocked on Wave 8 completion:
+
+- Full E2E regression: `tools/e2e/e2e_runner.py` on emulator
+- `./gradlew lint`
+- Verify: no collaborator imports `LatinIME`
+- Verify: every collaborator constructible in unit test
+- Re-run codemunch hotspots: verify no composable with cyclo >15
+- After Phase 4: **re-run Phase 3 gate in full** per pre-release spec

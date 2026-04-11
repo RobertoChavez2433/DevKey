@@ -27,7 +27,7 @@ def _setup_voice():
     # Re-ensure debug server connection — earlier tests may have caused
     # an IME restart that dropped the URL.
     import os
-    host_url = os.environ.get("DEVKEY_DRIVER_URL", "http://127.0.0.1:3948")
+    host_url = os.environ.get("DEVKEY_DRIVER_URL", "http://127.0.0.1:3950")
     ime_url = host_url.replace("127.0.0.1", "10.0.2.2").replace("localhost", "10.0.2.2")
     driver.broadcast("dev.devkey.keyboard.ENABLE_DEBUG_SERVER", {"url": ime_url})
     return serial
@@ -155,7 +155,8 @@ def test_voice_file_based_inference():
     # Verify we got a process_file_result with non-empty transcription
     result = driver.wait_for("DevKey/VOX", "process_file_result",
                              timeout_ms=5000)
-    assert result.get("length", 0) > 0, (
-        f"Expected non-empty transcription but got length={result.get('length')}, "
-        f"preview={result.get('preview')}"
+    data = result.get("data", {})
+    assert data.get("length", 0) > 0, (
+        f"Expected non-empty transcription but got length={data.get('length')}, "
+        f"preview={data.get('preview')}"
     )

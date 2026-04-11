@@ -14,7 +14,7 @@
  * the License.
  */
 
-package dev.devkey.keyboard
+package dev.devkey.keyboard.legacy
 
 import android.view.Gravity
 import android.view.View

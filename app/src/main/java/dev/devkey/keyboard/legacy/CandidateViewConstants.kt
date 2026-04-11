@@ -14,7 +14,7 @@
  * the License.
  */
 
-package dev.devkey.keyboard
+package dev.devkey.keyboard.legacy
 
 internal const val CANDIDATE_OUT_OF_BOUNDS_WORD_INDEX = -1
 internal const val CANDIDATE_OUT_OF_BOUNDS_X_COORD = -1

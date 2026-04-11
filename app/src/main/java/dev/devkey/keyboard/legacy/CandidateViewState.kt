@@ -14,7 +14,8 @@
  * the License.
  */
 
-package dev.devkey.keyboard
+package dev.devkey.keyboard.legacy
+import dev.devkey.keyboard.LatinIME
 
 import android.graphics.Paint
 import android.graphics.Rect

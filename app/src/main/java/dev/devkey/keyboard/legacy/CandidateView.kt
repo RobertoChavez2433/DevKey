@@ -14,7 +14,9 @@
  * the License.
  */
 
-package dev.devkey.keyboard
+package dev.devkey.keyboard.legacy
+import dev.devkey.keyboard.LatinIME
+import dev.devkey.keyboard.R
 import dev.devkey.keyboard.suggestion.renderer.SuggestionRenderer
 
 import android.content.Context

@@ -54,10 +54,12 @@ object DevKeyLogger {
     //      entirely for 5 seconds. Reset on the next successful POST.
     private val consecutiveFailures = AtomicInteger(0)
     private val circuitBreakerUntilMs = AtomicLong(0L)
-    // Fail fast — a single failure trips the breaker for the cooldown window.
-    // Any driver that is genuinely reachable will succeed on the first POST.
-    private const val CIRCUIT_BREAKER_TRIP_COUNT = 1
-    private const val CIRCUIT_BREAKER_COOLDOWN_MS = 10000L
+    // Trip after 3 consecutive failures rather than 1 — a single transient
+    // timeout during IME restart or activity switch shouldn't suppress events
+    // for the entire test. Cooldown 3s is enough to skip a burst without
+    // blocking the next test's assertions.
+    private const val CIRCUIT_BREAKER_TRIP_COUNT = 3
+    private const val CIRCUIT_BREAKER_COOLDOWN_MS = 3000L
     // Tight timeouts — the driver is on localhost via emulator NAT, so real
     // POSTs complete in <100ms. 300ms is plenty; anything slower is a stall.
     private const val HTTP_CONNECT_TIMEOUT_MS = 300

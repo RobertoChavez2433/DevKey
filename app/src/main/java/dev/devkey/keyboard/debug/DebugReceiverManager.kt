@@ -14,6 +14,7 @@ internal class DebugReceiverManager(private val context: Context) {
     private var setBoolPrefReceiver: BroadcastReceiver? = null
     private var setAutocorrectLevelReceiver: BroadcastReceiver? = null
     private var voiceProcessFileReceiver: BroadcastReceiver? = null
+    private var clearLearnedWordsReceiver: BroadcastReceiver? = null
 
     fun registerAll() {
         enableDebugServerReceiver = object : BroadcastReceiver() {
@@ -118,10 +119,29 @@ internal class DebugReceiverManager(private val context: Context) {
             IntentFilter("dev.devkey.keyboard.VOICE_PROCESS_FILE"),
             Context.RECEIVER_EXPORTED
         )
+
+        clearLearnedWordsReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                val engine = dev.devkey.keyboard.ui.keyboard.SessionDependencies.learningEngine
+                if (engine == null) {
+                    DevKeyLogger.error("clear_learned_words_rejected", mapOf("reason" to "engine_null"))
+                    return
+                }
+                kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                    engine.clearAll()
+                    DevKeyLogger.ime("learned_words_cleared")
+                }
+            }
+        }
+        context.registerReceiver(
+            clearLearnedWordsReceiver,
+            IntentFilter("dev.devkey.keyboard.CLEAR_LEARNED_WORDS"),
+            Context.RECEIVER_EXPORTED
+        )
     }
 
     fun unregisterAll() {
-        listOf(enableDebugServerReceiver, setLayoutModeReceiver, setBoolPrefReceiver, setAutocorrectLevelReceiver, voiceProcessFileReceiver).forEach { r ->
+        listOf(enableDebugServerReceiver, setLayoutModeReceiver, setBoolPrefReceiver, setAutocorrectLevelReceiver, voiceProcessFileReceiver, clearLearnedWordsReceiver).forEach { r ->
             try { r?.let { context.unregisterReceiver(it) } } catch (_: IllegalArgumentException) {}
         }
         enableDebugServerReceiver = null
@@ -129,5 +149,6 @@ internal class DebugReceiverManager(private val context: Context) {
         setBoolPrefReceiver = null
         setAutocorrectLevelReceiver = null
         voiceProcessFileReceiver = null
+        clearLearnedWordsReceiver = null
     }
 }

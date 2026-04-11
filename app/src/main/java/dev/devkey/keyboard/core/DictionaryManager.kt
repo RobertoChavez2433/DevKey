@@ -16,6 +16,7 @@ import dev.devkey.keyboard.feature.prediction.LearningEngine
 import dev.devkey.keyboard.feature.prediction.PredictionEngine
 import dev.devkey.keyboard.feature.prediction.TrieDictionary
 import dev.devkey.keyboard.core.prefs.ImePrefsUtil
+import dev.devkey.keyboard.debug.DevKeyLogger
 import dev.devkey.keyboard.suggestion.engine.WordPromotionDelegate
 import dev.devkey.keyboard.ui.keyboard.SessionDependencies
 import kotlinx.coroutines.Dispatchers
@@ -89,6 +90,7 @@ internal class DictionaryManager(
             trie.load(context, R.raw.en_us_wordfreq)
             dictProvider.trieDictionary = trie
             Log.i(TAG, "TrieDictionary loaded: ${trie.size} words")
+            DevKeyLogger.ime("dictionary_ready", mapOf("words" to trie.size))
         }
 
         preferenceObserver.updateCorrectionMode()

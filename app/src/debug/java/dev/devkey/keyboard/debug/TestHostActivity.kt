@@ -1,6 +1,10 @@
 package dev.devkey.keyboard.debug
 
 import android.app.Activity
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.os.Bundle
 import android.text.InputType
 import android.view.Gravity
@@ -70,11 +74,30 @@ class TestHostActivity : Activity() {
         setContentView(root)
     }
 
+    private val clearTextReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            findViewById<EditText>(ID_TEST_EDIT)?.let {
+                it.text.clear()
+                it.requestFocus()
+            }
+        }
+    }
+
     override fun onResume() {
         super.onResume()
         // Re-request focus on resume in case a layout broadcast caused the
         // keyboard to recompose and drop focus.
         findViewById<EditText>(ID_TEST_EDIT)?.requestFocus()
+        registerReceiver(
+            clearTextReceiver,
+            IntentFilter("dev.devkey.keyboard.debug.CLEAR_EDIT_TEXT"),
+            RECEIVER_EXPORTED
+        )
+    }
+
+    override fun onPause() {
+        super.onPause()
+        try { unregisterReceiver(clearTextReceiver) } catch (_: IllegalArgumentException) {}
     }
 
     companion object {

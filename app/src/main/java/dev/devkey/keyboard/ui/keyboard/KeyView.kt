@@ -192,6 +192,13 @@ fun KeyView(
                 keySize = keySizeState.value,
                 density = density
             )
+        } else if (isPressed && key.type == KeyType.LETTER && displayLabel.length <= 2) {
+            // Single-character press preview for letter keys
+            KeyPressPreview(
+                label = displayLabel,
+                keySize = keySizeState.value,
+                density = density
+            )
         }
     }
 }

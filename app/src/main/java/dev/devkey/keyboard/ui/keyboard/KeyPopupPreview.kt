@@ -21,6 +21,51 @@ import dev.devkey.keyboard.ui.theme.DevKeyThemeDimensions
 import dev.devkey.keyboard.ui.theme.DevKeyThemeTypography
 
 /**
+ * Single-character press preview bubble shown on finger-down.
+ *
+ * Floats above the pressed key to show what character is being typed.
+ * Disappears when the long-press popup appears or the finger lifts.
+ * Only shown for letter/number keys — not for action/modifier keys.
+ */
+@Composable
+internal fun KeyPressPreview(
+    label: String,
+    keySize: IntSize,
+    density: Density
+) {
+    val popupHeightDp = DevKeyThemeDimensions.popupCellPadV * 2 + DevKeyThemeDimensions.popupCellGlyphHeight
+    val cellWidthDp = DevKeyThemeDimensions.popupCellPadH * 2 + DevKeyThemeDimensions.popupCellGlyphWidth
+    val gapDp = DevKeyThemeDimensions.popupAnchorGap
+
+    val popupWidthPx = with(density) { cellWidthDp.roundToPx() }
+    val xOffsetPx = (keySize.width - popupWidthPx) / 2
+    val yOffsetPx = with(density) { -(popupHeightDp + gapDp).roundToPx() }
+
+    Popup(
+        alignment = Alignment.TopStart,
+        offset = IntOffset(xOffsetPx, yOffsetPx),
+        properties = PopupProperties(focusable = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(DevKeyThemeDimensions.popupRadius))
+                .background(DevKeyThemeColors.popupSelectedBg)
+                .padding(
+                    horizontal = DevKeyThemeDimensions.popupCellPadH,
+                    vertical = DevKeyThemeDimensions.popupCellPadV
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = label,
+                color = DevKeyThemeColors.popupSelectedText,
+                fontSize = DevKeyThemeTypography.fontPopupCandidate
+            )
+        }
+    }
+}
+
+/**
  * Renders the multi-char long-press candidate popup anchored above the key.
  *
  * Displayed as a horizontal Row of candidate cells. The cell at [activeIndex]

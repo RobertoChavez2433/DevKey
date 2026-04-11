@@ -109,11 +109,9 @@ private suspend fun PointerInputScope.handleNormalKeyGesture(
                 delay(300L)
                 view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
                 KeyPressLogger.logLongPress(key.primaryLabel, key.primaryCode, key.longPressCode)
-                if (key.longPressCode != null) {
-                    DevKeyLogger.text("long_press_fired",
-                        mapOf("label" to key.primaryLabel, "code" to key.primaryCode, "lp_code" to key.longPressCode))
-                    onKeyAction(key.longPressCode)
-                } else if (key.isRepeatable) {
+                if (key.isRepeatable) {
+                    // Repeatable keys (delete, space) repeat on hold with
+                    // accelerating rate: starts at 80ms, ramps to 20ms.
                     var repeatCount = 0
                     while (isActive) {
                         repeatCount++
@@ -121,8 +119,13 @@ private suspend fun PointerInputScope.handleNormalKeyGesture(
                         if (repeatCount % 10 == 0) {
                             KeyPressLogger.logRepeat(key.primaryLabel, key.primaryCode, repeatCount)
                         }
-                        delay(50L)
+                        val delayMs = (80L - (repeatCount * 3L)).coerceAtLeast(20L)
+                        delay(delayMs)
                     }
+                } else if (key.longPressCode != null) {
+                    DevKeyLogger.text("long_press_fired",
+                        mapOf("label" to key.primaryLabel, "code" to key.primaryCode, "lp_code" to key.longPressCode))
+                    onKeyAction(key.longPressCode)
                 }
             }
 

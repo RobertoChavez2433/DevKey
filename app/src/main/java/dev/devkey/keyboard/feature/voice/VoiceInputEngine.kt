@@ -151,18 +151,35 @@ class VoiceInputEngine(private val context: Context) {
                     return@withContext "[Voice model not available]"
                 }
 
-                val input = processor.processAudio(audioData)
-                if (input == null) {
+                val flatInput = processor.processAudio(audioData)
+                if (flatInput == null) {
                     _state.value = VoiceState.IDLE
                     DevKeyLogger.voice("state_transition", mapOf("state" to "IDLE", "source" to "stopListening", "reason" to "audio_processing_failed"))
                     return@withContext "[Audio processing failed]"
                 }
 
-                val outputTokens = IntArray(256)
-                val outputBuffer = hashMapOf<Int, Any>(0 to outputTokens)
-                interp.runForMultipleInputsOutputs(arrayOf<Any>(input), outputBuffer)
+                // Log model input/output tensor shapes for diagnostics
+                val inputTensor = interp.getInputTensor(0)
+                val outputTensor = interp.getOutputTensor(0)
+                DevKeyLogger.voice("model_shapes", mapOf(
+                    "input" to inputTensor.shape().contentToString(),
+                    "output" to outputTensor.shape().contentToString(),
+                    "flatSize" to flatInput.size
+                ))
 
-                val transcription = processor.decodeTokens(outputTokens)
+                // Reshape flat mel array to match model input shape [1, 80, 3000]
+                val inputBuf = ByteBuffer.allocateDirect(flatInput.size * 4).order(ByteOrder.nativeOrder())
+                for (v in flatInput) inputBuf.putFloat(v)
+                inputBuf.rewind()
+
+                // Output shape is [1, 449] — use 2D array to match
+                val outputShape = outputTensor.shape()
+                val outputLen = if (outputShape.size >= 2) outputShape[1] else outputShape[0]
+                val outputTokens2D = Array(1) { IntArray(outputLen) }
+                val outputBuffer = hashMapOf<Int, Any>(0 to outputTokens2D)
+                interp.runForMultipleInputsOutputs(arrayOf<Any>(inputBuf), outputBuffer)
+
+                val transcription = processor.decodeTokens(outputTokens2D[0])
                 _state.value = VoiceState.IDLE
                 DevKeyLogger.voice("processing_complete", mapOf("result_length" to transcription.length, "duration_ms" to (System.currentTimeMillis() - startMs), "source" to "stopListening"))
                 DevKeyLogger.voice("state_transition", mapOf("state" to "IDLE", "source" to "stopListening", "reason" to "inference_complete"))

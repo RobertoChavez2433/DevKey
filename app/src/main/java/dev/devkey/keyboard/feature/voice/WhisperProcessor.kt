@@ -67,33 +67,38 @@ class WhisperProcessor(private val context: Context) {
             val bytes = assetManager.open("filters_vocab_en.bin").use { it.readBytes() }
             val buf = java.nio.ByteBuffer.wrap(bytes).order(java.nio.ByteOrder.LITTLE_ENDIAN)
 
-            // Header: magic:int32, numMelBins:int32, melFilterCount:int32, vocabSize:int32 = 16 bytes
-            if (bytes.size < 16) return false
+            // Header: magic:int32, numMelBins:int32, numFreqs:int32 = 12 bytes
+            // (no vocabSize field — vocab starts after mel filter floats)
+            if (bytes.size < 12) return false
             val magic = buf.int
             val numMelBins = buf.int
-            val melFilterCount = buf.int
-            val vocabSize = buf.int
-            val melFloats = FloatArray(melFilterCount.coerceAtMost((bytes.size - 16) / 4))
+            val numFreqs = buf.int
+            val melFilterCount = numMelBins * numFreqs
+            val melFloats = FloatArray(melFilterCount.coerceAtMost((bytes.size - 12) / 4))
             for (i in melFloats.indices) melFloats[i] = buf.float
             melFilters = melFloats
 
-            // Remaining bytes contain the vocabulary table. Each entry is
-            // length-prefixed (int16) then UTF-8 bytes. Stop on EOF.
+            // Vocabulary section: starts with vocabSize:int32, then vocabSize
+            // entries each with length:int32 followed by UTF-8 bytes.
             val vocab = mutableListOf<String>()
-            while (buf.remaining() >= 2) {
-                val len = buf.short.toInt() and 0xFFFF
-                if (len <= 0 || len > buf.remaining()) break
-                val tokenBytes = ByteArray(len)
-                buf.get(tokenBytes)
-                vocab.add(String(tokenBytes, Charsets.UTF_8))
+            if (buf.remaining() >= 4) {
+                val vocabSize = buf.int
+                for (i in 0 until vocabSize) {
+                    if (buf.remaining() < 4) break
+                    val len = buf.int
+                    if (len <= 0 || len > buf.remaining()) break
+                    val tokenBytes = ByteArray(len)
+                    buf.get(tokenBytes)
+                    vocab.add(String(tokenBytes, Charsets.UTF_8))
+                }
             }
             vocabulary = vocab
 
             Log.i(
                 TAG,
                 "WhisperProcessor: loaded magic=0x${magic.toString(16)} " +
-                        "melBins=$numMelBins melFilterCount=$melFilterCount " +
-                        "vocabSize=$vocabSize mel=${melFloats.size} vocab=${vocab.size}"
+                        "melBins=$numMelBins numFreqs=$numFreqs " +
+                        "melFilters=${melFloats.size} vocab=${vocab.size}"
             )
             true
         } catch (e: Exception) {
@@ -156,6 +161,7 @@ class WhisperProcessor(private val context: Context) {
         val nFft = 400
         val hopLength = 160
         val nFreqs = nFft / 2 + 1 // 201
+        val fftSize = 512 // Next power-of-2 for radix-2 FFT
 
         // Hann window
         val window = FloatArray(nFft) { i ->
@@ -165,14 +171,14 @@ class WhisperProcessor(private val context: Context) {
         // STFT → power spectrum for each frame
         val magnitudes = Array(N_FRAMES) { frame ->
             val offset = frame * hopLength
-            // Windowed frame (zero-padded if near end)
-            val real = FloatArray(nFft)
-            val imag = FloatArray(nFft)
+            // Windowed frame, zero-padded to fftSize for radix-2 FFT
+            val real = FloatArray(fftSize)
+            val imag = FloatArray(fftSize)
             for (i in 0 until nFft) {
                 val idx = offset + i
                 real[i] = if (idx < audio.size) audio[idx] * window[i] else 0f
             }
-            // In-place radix-2 FFT
+            // In-place radix-2 FFT (requires power-of-2 length)
             fft(real, imag)
             // Power spectrum (squared magnitude), only first nFreqs bins
             FloatArray(nFreqs) { k -> real[k] * real[k] + imag[k] * imag[k] }

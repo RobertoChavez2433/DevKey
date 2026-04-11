@@ -6,12 +6,14 @@ import android.content.Intent
 import android.content.IntentFilter
 import androidx.preference.PreferenceManager
 import dev.devkey.keyboard.data.repository.SettingsRepository
+import kotlinx.coroutines.launch
 
 internal class DebugReceiverManager(private val context: Context) {
     private var enableDebugServerReceiver: BroadcastReceiver? = null
     private var setLayoutModeReceiver: BroadcastReceiver? = null
     private var setBoolPrefReceiver: BroadcastReceiver? = null
     private var setAutocorrectLevelReceiver: BroadcastReceiver? = null
+    private var voiceProcessFileReceiver: BroadcastReceiver? = null
 
     fun registerAll() {
         enableDebugServerReceiver = object : BroadcastReceiver() {
@@ -93,15 +95,39 @@ internal class DebugReceiverManager(private val context: Context) {
             IntentFilter("dev.devkey.keyboard.SET_AUTOCORRECT_LEVEL"),
             Context.RECEIVER_EXPORTED
         )
+
+        voiceProcessFileReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                val filePath = intent.getStringExtra("file_path") ?: return
+                val engine = dev.devkey.keyboard.ui.keyboard.SessionDependencies.voiceInputEngine
+                if (engine == null) {
+                    DevKeyLogger.error("voice_process_file_rejected", mapOf("reason" to "engine_null"))
+                    return
+                }
+                DevKeyLogger.voice("process_file_start", mapOf("path" to filePath))
+                kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.Main) {
+                    val result = engine.processFileForTest(filePath)
+                    DevKeyLogger.voice("process_file_result", mapOf("length" to result.length, "preview" to result.take(100)))
+                    // Commit the transcription to the current input field
+                    dev.devkey.keyboard.LatinIME.sInstance?.currentInputConnection?.commitText(result, 1)
+                }
+            }
+        }
+        context.registerReceiver(
+            voiceProcessFileReceiver,
+            IntentFilter("dev.devkey.keyboard.VOICE_PROCESS_FILE"),
+            Context.RECEIVER_EXPORTED
+        )
     }
 
     fun unregisterAll() {
-        listOf(enableDebugServerReceiver, setLayoutModeReceiver, setBoolPrefReceiver, setAutocorrectLevelReceiver).forEach { r ->
+        listOf(enableDebugServerReceiver, setLayoutModeReceiver, setBoolPrefReceiver, setAutocorrectLevelReceiver, voiceProcessFileReceiver).forEach { r ->
             try { r?.let { context.unregisterReceiver(it) } } catch (_: IllegalArgumentException) {}
         }
         enableDebugServerReceiver = null
         setLayoutModeReceiver = null
         setBoolPrefReceiver = null
         setAutocorrectLevelReceiver = null
+        voiceProcessFileReceiver = null
     }
 }

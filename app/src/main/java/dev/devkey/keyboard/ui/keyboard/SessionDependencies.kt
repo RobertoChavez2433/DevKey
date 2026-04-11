@@ -7,6 +7,7 @@ import dev.devkey.keyboard.feature.prediction.AutocorrectResult
 import dev.devkey.keyboard.feature.prediction.DictionaryProvider
 import dev.devkey.keyboard.feature.prediction.LearningEngine
 import dev.devkey.keyboard.feature.prediction.PredictionEngine
+import dev.devkey.keyboard.feature.voice.VoiceInputEngine
 import kotlinx.coroutines.flow.MutableStateFlow
 
 /**
@@ -50,4 +51,8 @@ object SessionDependencies {
 
     /** Next-word suggestions from the bigram/legacy pipeline, shown when composing is empty. */
     val nextWordSuggestions = MutableStateFlow<List<CharSequence>>(emptyList())
+
+    /** Voice input engine instance, set from Compose initialization for debug access. */
+    @Volatile
+    var voiceInputEngine: VoiceInputEngine? = null
 }

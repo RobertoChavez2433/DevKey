@@ -204,6 +204,50 @@ class VoiceInputEngine(private val context: Context) {
     }
 
     /**
+     * Process a WAV file directly for testing — bypasses AudioRecord entirely.
+     *
+     * Reads a 16-bit PCM WAV file from the given path, runs it through the
+     * Whisper pipeline, and returns the transcription. Debug builds only.
+     *
+     * @param filePath Absolute path to a 16kHz mono 16-bit PCM WAV file.
+     * @return Transcribed text or an error/status message.
+     */
+    suspend fun processFileForTest(filePath: String): String {
+        if (interpreter == null) initialize()
+        _state.value = VoiceState.PROCESSING
+        DevKeyLogger.voice("state_transition", mapOf("state" to "PROCESSING", "source" to "processFileForTest"))
+
+        val audioData = readWavPcm(filePath)
+        if (audioData == null || audioData.isEmpty()) {
+            _state.value = VoiceState.IDLE
+            DevKeyLogger.voice("state_transition", mapOf("state" to "IDLE", "source" to "processFileForTest", "reason" to "file_read_failed"))
+            return "[Failed to read WAV file: $filePath]"
+        }
+
+        DevKeyLogger.voice("file_loaded", mapOf("path" to filePath, "samples" to audioData.size))
+        return runInference(audioData)
+    }
+
+    /** Read PCM samples from a standard 16-bit mono WAV file. */
+    private fun readWavPcm(path: String): ShortArray? {
+        return try {
+            val file = java.io.File(path)
+            if (!file.exists()) return null
+            val bytes = file.readBytes()
+            // WAV header: first 44 bytes for standard PCM format
+            if (bytes.size < 44) return null
+            val dataSize = bytes.size - 44
+            val samples = ShortArray(dataSize / 2)
+            val buf = java.nio.ByteBuffer.wrap(bytes, 44, dataSize).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+            buf.asShortBuffer().get(samples)
+            samples
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to read WAV file: $path", e)
+            null
+        }
+    }
+
+    /**
      * Release all resources.
      */
     fun release() {

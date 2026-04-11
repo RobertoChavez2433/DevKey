@@ -66,7 +66,10 @@ fun rememberKeyboardDependencies(
     val voiceInputEngine = remember { VoiceInputEngine(context) }
     val modeManager = remember { KeyboardModeManager() }
 
-    DisposableEffect(voiceInputEngine) { onDispose { voiceInputEngine.release() } }
+    DisposableEffect(voiceInputEngine) {
+        SessionDependencies.voiceInputEngine = voiceInputEngine
+        onDispose { SessionDependencies.voiceInputEngine = null; voiceInputEngine.release() }
+    }
 
     if (KeyMapGenerator.isDebugBuild(context)) {
         // WHY: Compose-layer DUMP_KEY_MAP uses the real View for precise on-screen coords,

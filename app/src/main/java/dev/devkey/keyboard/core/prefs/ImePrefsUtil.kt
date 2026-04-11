@@ -1,7 +1,6 @@
 package dev.devkey.keyboard.core.prefs
 
 import android.content.SharedPreferences
-import dev.devkey.keyboard.LatinIME
 import dev.devkey.keyboard.R
 import android.content.res.Resources
 import android.util.Log
@@ -14,7 +13,7 @@ object ImePrefsUtil {
     private val NUMBER_RE = Pattern.compile("(\\d+).*")
 
     fun getDictionary(res: Resources): IntArray {
-        val packageName = LatinIME::class.java.`package`?.name ?: ""
+        val packageName = "dev.devkey.keyboard"
         val xrp = res.getXml(R.xml.dictionary)
         val dictionaries = mutableListOf<Int>()
         try {

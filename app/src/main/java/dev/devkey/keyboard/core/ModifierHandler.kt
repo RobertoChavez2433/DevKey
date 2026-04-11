@@ -3,8 +3,8 @@ package dev.devkey.keyboard.core
 import android.view.KeyEvent
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
+import dev.devkey.keyboard.data.repository.SettingsRepository
 import dev.devkey.keyboard.keyboard.model.Keyboard
-import dev.devkey.keyboard.LatinIME
 import dev.devkey.keyboard.ui.keyboard.KeyCodes
 
 /**
@@ -12,109 +12,115 @@ import dev.devkey.keyboard.ui.keyboard.KeyCodes
  * onPress/onRelease lifecycle for modifier and non-modifier keys.
  * Extracted from LatinIME to isolate the modifier state machine.
  */
-internal class ModifierHandler(private val ime: LatinIME) {
+internal class ModifierHandler(
+    private val state: ImeState,
+    private val icProvider: InputConnectionProvider,
+    private val feedbackManager: FeedbackManager,
+    private val keyEventSender: KeyEventSender,
+    private val settings: SettingsRepository
+) {
 
     // ── onPress / onRelease (KeyboardActionListener) ──────────────
 
     fun onPress(primaryCode: Int) {
-        val ic = ime.currentInputConnection
-        ime.mFeedbackManager.vibrate()
-        ime.mFeedbackManager.playKeyClick(primaryCode)
+        val ic = icProvider.inputConnection
+        feedbackManager.vibrate()
+        feedbackManager.playKeyClick(primaryCode)
         when (primaryCode) {
             Keyboard.KEYCODE_SHIFT -> {
-                ime.mShiftKeyState.onPress()
+                state.mShiftKeyState.onPress()
                 startMultitouchShift()
             }
             Keyboard.KEYCODE_MODE_CHANGE -> {
                 changeKeyboardMode()
-                ime.mSymbolKeyState.onPress()
-                ime.mKeyboardSwitcher!!.setAutoModeSwitchStateMomentary()
+                state.mSymbolKeyState.onPress()
+                state.mKeyboardSwitcher!!.setAutoModeSwitchStateMomentary()
             }
             KeyCodes.CTRL_LEFT -> {
-                setModCtrl(!ime.mModCtrl)
-                ime.mCtrlKeyState.onPress()
-                ime.mKeyEventSender.sendCtrlKey(ic, true, true)
+                setModCtrl(!state.mModCtrl)
+                state.mCtrlKeyState.onPress()
+                keyEventSender.sendCtrlKey(ic, true, true)
             }
             KeyCodes.ALT_LEFT -> {
-                setModAlt(!ime.mModAlt)
-                ime.mAltKeyState.onPress()
-                ime.mKeyEventSender.sendAltKey(ic, true, true)
+                setModAlt(!state.mModAlt)
+                state.mAltKeyState.onPress()
+                keyEventSender.sendAltKey(ic, true, true)
             }
             KeyCodes.KEYCODE_META_LEFT -> {
-                setModMeta(!ime.mModMeta)
-                ime.mMetaKeyState.onPress()
-                ime.mKeyEventSender.sendMetaKey(ic, true, true)
+                setModMeta(!state.mModMeta)
+                state.mMetaKeyState.onPress()
+                keyEventSender.sendMetaKey(ic, true, true)
             }
             KeyCodes.KEYCODE_FN -> {
-                setModFn(!ime.mModFn)
-                ime.mFnKeyState.onPress()
+                setModFn(!state.mModFn)
+                state.mFnKeyState.onPress()
             }
             else -> {
-                ime.mShiftKeyState.onOtherKeyPressed()
-                ime.mSymbolKeyState.onOtherKeyPressed()
-                ime.mCtrlKeyState.onOtherKeyPressed()
-                ime.mAltKeyState.onOtherKeyPressed()
-                ime.mMetaKeyState.onOtherKeyPressed()
-                ime.mFnKeyState.onOtherKeyPressed()
+                state.mShiftKeyState.onOtherKeyPressed()
+                state.mSymbolKeyState.onOtherKeyPressed()
+                state.mCtrlKeyState.onOtherKeyPressed()
+                state.mAltKeyState.onOtherKeyPressed()
+                state.mMetaKeyState.onOtherKeyPressed()
+                state.mFnKeyState.onOtherKeyPressed()
             }
         }
     }
 
     fun onRelease(primaryCode: Int) {
-        val ic = ime.currentInputConnection
+        val ic = icProvider.inputConnection
         when (primaryCode) {
             Keyboard.KEYCODE_SHIFT -> {
-                if (ime.mShiftKeyState.isChording()) resetMultitouchShift() else commitMultitouchShift()
-                ime.mShiftKeyState.onRelease()
+                if (state.mShiftKeyState.isChording()) resetMultitouchShift() else commitMultitouchShift()
+                state.mShiftKeyState.onRelease()
             }
             Keyboard.KEYCODE_MODE_CHANGE -> {
-                if (ime.mKeyboardSwitcher!!.isInChordingAutoModeSwitchState()) changeKeyboardMode()
-                ime.mSymbolKeyState.onRelease()
+                if (state.mKeyboardSwitcher!!.isInChordingAutoModeSwitchState()) changeKeyboardMode()
+                state.mSymbolKeyState.onRelease()
             }
             KeyCodes.CTRL_LEFT -> {
-                if (ime.mCtrlKeyState.isChording()) setModCtrl(false)
-                ime.mKeyEventSender.sendCtrlKey(ic, false, true)
-                ime.mCtrlKeyState.onRelease()
+                if (state.mCtrlKeyState.isChording()) setModCtrl(false)
+                keyEventSender.sendCtrlKey(ic, false, true)
+                state.mCtrlKeyState.onRelease()
             }
             KeyCodes.ALT_LEFT -> {
-                if (ime.mAltKeyState.isChording()) setModAlt(false)
-                ime.mKeyEventSender.sendAltKey(ic, false, true)
-                ime.mAltKeyState.onRelease()
+                if (state.mAltKeyState.isChording()) setModAlt(false)
+                keyEventSender.sendAltKey(ic, false, true)
+                state.mAltKeyState.onRelease()
             }
             KeyCodes.KEYCODE_META_LEFT -> {
-                if (ime.mMetaKeyState.isChording()) setModMeta(false)
-                ime.mKeyEventSender.sendMetaKey(ic, false, true)
-                ime.mMetaKeyState.onRelease()
+                if (state.mMetaKeyState.isChording()) setModMeta(false)
+                keyEventSender.sendMetaKey(ic, false, true)
+                state.mMetaKeyState.onRelease()
             }
             KeyCodes.KEYCODE_FN -> {
-                if (ime.mFnKeyState.isChording()) setModFn(false)
-                ime.mFnKeyState.onRelease()
+                if (state.mFnKeyState.isChording()) setModFn(false)
+                state.mFnKeyState.onRelease()
             }
         }
     }
 
     // ── Modifier setters ──────────────────────────────────────────
 
-    private fun setModCtrl(enabled: Boolean) { ime.mModCtrl = enabled }
-    private fun setModAlt(enabled: Boolean) { ime.mModAlt = enabled }
-    private fun setModMeta(enabled: Boolean) { ime.mModMeta = enabled }
-    private fun setModFn(enabled: Boolean) { ime.mModFn = enabled; ime.mKeyboardSwitcher!!.setFn(enabled) }
+    private fun setModCtrl(enabled: Boolean) { state.mModCtrl = enabled }
+    private fun setModAlt(enabled: Boolean) { state.mModAlt = enabled }
+    private fun setModMeta(enabled: Boolean) { state.mModMeta = enabled }
+    private fun setModFn(enabled: Boolean) { state.mModFn = enabled; state.mKeyboardSwitcher!!.setFn(enabled) }
 
     // ── Shift state machine ───────────────────────────────────────
 
     fun updateShiftKeyState(attr: EditorInfo?) {
-        val ic = ime.currentInputConnection
-        if (ic != null && attr != null && ime.mKeyboardSwitcher!!.isAlphabetMode()) {
+        val ic = icProvider.inputConnection
+        if (ic != null && attr != null && state.mKeyboardSwitcher!!.isAlphabetMode()) {
             val oldState = getShiftState()
-            val isShifted = ime.mShiftKeyState.isChording()
+            val isShifted = state.mShiftKeyState.isChording()
             val isCapsLock = oldState == Keyboard.SHIFT_CAPS_LOCKED || oldState == Keyboard.SHIFT_LOCKED
             val isCaps = isCapsLock || getCursorCapsMode(ic, attr) != 0
             val newState = when {
-                isShifted -> if (ime.mSavedShiftState == Keyboard.SHIFT_LOCKED) Keyboard.SHIFT_CAPS else Keyboard.SHIFT_ON
+                isShifted -> if (state.mSavedShiftState == Keyboard.SHIFT_LOCKED) Keyboard.SHIFT_CAPS else Keyboard.SHIFT_ON
                 isCaps -> if (isCapsLock) getCapsOrShiftLockState() else Keyboard.SHIFT_CAPS
                 else -> Keyboard.SHIFT_OFF
             }
-            ime.mKeyboardSwitcher!!.setShiftState(newState)
+            state.mKeyboardSwitcher!!.setShiftState(newState)
         }
         if (ic != null) {
             val states = KeyEvent.META_FUNCTION_ON or
@@ -127,14 +133,14 @@ internal class ModifierHandler(private val ime: LatinIME) {
     }
 
     fun getShiftState(): Int =
-        ime.mKeyboardSwitcher?.getShiftState() ?: Keyboard.SHIFT_OFF
+        state.mKeyboardSwitcher?.getShiftState() ?: Keyboard.SHIFT_OFF
 
     fun isShiftCapsMode(): Boolean =
-        ime.mKeyboardSwitcher?.getShiftState() == Keyboard.SHIFT_CAPS_LOCKED
+        state.mKeyboardSwitcher?.getShiftState() == Keyboard.SHIFT_CAPS_LOCKED
 
     fun getCursorCapsMode(ic: InputConnection, attr: EditorInfo): Int {
-        val ei = ime.currentInputEditorInfo
-        return if (ime.mAutoCapActive && ei != null && ei.inputType != EditorInfo.TYPE_NULL) {
+        val ei = icProvider.editorInfo
+        return if (state.mAutoCapActive && ei != null && ei.inputType != EditorInfo.TYPE_NULL) {
             ic.getCursorCapsMode(attr.inputType)
         } else {
             0
@@ -142,8 +148,8 @@ internal class ModifierHandler(private val ime: LatinIME) {
     }
 
     fun isShiftMod(): Boolean {
-        if (ime.mShiftKeyState.isChording()) return true
-        val shiftState = ime.mKeyboardSwitcher?.getShiftState() ?: return false
+        if (state.mShiftKeyState.isChording()) return true
+        val shiftState = state.mKeyboardSwitcher?.getShiftState() ?: return false
         return shiftState == Keyboard.SHIFT_LOCKED || shiftState == Keyboard.SHIFT_CAPS_LOCKED
     }
 
@@ -152,40 +158,40 @@ internal class ModifierHandler(private val ime: LatinIME) {
     fun resetShift() = handleShiftInternal(true, Keyboard.SHIFT_OFF)
 
     fun changeKeyboardMode() {
-        val switcher = ime.mKeyboardSwitcher!!
+        val switcher = state.mKeyboardSwitcher!!
         if (switcher.isAlphabetMode()) {
-            ime.mSavedShiftState = getShiftState()
+            state.mSavedShiftState = getShiftState()
         }
         switcher.toggleSymbols()
         if (switcher.isAlphabetMode()) {
-            switcher.setShiftState(ime.mSavedShiftState)
+            switcher.setShiftState(state.mSavedShiftState)
         }
-        updateShiftKeyState(ime.currentInputEditorInfo)
+        updateShiftKeyState(icProvider.editorInfo)
     }
 
     // ── Multitouch shift ──────────────────────────────────────────
 
     private fun startMultitouchShift() {
         var newState = Keyboard.SHIFT_ON
-        if (ime.mKeyboardSwitcher!!.isAlphabetMode()) {
-            ime.mSavedShiftState = getShiftState()
-            if (ime.mSavedShiftState == Keyboard.SHIFT_LOCKED) newState = Keyboard.SHIFT_CAPS
+        if (state.mKeyboardSwitcher!!.isAlphabetMode()) {
+            state.mSavedShiftState = getShiftState()
+            if (state.mSavedShiftState == Keyboard.SHIFT_LOCKED) newState = Keyboard.SHIFT_CAPS
         }
         handleShiftInternal(true, newState)
     }
 
     private fun commitMultitouchShift() {
-        if (ime.mKeyboardSwitcher!!.isAlphabetMode()) {
-            val newState = nextShiftState(ime.mSavedShiftState, true)
+        if (state.mKeyboardSwitcher!!.isAlphabetMode()) {
+            val newState = nextShiftState(state.mSavedShiftState, true)
             handleShiftInternal(true, newState)
         }
     }
 
     private fun resetMultitouchShift() {
-        val newState = if (ime.mSavedShiftState == Keyboard.SHIFT_CAPS_LOCKED
-            || ime.mSavedShiftState == Keyboard.SHIFT_LOCKED
+        val newState = if (state.mSavedShiftState == Keyboard.SHIFT_CAPS_LOCKED
+            || state.mSavedShiftState == Keyboard.SHIFT_LOCKED
         ) {
-            ime.mSavedShiftState
+            state.mSavedShiftState
         } else {
             Keyboard.SHIFT_OFF
         }
@@ -193,7 +199,7 @@ internal class ModifierHandler(private val ime: LatinIME) {
     }
 
     private fun handleShiftInternal(forceState: Boolean, newState: Int) {
-        val switcher = ime.mKeyboardSwitcher!!
+        val switcher = state.mKeyboardSwitcher!!
         if (switcher.isAlphabetMode()) {
             if (forceState) {
                 switcher.setShiftState(newState)
@@ -205,21 +211,21 @@ internal class ModifierHandler(private val ime: LatinIME) {
         }
     }
 
-    companion object {
-        private fun getCapsOrShiftLockState(): Int {
-            return if (LatinIME.sKeyboardSettings.capsLock) Keyboard.SHIFT_CAPS_LOCKED else Keyboard.SHIFT_LOCKED
-        }
+    // ── Shift helpers (moved from companion to access settings) ──
 
-        private fun nextShiftState(prevState: Int, allowCapsLock: Boolean): Int {
-            return if (allowCapsLock) {
-                when (prevState) {
-                    Keyboard.SHIFT_OFF -> Keyboard.SHIFT_ON
-                    Keyboard.SHIFT_ON -> getCapsOrShiftLockState()
-                    else -> Keyboard.SHIFT_OFF
-                }
-            } else {
-                if (prevState == Keyboard.SHIFT_OFF) Keyboard.SHIFT_ON else Keyboard.SHIFT_OFF
+    private fun getCapsOrShiftLockState(): Int {
+        return if (settings.capsLock) Keyboard.SHIFT_CAPS_LOCKED else Keyboard.SHIFT_LOCKED
+    }
+
+    private fun nextShiftState(prevState: Int, allowCapsLock: Boolean): Int {
+        return if (allowCapsLock) {
+            when (prevState) {
+                Keyboard.SHIFT_OFF -> Keyboard.SHIFT_ON
+                Keyboard.SHIFT_ON -> getCapsOrShiftLockState()
+                else -> Keyboard.SHIFT_OFF
             }
+        } else {
+            if (prevState == Keyboard.SHIFT_OFF) Keyboard.SHIFT_ON else Keyboard.SHIFT_OFF
         }
     }
 }

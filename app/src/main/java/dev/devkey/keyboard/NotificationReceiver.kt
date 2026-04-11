@@ -4,15 +4,14 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.util.Log
-import android.view.inputmethod.InputMethodManager
 import dev.devkey.keyboard.ui.settings.DevKeySettingsActivity
 
 class NotificationReceiver(
-    private val mIME: LatinIME
+    private val showSelf: () -> Unit
 ) : BroadcastReceiver() {
 
     init {
-        Log.i(TAG, "NotificationReceiver created, ime=$mIME")
+        Log.i(TAG, "NotificationReceiver created")
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -20,7 +19,7 @@ class NotificationReceiver(
         Log.i(TAG, "NotificationReceiver.onReceive called, action=$action")
 
         when (action) {
-            ACTION_SHOW -> mIME.requestShowSelf(InputMethodManager.SHOW_FORCED)
+            ACTION_SHOW -> showSelf()
             ACTION_SETTINGS -> {
                 val intent = Intent(context, DevKeySettingsActivity::class.java)
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

@@ -1,10 +1,10 @@
 package dev.devkey.keyboard.core
 
+import android.view.inputmethod.EditorInfo
 import dev.devkey.keyboard.dictionary.user.AutoDictionary
 import dev.devkey.keyboard.core.text.EditingUtil
 import dev.devkey.keyboard.keyboard.model.Keyboard
 import dev.devkey.keyboard.ASCII_SPACE
-import dev.devkey.keyboard.LatinIME
 import dev.devkey.keyboard.suggestion.engine.Suggest
 import dev.devkey.keyboard.suggestion.word.WordAlternatives
 import dev.devkey.keyboard.core.input.TextEntryState
@@ -19,64 +19,70 @@ import kotlinx.coroutines.launch
  * Extracted from LatinIME to reduce god-class size.
  */
 internal class SuggestionPicker(
-    private val ime: LatinIME,
-    private val coordinator: SuggestionCoordinator
+    private val state: ImeState,
+    private val coordinator: SuggestionCoordinator,
+    private val icProvider: InputConnectionProvider,
+    private val candidateViewHost: CandidateViewHost,
+    private val updateShiftKeyState: (EditorInfo?) -> Unit,
+    private val sendSpace: () -> Unit,
+    private val onKey: (Int, IntArray?, Int, Int) -> Unit,
+    private val getShiftState: () -> Int,
 ) {
 
     fun pickDefaultSuggestion(): Boolean {
-        if (ime.suggestionsJob?.isActive == true) {
-            ime.suggestionsJob?.cancel()
+        if (state.suggestionsJob?.isActive == true) {
+            state.suggestionsJob?.cancel()
             coordinator.updateSuggestions()
         }
-        if (ime.mBestWord != null && ime.mBestWord!!.isNotEmpty()) {
-            TextEntryState.acceptedDefault(ime.mWord.getTypedWord(), ime.mBestWord!!)
-            ime.mJustAccepted = true
-            pickSuggestion(ime.mBestWord!!, false)
-            addToDictionaries(ime.mBestWord!!, AutoDictionary.FREQUENCY_FOR_TYPED)
+        if (state.mBestWord != null && state.mBestWord!!.isNotEmpty()) {
+            TextEntryState.acceptedDefault(state.mWord.getTypedWord(), state.mBestWord!!)
+            state.mJustAccepted = true
+            pickSuggestion(state.mBestWord!!, false)
+            addToDictionaries(state.mBestWord!!, AutoDictionary.FREQUENCY_FOR_TYPED)
             return true
         }
         return false
     }
 
     fun pickSuggestionManually(index: Int, suggestion: CharSequence) {
-        val suggestions = ime.mCandidateView!!.getSuggestions()
+        val suggestions = state.mCandidateView!!.getSuggestions()
         val correcting = TextEntryState.isCorrecting()
-        val ic = ime.currentInputConnection
+        val ic = icProvider.inputConnection
         ic?.beginBatchEdit()
-        if (ime.mCompletionOn && ime.mCompletions != null && index >= 0
-            && index < ime.mCompletions!!.size
+        if (state.mCompletionOn && state.mCompletions != null && index >= 0
+            && index < state.mCompletions!!.size
         ) {
-            val ci = ime.mCompletions!![index]
+            val ci = state.mCompletions!![index]
             ic?.commitCompletion(ci)
-            ime.mCommittedLength = suggestion.length
-            ime.mCandidateView?.clear()
-            ime.updateShiftKeyState(ime.currentInputEditorInfo)
+            state.mCommittedLength = suggestion.length
+            state.mCandidateView?.clear()
+            updateShiftKeyState(icProvider.editorInfo)
             ic?.endBatchEdit()
             return
         }
         if (suggestion.length == 1
-            && (ime.isWordSeparator(suggestion[0].code) || ime.isSuggestedPunctuation(suggestion[0].code))
+            && (state.isWordSeparator(suggestion[0].code) || state.isSuggestedPunctuation(suggestion[0].code))
         ) {
             val primaryCode = suggestion[0]
-            ime.onKey(primaryCode.code, intArrayOf(primaryCode.code), -1, -1)
+            onKey(primaryCode.code, intArrayOf(primaryCode.code), -1, -1)
             ic?.endBatchEdit()
             return
         }
-        ime.mJustAccepted = true
+        state.mJustAccepted = true
         pickSuggestion(suggestion, correcting)
         if (index == 0) {
             addToDictionaries(suggestion, AutoDictionary.FREQUENCY_FOR_PICKED)
         } else {
             addToBigramDictionary(suggestion, 1)
         }
-        TextEntryState.acceptedSuggestion(ime.mComposing.toString(), suggestion)
-        if (ime.mAutoSpace && !correcting) {
-            ime.sendSpace()
-            ime.mJustAddedAutoSpace = true
+        TextEntryState.acceptedSuggestion(state.mComposing.toString(), suggestion)
+        if (state.mAutoSpace && !correcting) {
+            sendSpace()
+            state.mJustAddedAutoSpace = true
         }
         val showingAddToDictionaryHint = index == 0
-            && ime.mCorrectionMode > 0 && !ime.mSuggest!!.isValidWord(suggestion)
-            && !ime.mSuggest!!.isValidWord(suggestion.toString().lowercase())
+            && state.mCorrectionMode > 0 && !state.mSuggest!!.isValidWord(suggestion)
+            && !state.mSuggest!!.isValidWord(suggestion.toString().lowercase())
         if (!correcting) {
             TextEntryState.typedCharacter(ASCII_SPACE.toChar(), true)
             coordinator.setNextSuggestions()
@@ -85,27 +91,27 @@ internal class SuggestionPicker(
             coordinator.postUpdateOldSuggestions()
         }
         if (showingAddToDictionaryHint) {
-            ime.mCandidateView!!.showAddToDictionaryHint(suggestion)
+            state.mCandidateView!!.showAddToDictionaryHint(suggestion)
         }
         ic?.endBatchEdit()
     }
 
     fun pickSuggestion(suggestion: CharSequence, correcting: Boolean) {
         var actualSuggestion = suggestion
-        val shiftState = ime.getShiftState()
+        val shiftState = getShiftState()
         if (shiftState == Keyboard.SHIFT_LOCKED || shiftState == Keyboard.SHIFT_CAPS_LOCKED) {
             actualSuggestion = suggestion.toString().uppercase()
         }
-        val ic = ime.currentInputConnection
+        val ic = icProvider.inputConnection
         if (ic != null) {
             ic.commitText(actualSuggestion, 1)
         }
-        ime.saveWordInHistory(actualSuggestion)
-        ime.mPredicting = false
-        ime.mCommittedLength = actualSuggestion.length
+        coordinator.saveWordInHistory(actualSuggestion)
+        state.mPredicting = false
+        state.mCommittedLength = actualSuggestion.length
         val word = actualSuggestion.toString()
         SessionDependencies.learningEngine?.let { le ->
-            ime.serviceScope.launch(Dispatchers.IO) {
+            state.serviceScope.launch(Dispatchers.IO) {
                 le.onWordCommitted(
                     word,
                     isCommand = SessionDependencies.commandModeDetector?.isCommandMode() == true,
@@ -116,13 +122,13 @@ internal class SuggestionPicker(
         SessionDependencies.composingWord.value = ""
         SessionDependencies.pendingCorrection.value = null
         if (!correcting) coordinator.setNextSuggestions()
-        ime.updateShiftKeyState(ime.currentInputEditorInfo)
+        updateShiftKeyState(icProvider.editorInfo)
     }
 
     fun applyTypedAlternatives(touching: EditingUtil.SelectedWord): Boolean {
         var foundWord: WordComposer? = null
         var alternatives: WordAlternatives? = null
-        for (entry in ime.mWordHistory) {
+        for (entry in state.mWordHistory) {
             if (entry.getChosenWord() == touching.word) {
                 if (entry is TypedWordAlternatives) foundWord = entry.word
                 alternatives = entry
@@ -131,8 +137,8 @@ internal class SuggestionPicker(
         }
         val touchingWord = touching.word
         if (foundWord == null && touchingWord != null
-            && (ime.mSuggest!!.isValidWord(touchingWord)
-                || ime.mSuggest!!.isValidWord(touchingWord.toString().lowercase()))
+            && (state.mSuggest!!.isValidWord(touchingWord)
+                || state.mSuggest!!.isValidWord(touchingWord.toString().lowercase()))
         ) {
             foundWord = WordComposer()
             for (i in touchingWord.indices) {
@@ -145,7 +151,7 @@ internal class SuggestionPicker(
                 alternatives = TypedWordAlternatives(touching.word, foundWord, coordinator::getTypedSuggestions)
             }
             coordinator.showCorrections(alternatives)
-            if (foundWord != null) ime.mWord = WordComposer(foundWord) else ime.mWord.reset()
+            if (foundWord != null) state.mWord = WordComposer(foundWord) else state.mWord.reset()
             return true
         }
         return false
@@ -159,18 +165,18 @@ internal class SuggestionPicker(
 
     private fun checkAddToDictionary(suggestion: CharSequence?, frequencyDelta: Int, addToBigramDictionary: Boolean) {
         if (suggestion == null || suggestion.length < 1) return
-        if (ime.mCorrectionMode != Suggest.CORRECTION_FULL && ime.mCorrectionMode != Suggest.CORRECTION_FULL_BIGRAM) return
+        if (state.mCorrectionMode != Suggest.CORRECTION_FULL && state.mCorrectionMode != Suggest.CORRECTION_FULL_BIGRAM) return
         if (!addToBigramDictionary
-            && ime.mAutoDictionary!!.isValidWord(suggestion)
-            || (!ime.mSuggest!!.isValidWord(suggestion.toString())
-                && !ime.mSuggest!!.isValidWord(suggestion.toString().lowercase()))
+            && state.mAutoDictionary!!.isValidWord(suggestion)
+            || (!state.mSuggest!!.isValidWord(suggestion.toString())
+                && !state.mSuggest!!.isValidWord(suggestion.toString().lowercase()))
         ) {
-            ime.mAutoDictionary!!.addWord(suggestion.toString(), frequencyDelta)
+            state.mAutoDictionary!!.addWord(suggestion.toString(), frequencyDelta)
         }
-        if (ime.mUserBigramDictionary != null) {
-            val prevWord = EditingUtil.getPreviousWord(ime.currentInputConnection, ime.mSentenceSeparators ?: "")
+        if (state.mUserBigramDictionary != null) {
+            val prevWord = EditingUtil.getPreviousWord(icProvider.inputConnection, state.mSentenceSeparators ?: "")
             if (!prevWord.isNullOrEmpty()) {
-                ime.mUserBigramDictionary!!.addBigrams(prevWord.toString(), suggestion.toString())
+                state.mUserBigramDictionary!!.addBigrams(prevWord.toString(), suggestion.toString())
             }
         }
     }

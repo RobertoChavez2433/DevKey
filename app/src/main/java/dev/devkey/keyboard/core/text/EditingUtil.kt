@@ -103,6 +103,41 @@ object EditingUtil {
         return whitespace.indexOf(code.toChar()) >= 0
     }
 
+    /**
+     * Checks whether the cursor is adjacent to a non-separator character.
+     */
+    fun isCursorTouchingWord(
+        ic: InputConnection?,
+        wordSeparators: String,
+        suggestPuncList: List<CharSequence>?
+    ): Boolean {
+        ic ?: return false
+        val toLeft = ic.getTextBeforeCursor(1, 0)
+        val toRight = ic.getTextAfterCursor(1, 0)
+        if (!toLeft.isNullOrEmpty()
+            && !isWhitespace(toLeft[0].code, wordSeparators)
+            && !isSuggestedPunctuation(toLeft[0].code, suggestPuncList)
+        ) return true
+        if (!toRight.isNullOrEmpty()
+            && !isWhitespace(toRight[0].code, wordSeparators)
+            && !isSuggestedPunctuation(toRight[0].code, suggestPuncList)
+        ) return true
+        return false
+    }
+
+    private fun isSuggestedPunctuation(code: Int, puncList: List<CharSequence>?): Boolean {
+        puncList ?: return false
+        return puncList.any { it.length == 1 && it[0].code == code }
+    }
+
+    /**
+     * Returns true if [text] matches the characters immediately before the cursor.
+     */
+    fun sameAsTextBeforeCursor(ic: InputConnection, text: CharSequence): Boolean {
+        val beforeText = ic.getTextBeforeCursor(text.length, 0)
+        return text == beforeText
+    }
+
     fun getPreviousWord(connection: InputConnection?, sentenceSeparators: String): CharSequence? {
         val prev = connection?.getTextBeforeCursor(LOOKBACK_CHARACTER_NUM, 0) ?: return null
         val w = spaceRegex.split(prev)

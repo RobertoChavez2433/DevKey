@@ -20,7 +20,7 @@ class PluginManager(private val mIME: LatinIME) : BroadcastReceiver() {
         getPluginDictionaries(context)
         Log.i(TAG, "Finished updating dictionaries.")
         if (intent.action != "dev.devkey.keyboard.RESCAN_PLUGINS") {
-            mIME.toggleLanguage(true, true)
+            mIME.col.dictionaryManager.toggleLanguage(true, true)
         }
     }
 

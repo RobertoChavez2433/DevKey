@@ -106,7 +106,7 @@ class InputLanguageSelection : PreferenceActivity() {
         @Suppress("DEPRECATION")
         res.updateConfiguration(conf, res.displayMetrics)
 
-        val dictionaries = LatinIME.getDictionary(res)
+        val dictionaries = dev.devkey.keyboard.core.prefs.ImePrefsUtil.getDictionary(res)
         var bd = BinaryDictionary(this, dictionaries, Suggest.DIC_MAIN)
 
         // Is the dictionary larger than a placeholder? Arbitrarily chose a lower limit of

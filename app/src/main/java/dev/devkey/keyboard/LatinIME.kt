@@ -54,6 +54,8 @@ import dev.devkey.keyboard.suggestion.engine.WordPromotionDelegate
 import dev.devkey.keyboard.suggestion.word.TypedWordAlternatives
 import dev.devkey.keyboard.suggestion.word.WordAlternatives
 import dev.devkey.keyboard.suggestion.word.WordComposer
+import dev.devkey.keyboard.core.input.TextEntryState
+import dev.devkey.keyboard.core.prefs.ImePrefsUtil
 import dev.devkey.keyboard.core.FeedbackManager
 import dev.devkey.keyboard.core.ImeInitializer
 import dev.devkey.keyboard.core.InputDispatcher

@@ -14,7 +14,7 @@
  * the License.
  */
 
-package dev.devkey.keyboard
+package dev.devkey.keyboard.core.text
 
 import android.view.inputmethod.ExtractedTextRequest
 import android.view.inputmethod.InputConnection

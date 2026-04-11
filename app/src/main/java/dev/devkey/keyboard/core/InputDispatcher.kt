@@ -6,7 +6,7 @@ import dev.devkey.keyboard.ASCII_ENTER
 import dev.devkey.keyboard.keyboard.model.Keyboard
 import dev.devkey.keyboard.LatinIME
 import dev.devkey.keyboard.QUICK_PRESS
-import dev.devkey.keyboard.TextEntryState
+import dev.devkey.keyboard.core.input.TextEntryState
 import dev.devkey.keyboard.debug.DevKeyLogger
 import dev.devkey.keyboard.ui.keyboard.KeyCodes
 import dev.devkey.keyboard.ui.keyboard.SessionDependencies

@@ -12,7 +12,7 @@ import dev.devkey.keyboard.LatinIME
 import dev.devkey.keyboard.suggestion.engine.Suggest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import dev.devkey.keyboard.TextEntryState
+import dev.devkey.keyboard.core.input.TextEntryState
 import dev.devkey.keyboard.debug.DevKeyLogger
 import dev.devkey.keyboard.feature.prediction.AutocorrectEngine
 import dev.devkey.keyboard.feature.prediction.AutocorrectResult

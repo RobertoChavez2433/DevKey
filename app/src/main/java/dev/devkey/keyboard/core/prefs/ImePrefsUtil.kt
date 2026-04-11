@@ -1,6 +1,8 @@
-package dev.devkey.keyboard
+package dev.devkey.keyboard.core.prefs
 
 import android.content.SharedPreferences
+import dev.devkey.keyboard.LatinIME
+import dev.devkey.keyboard.R
 import android.content.res.Resources
 import android.util.Log
 import org.xmlpull.v1.XmlPullParserException

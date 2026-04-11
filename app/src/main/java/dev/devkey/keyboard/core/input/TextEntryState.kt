@@ -14,7 +14,7 @@
  * the License.
  */
 
-package dev.devkey.keyboard
+package dev.devkey.keyboard.core.input
 
 import android.content.Context
 import androidx.annotation.MainThread

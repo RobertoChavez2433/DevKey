@@ -1,13 +1,13 @@
 package dev.devkey.keyboard.core
 
 import dev.devkey.keyboard.dictionary.user.AutoDictionary
-import dev.devkey.keyboard.EditingUtil
+import dev.devkey.keyboard.core.text.EditingUtil
 import dev.devkey.keyboard.keyboard.model.Keyboard
 import dev.devkey.keyboard.ASCII_SPACE
 import dev.devkey.keyboard.LatinIME
 import dev.devkey.keyboard.suggestion.engine.Suggest
 import dev.devkey.keyboard.suggestion.word.WordAlternatives
-import dev.devkey.keyboard.TextEntryState
+import dev.devkey.keyboard.core.input.TextEntryState
 import dev.devkey.keyboard.suggestion.word.TypedWordAlternatives
 import dev.devkey.keyboard.suggestion.word.WordComposer
 import dev.devkey.keyboard.ui.keyboard.SessionDependencies

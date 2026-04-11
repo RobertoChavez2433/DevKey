@@ -304,3 +304,126 @@ Corrections from line-by-line verification agents applied to this spec:
 - GH issue #9: umbrella refactor issue
 - GH issue #8: LatinIME god class (superseded by #9 Phase C)
 - Plan file: `.claude/plans/polymorphic-whistling-petal.md` (working plan)
+
+---
+
+## 10. Decomposition Audit (2026-04-10, Session 47)
+
+**Finding: Waves 0-4 and 6 are already implemented.** The codebase has been
+refactored since this spec was written. Only LatinIME.kt remains over 200 lines.
+
+### 10.1 Current Violation State
+
+| Category | Count | Files |
+|----------|------:|-------|
+| Over 200 lines | 1 | `LatinIME.kt` (2,522) |
+| At exactly 200 lines (borderline) | 4 | `Suggest.kt`, `LatinKeyboard.kt`, `Key.kt`, `BinaryDictionary.kt` |
+| All other `.kt` files | — | Under 200 lines |
+
+### 10.2 Wave Completion Status
+
+| Wave | Status | Notes |
+|------|--------|-------|
+| 0 — Pure data splits | **COMPLETE** | All 8 output files exist |
+| 1 — Low-risk extractions | **COMPLETE** | 10 of 11 outputs exist; `TerminalSequenceTable.kt` was absorbed — `KeyEventSender.kt` is 84 lines, no terminal sequence data remains |
+| 2 — Compose UI decomposition | **COMPLETE** | All 11 output files exist |
+| 3 — Legacy keyboard model | **COMPLETE** | 11 of 12 outputs exist; `PopupContentBuilder.kt` → `KeyPopup.kt` (127 lines) |
+| 4 — Dictionary and suggestion | **COMPLETE** | All 6 output files exist |
+| 5 — LatinIME god-class | **PARTIAL** | 4 of 12 collaborators extracted (see §10.3) |
+| 6 — Remaining Tier 3 splits | **COMPLETE** | 14 of 15 outputs exist; `WelcomeNavGraph.kt` not needed — `DevKeyWelcomeActivity.kt` is 198 lines |
+| 7 — Final gate | **NOT STARTED** | Blocked on Wave 5 |
+
+### 10.3 Wave 5 — What's Done vs. Remaining
+
+**Extracted (4 collaborators):**
+
+| Collaborator | Path | Lines |
+|---|---|---:|
+| `FeedbackManager` | `core/FeedbackManager.kt` | 87 |
+| `SwipeActionHandler` | `core/SwipeActionHandler.kt` | 48 |
+| `PunctuationHeuristics` | `core/PunctuationHeuristics.kt` | 111 |
+| `NotificationController` | `core/NotificationController.kt` | 76 |
+
+**Not yet extracted (8 collaborators):**
+
+| Spec task | Planned file | Status |
+|---|---|---|
+| 5.3 | `DictionaryWriter.kt` | Not started |
+| 5.5 | `SuggestionCoordinator.kt` | Not started |
+| 5.6 | `ShiftStateMachine.kt` | Not started |
+| 5.7 | `InputDispatcher.kt` | Not started |
+| 5.8 | `SelectionTracker.kt` | Not started |
+| 5.9 | `PreferenceObserver.kt` | Not started |
+| 5.11 | `ImeLifecycleController.kt` + `ImeDependencyInitializer.kt` | Not started |
+
+### 10.4 LatinIME.kt Line Reference Corrections
+
+**All §3 Wave 5 line references are invalid.** The file shrank from 3,071 to
+2,522 lines after the 4 collaborator extractions. References above L2522 point
+beyond EOF. Below are corrected ranges for the remaining 8 extractions, verified
+against the current file.
+
+| Extraction | Spec claimed | Actual range (current) | Actual lines | Notes |
+|---|---|---|---:|---|
+| Lifecycle init | L277-719 | **L221-609** | ~389 | `onCreate` starts at L221, lifecycle callbacks through L609. Includes `initSuggest` (L464-532). |
+| Input view setup | (part of lifecycle) | **L616-792** | ~177 | `onStartInputView` (159 lines!) + `checkReCorrectionOnStart`. May merge with lifecycle or stand alone. |
+| Selection tracker | L1017-1082 | **L811-910** | ~100 | `onUpdateSelection` (L811-870) + `onExtractedTextClicked`, `hideWindow`, `onDisplayCompletions`. |
+| Shift state machine | L1272-1715 | **L1062-1155 + L1363-1415** | ~146 | Scattered: `updateShiftKeyState`/`getShiftState`/`getCursorCapsMode` (L1062-1100) + multitouch shift + `handleShiftInternal` (L1363-1415). Non-contiguous. |
+| Input dispatcher (onKey) | L1441-1885 | **L1172-1591** | ~420 | `onKey` (L1172, 118 lines), `onText`, `handleBackspace`, `handleCharacter`, `handleSeparator` (L1473, 111 lines), `handleClose`, `saveWordInHistory`. |
+| Suggestion coordinator | L1903-2270 | **L1603-1969** | ~367 | `postUpdateSuggestions` through `setNextSuggestions`. |
+| Dictionary writes | L1383-1387, L2271-2305, L2758-2761 | **L1971-2006** | ~36 | `addToDictionaries`, `addToBigramDictionary`, `checkAddToDictionary`. Too small for own file — absorb into SuggestionCoordinator. |
+| Preference observer | L2394-2530 | **L2092-2224** | ~133 | `onSharedPreferenceChanged`. |
+| Swipe dispatch | L2532-2597 | **L2226-2229** | 4 | Already delegation wrappers to extracted `SwipeActionHandler`. No extraction needed. |
+| Audio + vibration | L2711-2756 | **L2231-2308** | ~78 | `onPress`/`onRelease` handlers + `vibrate` wrapper. `FeedbackManager` already extracted; these are the remaining press/release callbacks. |
+| Notification controller | L575-638 | **L449** | 1 | Already fully extracted. Single delegation wrapper remains. |
+
+### 10.5 Additional Code Sections Not Covered by Original Spec
+
+These LatinIME sections were not assigned to any extraction task:
+
+| Range | Content | Lines | Suggested home |
+|---|---|---:|---|
+| L911-964 | View management (`setCandidatesViewShownInternal`, `onComputeInsets`, `onEvaluateFullscreenMode`, etc.) | ~54 | ImeLifecycleController or shell |
+| L966-1030 | `onKeyDown`/`onKeyUp` (volume key handling, hardware key passthrough) + `reloadKeyboards` | ~65 | InputDispatcher |
+| L1032-1060 | `commitTyped` (with LearningEngine integration) | ~29 | SuggestionCoordinator |
+| L1115-1155 | `addWordToDictionary`, `onOptionKeyPressed`, `isShiftMod`, `sendModifiableKeyChar` | ~41 | Various (shell utilities) |
+| L1157-1170 | `processMultiKey` (compose/dead-key dispatch) | ~14 | InputDispatcher |
+| L2008-2090 | Text utilities (`isCursorTouchingWord`, `revertLastWord`, `toggleLanguage`, etc.) | ~83 | SuggestionCoordinator |
+| L2310-2355 | `promoteToUserDictionary`, `updateCorrectionMode`, `launchSettings` | ~46 | PreferenceObserver or shell |
+| L2356-2416 | `loadSettings`, `initSuggestPuncList` | ~61 | PreferenceObserver |
+| L2420-2481 | `showOptionsMenu`, `changeKeyboardMode`, `dump`, `onAutoCompletionStateChanged` | ~62 | Shell utilities |
+| L2483-2522 | Companion object (static helpers, `sInstance`, `sKeyboardSettings`) | ~40 | Shell (must stay in LatinIME) |
+
+### 10.6 Revised Wave 5 Extraction Plan
+
+Given the current 2,522-line file and the 200-line max rule, the remaining work
+needs **8 extraction steps** producing **~10 new files** (some extractions need
+2 output files to stay under 200 lines). Recommended order (cleanest boundaries
+first, dependency-ordered):
+
+| Step | Extract | Source lines | New file(s) | Est. size | Lines removed |
+|------|---------|-------------|-------------|----------:|-------------:|
+| 5.A | Preference observer + settings loading | L2092-2224, L2310-2416 | `PreferenceObserver.kt` (~200) | ~200 | ~194 |
+| 5.B | Selection tracker + view management | L811-964 | `SelectionTracker.kt` (~155) | ~155 | ~154 |
+| 5.C | Suggestion display + picking | L1626-1854 | `SuggestionDisplay.kt` (~200) | ~200 | ~228 |
+| 5.D | Suggestion pipeline + dictionary writes + text utils | L1603-1625, L1854-2006, L2008-2090 | `SuggestionCoordinator.kt` (~200) | ~200 | ~248 |
+| 5.E | Shift state machine (scattered) | L1062-1155, L1363-1415 | `ShiftStateMachine.kt` (~146) | ~146 | ~146 |
+| 5.F | Input dispatcher (onKey + handle*) | L1172-1361, L1416-1591 | `InputDispatcher.kt` (~200) + `InputHandlers.kt` (~200) | ~400 | ~390 |
+| 5.G | Lifecycle init | L221-609 | `ImeLifecycleController.kt` (~200) + `ImeDependencyInitializer.kt` (~190) | ~390 | ~389 |
+| 5.H | Input view setup | L616-807 | `InputViewSetup.kt` (~195) | ~195 | ~192 |
+
+**After 5.H:** LatinIME.kt should be ~50-80 lines: companion object, field
+declarations pointing to collaborators, and single-line delegation wrappers.
+
+**Verification after each step:** `./gradlew assembleDebug`
+**After full wave:** E2E regression on emulator
+
+### 10.7 Borderline Files (exactly 200 lines)
+
+These 4 files sit at exactly 200 lines. They are technically compliant but may
+drift over with future changes. No immediate action required — monitor only.
+
+- `Suggest.kt` (200) — shell after Wave 4 split
+- `LatinKeyboard.kt` (200) — shell after Wave 3 split
+- `Key.kt` (200) — extracted from `Keyboard.kt` in Wave 3
+- `BinaryDictionary.kt` (200) — after Wave 6 `DictionaryLoader` extraction

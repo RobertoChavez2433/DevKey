@@ -3,7 +3,7 @@ package dev.devkey.keyboard.core
 import android.view.KeyEvent
 import android.view.inputmethod.InputConnection
 import dev.devkey.keyboard.data.repository.SettingsRepository
-import dev.devkey.keyboard.ChordeTracker
+import dev.devkey.keyboard.core.modifier.ChordeTracker
 
 class KeyEventSender(
     private val inputConnectionProvider: () -> InputConnection?,

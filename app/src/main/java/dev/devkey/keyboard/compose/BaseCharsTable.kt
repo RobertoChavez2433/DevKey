@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package dev.devkey.keyboard
+package dev.devkey.keyboard.compose
 
 /** Maps a character to lowercase via [BASE_CHARS_TABLE], falling back to [Char.lowercaseChar]. */
 internal fun lowercaseByBaseChars(c: Char): Char {

@@ -2,7 +2,7 @@ package dev.devkey.keyboard.core
 
 import android.view.KeyEvent
 import android.view.inputmethod.InputConnection
-import dev.devkey.keyboard.ChordeTracker
+import dev.devkey.keyboard.core.modifier.ChordeTracker
 import dev.devkey.keyboard.Keyboard
 import dev.devkey.keyboard.data.repository.SettingsRepository
 

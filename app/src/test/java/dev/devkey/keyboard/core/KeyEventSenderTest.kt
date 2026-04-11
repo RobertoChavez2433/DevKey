@@ -7,7 +7,7 @@ import android.content.Context
 import dev.devkey.keyboard.data.repository.SettingsRepository
 import org.robolectric.RuntimeEnvironment
 import dev.devkey.keyboard.Keyboard
-import dev.devkey.keyboard.ChordeTracker
+import dev.devkey.keyboard.core.modifier.ChordeTracker
 import dev.devkey.keyboard.ui.keyboard.KeyCodes
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

@@ -17,6 +17,8 @@
 package dev.devkey.keyboard
 
 import android.content.Context
+import dev.devkey.keyboard.compose.BASE_CHARS_TABLE
+import dev.devkey.keyboard.compose.lowercaseByBaseChars
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob

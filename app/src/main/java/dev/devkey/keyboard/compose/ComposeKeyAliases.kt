@@ -1,4 +1,4 @@
-package dev.devkey.keyboard
+package dev.devkey.keyboard.compose
 
 import dev.devkey.keyboard.ui.keyboard.KeyCodes
 

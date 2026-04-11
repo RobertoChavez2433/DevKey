@@ -1,4 +1,4 @@
-package dev.devkey.keyboard
+package dev.devkey.keyboard.core.modifier
 
 /**
  * Simple tracker for modifier key chording detection.

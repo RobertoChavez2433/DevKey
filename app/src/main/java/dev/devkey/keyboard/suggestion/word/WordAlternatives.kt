@@ -1,4 +1,4 @@
-package dev.devkey.keyboard
+package dev.devkey.keyboard.suggestion.word
 
 abstract class WordAlternatives {
     protected var mChosenWord: CharSequence? = null

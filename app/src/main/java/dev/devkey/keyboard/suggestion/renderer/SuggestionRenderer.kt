@@ -14,12 +14,16 @@
  * the License.
  */
 
-package dev.devkey.keyboard
+package dev.devkey.keyboard.suggestion.renderer
 
 import android.graphics.Canvas
 import android.graphics.Rect
 import android.graphics.Typeface
 import android.view.View
+import dev.devkey.keyboard.CANDIDATE_OUT_OF_BOUNDS_X_COORD
+import dev.devkey.keyboard.CANDIDATE_SCROLL_PIXELS
+import dev.devkey.keyboard.CANDIDATE_X_GAP
+import dev.devkey.keyboard.CandidateViewState
 
 /**
  * Handles all drawing logic for the candidate suggestion strip.

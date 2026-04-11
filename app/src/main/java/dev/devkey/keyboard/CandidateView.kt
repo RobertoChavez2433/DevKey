@@ -15,6 +15,7 @@
  */
 
 package dev.devkey.keyboard
+import dev.devkey.keyboard.suggestion.renderer.SuggestionRenderer
 
 import android.content.Context
 import android.graphics.Canvas

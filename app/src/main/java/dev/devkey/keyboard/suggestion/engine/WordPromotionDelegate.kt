@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-package dev.devkey.keyboard
+package dev.devkey.keyboard.suggestion.engine
+import dev.devkey.keyboard.*
+import dev.devkey.keyboard.suggestion.word.WordComposer
 
 /**
  * Interface to break circular dependency between dictionary classes and LatinIME.

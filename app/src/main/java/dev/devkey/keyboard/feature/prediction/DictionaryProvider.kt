@@ -1,7 +1,7 @@
 package dev.devkey.keyboard.feature.prediction
 
-import dev.devkey.keyboard.Suggest
-import dev.devkey.keyboard.WordComposer
+import dev.devkey.keyboard.suggestion.engine.Suggest
+import dev.devkey.keyboard.suggestion.word.WordComposer
 
 /**
  * Dictionary provider that uses a modern Kotlin [TrieDictionary] as the

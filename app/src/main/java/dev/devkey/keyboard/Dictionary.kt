@@ -15,6 +15,7 @@
  */
 
 package dev.devkey.keyboard
+import dev.devkey.keyboard.suggestion.word.WordComposer
 
 /**
  * Abstract base class for a dictionary that can do a fuzzy search for words based on a set of key

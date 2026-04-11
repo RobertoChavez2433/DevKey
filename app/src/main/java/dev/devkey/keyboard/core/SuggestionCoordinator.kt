@@ -4,9 +4,10 @@ import android.util.Log
 import dev.devkey.keyboard.AutoDictionary
 import dev.devkey.keyboard.EditingUtil
 import dev.devkey.keyboard.LatinIME
-import dev.devkey.keyboard.Suggest
+import dev.devkey.keyboard.suggestion.engine.Suggest
+import dev.devkey.keyboard.suggestion.word.WordAlternatives
 import dev.devkey.keyboard.TextEntryState
-import dev.devkey.keyboard.WordComposer
+import dev.devkey.keyboard.suggestion.word.WordComposer
 import dev.devkey.keyboard.debug.DevKeyLogger
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -68,7 +69,7 @@ internal class SuggestionCoordinator(private val ime: LatinIME) {
         return ime.mSuggest!!.getSuggestions(null, word, false, null)
     }
 
-    fun showCorrections(alternatives: dev.devkey.keyboard.WordAlternatives) {
+    fun showCorrections(alternatives: WordAlternatives) {
         val stringList = alternatives.getAlternatives()
         showSuggestions(stringList, alternatives.getOriginalWord(), false, false)
     }

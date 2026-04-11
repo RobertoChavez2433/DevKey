@@ -1,4 +1,5 @@
 package dev.devkey.keyboard
+import dev.devkey.keyboard.suggestion.engine.Suggest
 
 import android.content.Context
 import android.content.pm.PackageManager

@@ -14,7 +14,9 @@
  * the License.
  */
 
-package dev.devkey.keyboard
+package dev.devkey.keyboard.suggestion.engine
+import dev.devkey.keyboard.*
+import dev.devkey.keyboard.suggestion.word.WordComposer
 
 import android.text.AutoText
 import android.view.View

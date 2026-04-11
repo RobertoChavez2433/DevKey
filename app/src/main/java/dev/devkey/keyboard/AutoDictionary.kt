@@ -15,6 +15,7 @@
  */
 
 package dev.devkey.keyboard
+import dev.devkey.keyboard.suggestion.engine.WordPromotionDelegate
 
 import android.content.Context
 import kotlinx.coroutines.CoroutineScope

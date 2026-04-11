@@ -1,5 +1,7 @@
 // Copyright (C) 2008 The Android Open Source Project. Licensed under the Apache License, Version 2.0.
-package dev.devkey.keyboard
+package dev.devkey.keyboard.suggestion.engine
+import dev.devkey.keyboard.*
+import dev.devkey.keyboard.suggestion.word.WordComposer
 
 import android.content.Context
 import android.view.View

@@ -14,7 +14,7 @@
  * the License.
  */
 
-package dev.devkey.keyboard
+package dev.devkey.keyboard.suggestion.word
 
 /**
  * Stores the currently composing word with information such as adjacent key codes.

@@ -1,4 +1,4 @@
-package dev.devkey.keyboard
+package dev.devkey.keyboard.suggestion.word
 
 class TypedWordAlternatives : WordAlternatives {
     internal var word: WordComposer? = null

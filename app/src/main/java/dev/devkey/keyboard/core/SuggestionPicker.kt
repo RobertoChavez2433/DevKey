@@ -5,10 +5,11 @@ import dev.devkey.keyboard.EditingUtil
 import dev.devkey.keyboard.keyboard.model.Keyboard
 import dev.devkey.keyboard.ASCII_SPACE
 import dev.devkey.keyboard.LatinIME
-import dev.devkey.keyboard.Suggest
+import dev.devkey.keyboard.suggestion.engine.Suggest
+import dev.devkey.keyboard.suggestion.word.WordAlternatives
 import dev.devkey.keyboard.TextEntryState
-import dev.devkey.keyboard.TypedWordAlternatives
-import dev.devkey.keyboard.WordComposer
+import dev.devkey.keyboard.suggestion.word.TypedWordAlternatives
+import dev.devkey.keyboard.suggestion.word.WordComposer
 import dev.devkey.keyboard.ui.keyboard.SessionDependencies
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -120,7 +121,7 @@ internal class SuggestionPicker(
 
     fun applyTypedAlternatives(touching: EditingUtil.SelectedWord): Boolean {
         var foundWord: WordComposer? = null
-        var alternatives: dev.devkey.keyboard.WordAlternatives? = null
+        var alternatives: WordAlternatives? = null
         for (entry in ime.mWordHistory) {
             if (entry.getChosenWord() == touching.word) {
                 if (entry is TypedWordAlternatives) foundWord = entry.word

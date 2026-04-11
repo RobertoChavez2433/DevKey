@@ -14,7 +14,9 @@
  * the License.
  */
 
-package dev.devkey.keyboard
+package dev.devkey.keyboard.suggestion.engine
+import dev.devkey.keyboard.*
+import dev.devkey.keyboard.suggestion.word.WordComposer
 
 /**
  * Handles next-word / bigram-only suggestion when the user has just committed

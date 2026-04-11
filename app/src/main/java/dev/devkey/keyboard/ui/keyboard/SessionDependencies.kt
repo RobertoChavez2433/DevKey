@@ -1,6 +1,6 @@
 package dev.devkey.keyboard.ui.keyboard
 
-import dev.devkey.keyboard.Suggest
+import dev.devkey.keyboard.suggestion.engine.Suggest
 import dev.devkey.keyboard.feature.command.CommandModeDetector
 import dev.devkey.keyboard.feature.prediction.AutocorrectEngine
 import dev.devkey.keyboard.feature.prediction.AutocorrectResult

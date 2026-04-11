@@ -15,6 +15,8 @@
  */
 
 package dev.devkey.keyboard
+import dev.devkey.keyboard.suggestion.engine.Suggest
+import dev.devkey.keyboard.suggestion.word.WordComposer
 
 import android.content.ContentValues
 import android.content.Context

@@ -15,6 +15,7 @@
  */
 
 package dev.devkey.keyboard
+import dev.devkey.keyboard.suggestion.word.WordComposer
 
 import dev.devkey.keyboard.Dictionary.DataType
 import dev.devkey.keyboard.Dictionary.WordCallback

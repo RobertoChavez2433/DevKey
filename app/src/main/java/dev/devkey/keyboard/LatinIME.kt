@@ -44,6 +44,11 @@ import dev.devkey.keyboard.core.modifier.ChordeTracker
 import dev.devkey.keyboard.keyboard.model.Keyboard
 import dev.devkey.keyboard.keyboard.switcher.KeyboardSwitcher
 import dev.devkey.keyboard.language.LanguageSwitcher
+import dev.devkey.keyboard.suggestion.engine.Suggest
+import dev.devkey.keyboard.suggestion.engine.WordPromotionDelegate
+import dev.devkey.keyboard.suggestion.word.TypedWordAlternatives
+import dev.devkey.keyboard.suggestion.word.WordAlternatives
+import dev.devkey.keyboard.suggestion.word.WordComposer
 import dev.devkey.keyboard.core.FeedbackManager
 import dev.devkey.keyboard.core.ImeInitializer
 import dev.devkey.keyboard.core.InputDispatcher

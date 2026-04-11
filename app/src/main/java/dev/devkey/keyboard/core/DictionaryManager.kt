@@ -6,7 +6,7 @@ import dev.devkey.keyboard.AutoDictionary
 import dev.devkey.keyboard.LatinIME
 import dev.devkey.keyboard.PREF_QUICK_FIXES
 import dev.devkey.keyboard.R
-import dev.devkey.keyboard.Suggest
+import dev.devkey.keyboard.suggestion.engine.Suggest
 import dev.devkey.keyboard.UserBigramDictionary
 import dev.devkey.keyboard.UserDictionary
 import dev.devkey.keyboard.data.db.DevKeyDatabase

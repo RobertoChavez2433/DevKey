@@ -14,7 +14,8 @@
  * the License.
  */
 
-package dev.devkey.keyboard
+package dev.devkey.keyboard.suggestion.engine
+import dev.devkey.keyboard.suggestion.word.WordComposer
 
 /**
  * Shared mutable state for the suggestion pipeline.

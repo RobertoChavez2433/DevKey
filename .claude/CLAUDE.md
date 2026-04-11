@@ -48,6 +48,7 @@ test/debug helpers into production behavior.**
   state intentionally after installs.
 - The shared E2E harness lives under `tools/e2e/`; the HTTP debug/log server
   lives under `tools/debug-server/`.
+- Always start the debug server on port 3950 (`PORT=3950`), not the default 3948.
 - Prefer deterministic scripts and existing harness helpers over ad-hoc ADB
   command sequences.
 - Debug logs may record structural state, key codes, and mode transitions, but

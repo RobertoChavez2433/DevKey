@@ -1,78 +1,82 @@
 # Session State
 
-**Last Updated**: 2026-04-10 | **Session**: 47
+**Last Updated**: 2026-04-11 | **Session**: 50
 
 ## Current Phase
 
-- **Phase**: v1.0 Pre-Release Execution — Phase 4 (Root Package Reorganization)
-- **Status**: Package reorganization **COMPLETE**. 60 files migrated across 9
-  commits, build green, lint clean. Root package reduced from ~70 files to 6.
+- **Phase**: v1.0 Pre-Release Execution — Feature Fixes + Test Stabilization
+- **Status**: All 40 E2E tests green. Word learning consolidated to single
+  canonical source. Autocorrect suppression fixed to only honor explicit
+  user additions. Build green.
 
 ## Resume Here
 
-1. Review the 11 skipped E2E tests and decide which need resolution before v1.0.
-2. Fix the utility row (Ctrl/Alt/Tab/Arrows) being occluded by the navigation
-   bar — the row renders but is hidden behind the system nav bar.
-3. Push sessions 42-47 commits.
-4. Update CLAUDE.md architecture section — the package list has expanded from
-   `core/`, `data/`, `feature/`, `ui/`, `debug/` to include `compose/`,
-   `keyboard/`, `language/`, `suggestion/`, `dictionary/`, `legacy/`.
+1. Continue pre-release plan Phase A: fix WhisperProcessor mel spectrogram stub
+   (B2) and binary header parsing (B3).
+2. Phase B: fix 45 locale XML namespace errors (B4), add POST_NOTIFICATIONS
+   permission (B5), retune keyBgSpecial token (S1).
+3. Phase C: extract ~206 lines from LatinIME.kt (currently 623, target ≤400).
+4. Push accumulated commits from sessions 42-50.
+5. Close GH #9 after architecture gate passes.
 
 ## Important Facts
 
 - Always use the Windows Android emulator, never the Samsung physical device.
 - The emulator IME reaches the host debug server via `10.0.2.2`, not
   `127.0.0.1`; the harness translates automatically.
-- The debug server port is configurable via `PORT` env var (default 3948).
-- Port 3948 is reserved for Samsung/manual testing; use 3950+ for emulator runs.
-- `Suggest.getSuggestions()` null-checks `view` before `AutoText.get()` (crash fix session 46).
-- Standalone mic key removed from space row per SwiftKey parity (session 46).
+- Debug server port is **3950** — all E2E harness defaults updated to 3950.
+- `SessionDependencies.commitWord()` is the ONLY canonical path for word
+  learning. No direct calls to `LearningEngine.onWordCommitted()` elsewhere.
+- `AutocorrectEngine.getCorrection()` uses `getCustomWords()` (user-added only),
+  not `getLearnedWords()` (all committed words). Only explicit long-press
+  "Add to dictionary" suppresses autocorrect.
 - Root package now has exactly 6 files: LatinIME, LatinIMEBackupAgent,
   LatinIMEPrefs, Main, NotificationReceiver, InputLanguageSelection.
+- GH #27: Voice 30-second limit — chunking deferred to post-v1.0.
 
 ## Current Blockers
 
-- Utility row occluded by navigation bar (WindowInsets issue).
-- SwiftKey reference coverage incomplete (compact-dev-dark, full-dark).
-- Sessions 42-47 commits remain local.
-- CLAUDE.md architecture list needs updating post-reorganization.
+- WhisperProcessor mel spectrogram is a stub (returns zeros).
+- LatinIME.kt at 623 lines (limit: 400).
+- 45 locale XML namespace errors in lint.
+- POST_NOTIFICATIONS permission missing.
+- Sessions 42-50 commits remain local.
 
 ## Recent Sessions
 
-### Session 47 (2026-04-10)
+### Session 50 (2026-04-11)
 
-- **Root package reorganization** (Phase 4 spec): migrated 60 files from the
-  flat root package into organized sub-packages across 9 build-safe batches.
-- New packages: `compose/`, `keyboard/{model,latin,switcher,xml,proximity}/`,
-  `language/`, `suggestion/{engine,word,renderer}/`,
-  `dictionary/{base,expandable,user,bigram,loader,trie}/`, `legacy/`.
-- Moved ChordeTracker to `core/modifier/`; TextEntryState, EditingUtil,
-  ImePrefsUtil to `core/{input,text,prefs}/`.
-- Removed all Darren Salt copyright notices (7 files).
-- Build green + lint clean after all batches.
+- **Consolidated word learning**: created `SessionDependencies.commitWord()` as
+  the single canonical path. Replaced 3 scattered `onWordCommitted()` call sites
+  (InputHandlers, SuggestionPicker, KeyboardDynamicPanel).
+- **Fixed autocorrect suppression**: added `customWordsCache` + `getCustomWords()`
+  to LearningEngine. AutocorrectEngine now only suppresses corrections for
+  explicitly user-added words, not auto-learned words.
+- **Fixed E2E port defaults**: updated 4 hardcoded `3948` references to `3950`
+  across driver.py, adb.py, test_voice.py, e2e_runner.py.
+- All 40 E2E tests green. Build green.
 
-### Session 46 (2026-04-10)
+### Session 49 (2026-04-11)
 
-- Fixed crash: `NullPointerException` in `Suggest.getSuggestions()` — `AutoText.get()`
-  received null View. Added null-check guard.
-- Fixed debug server URL: harness was sending `127.0.0.1` to the IME inside the
-  emulator; now auto-translates to `10.0.2.2`.
-- Made debug server port configurable via `PORT` env var.
-- Removed standalone mic key from space row per SwiftKey parity — mic belongs in
-  toolbar only. Comma key now has `'` long-press.
-- E2E suite: 25 passed / 0 failed / 0 errors / 11 skipped.
+- Full codebase audit against pre-release-spec.md — produced comprehensive
+  implementation plan covering all remaining blockers (B1-B9) and should-fix
+  items (S1-S4).
+- Wave 8 DI seam refactor confirmed complete.
 
-### Session 45 (2026-04-10)
+### Session 48 (2026-04-11)
 
-- Stabilized the Samsung E2E flow and landed three commits around logging,
-  modifier reset behavior, and harness recovery.
-- Confirmed the remaining failures were narrowed to FULL-mode CTRL coordinates.
+- Completed Wave 8 DI seam refactor: all collaborators decoupled from LatinIME,
+  ImeState extracted, interfaces defined.
+- All 40 E2E tests passing (0 failures, 0 xfailed) after fixing autocorrect
+  test infrastructure (dictionary gate, learned words clearing, circuit breaker
+  tuning).
+- Delete key long-press fixed (accelerating repeat instead of escape).
+- Key press preview popup implemented.
+- Voice E2E fully verified with punctuation/proper nouns.
 
 ## Current References
 
-- **Current plan**: `.claude/plans/2026-04-09-pre-release-phase3.md`
+- **Current plan**: `.claude/plans/refactored-sniffing-stonebraker.md`
 - **Phase 4 spec**: `.claude/specs/phase4-refactor-spec.md`
-- **Current tailor**: `.claude/tailor/2026-04-09-pre-release-phase3/`
 - **Current spec**: `.claude/specs/pre-release-spec.md`
-- **Current progress note**: `.claude/state/phase3-progress.md`
 - **Key coordinate map**: `.claude/docs/reference/key-coordinates.md`

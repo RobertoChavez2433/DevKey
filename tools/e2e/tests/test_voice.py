@@ -104,3 +104,58 @@ def test_voice_round_trip_committed_text():
         driver.broadcast("dev.devkey.keyboard.RESET_KEYBOARD_MODE", {})
         driver.wait_for("DevKey/VOX", "state_transition",
                         match={"state": "IDLE"}, timeout_ms=5000)
+
+
+def test_voice_file_based_inference():
+    """
+    File-based Whisper round-trip: push a WAV file, trigger VOICE_PROCESS_FILE
+    broadcast, verify inference completes with non-empty transcription.
+
+    Uses the debug-only VOICE_PROCESS_FILE broadcast to bypass AudioRecord
+    entirely — deterministic and emulator-friendly.
+    """
+    import os
+    import subprocess
+    serial = _setup_voice()
+
+    # Push the complex voice fixture to app private storage
+    fixture = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "..", "fixtures", "voice-complex.wav"
+    )
+    if not os.path.exists(fixture):
+        import pytest
+        pytest.skip("voice-complex.wav fixture not found")
+
+    subprocess.run(
+        ["adb", "-s", serial, "push", fixture, "/data/local/tmp/voice-complex.wav"],
+        check=True, capture_output=True
+    )
+    subprocess.run(
+        ["adb", "-s", serial, "shell", "run-as", "dev.devkey.keyboard",
+         "cp", "/data/local/tmp/voice-complex.wav",
+         "/data/data/dev.devkey.keyboard/files/voice-complex.wav"],
+        check=True, capture_output=True
+    )
+
+    driver.clear_logs()
+    driver.broadcast(
+        "dev.devkey.keyboard.VOICE_PROCESS_FILE",
+        {"file_path": "/data/data/dev.devkey.keyboard/files/voice-complex.wav"},
+    )
+
+    # Wait for processing to start
+    driver.wait_for("DevKey/VOX", "state_transition",
+                    match={"state": "PROCESSING"}, timeout_ms=5000)
+
+    # Wait for inference to complete — may take 10-30s on emulator
+    entry = driver.wait_for("DevKey/VOX", "state_transition",
+                            match={"state": "IDLE"}, timeout_ms=60000)
+
+    # Verify we got a process_file_result with non-empty transcription
+    result = driver.wait_for("DevKey/VOX", "process_file_result",
+                             timeout_ms=5000)
+    assert result.get("length", 0) > 0, (
+        f"Expected non-empty transcription but got length={result.get('length')}, "
+        f"preview={result.get('preview')}"
+    )

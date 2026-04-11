@@ -1,26 +1,31 @@
 package dev.devkey.keyboard.core
 
+import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
-import dev.devkey.keyboard.LatinIME
+import androidx.core.content.ContextCompat
 import dev.devkey.keyboard.NotificationReceiver
 import dev.devkey.keyboard.R
 
-internal class NotificationController(private val context: Context, private val ime: LatinIME) {
+internal class NotificationController(
+    private val context: Context,
+    private val showSelf: () -> Unit
+) {
     private var notificationReceiver: NotificationReceiver? = null
 
     fun setNotification(visible: Boolean) {
         val mgr = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (visible && notificationReceiver == null) {
             createChannel()
-            notificationReceiver = NotificationReceiver(ime)
+            notificationReceiver = NotificationReceiver(showSelf)
             val pFilter = IntentFilter(NotificationReceiver.ACTION_SHOW).apply {
                 addAction(NotificationReceiver.ACTION_SETTINGS)
             }
@@ -43,6 +48,13 @@ internal class NotificationController(private val context: Context, private val 
                 .setOngoing(true)
                 .addAction(R.drawable.icon_hk_notification, context.getString(R.string.notification_action_settings), configIntent)
                 .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS)
+                    != PackageManager.PERMISSION_GRANTED
+            ) {
+                // IME service cannot request runtime permissions — skip gracefully
+                return
+            }
             NotificationManagerCompat.from(context).notify(ONGOING_ID, builder.build())
         } else if (notificationReceiver != null) {
             mgr.cancel(ONGOING_ID)

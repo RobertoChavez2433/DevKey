@@ -8,6 +8,7 @@ import android.util.Log
 import android.widget.Toast
 import androidx.preference.PreferenceManager
 import dev.devkey.keyboard.*
+import dev.devkey.keyboard.keyboard.switcher.KeyboardSwitcher
 import dev.devkey.keyboard.compose.ComposeSequenceLoader
 import dev.devkey.keyboard.data.db.DevKeyDatabase
 import dev.devkey.keyboard.data.repository.SettingsRepository

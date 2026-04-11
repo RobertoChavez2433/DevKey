@@ -22,7 +22,7 @@ import android.content.res.XmlResourceParser
 import android.util.Log
 import android.util.Xml
 import dev.devkey.keyboard.R
-import dev.devkey.keyboard.setEdgeFlags
+import dev.devkey.keyboard.keyboard.switcher.setEdgeFlags
 import dev.devkey.keyboard.keyboard.model.Key
 import dev.devkey.keyboard.keyboard.model.Keyboard
 import dev.devkey.keyboard.keyboard.model.Row

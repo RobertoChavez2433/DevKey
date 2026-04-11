@@ -14,7 +14,7 @@
  * the License.
  */
 
-package dev.devkey.keyboard
+package dev.devkey.keyboard.keyboard.switcher
 import dev.devkey.keyboard.keyboard.model.Keyboard
 
 import dev.devkey.keyboard.ui.keyboard.KeyCodes

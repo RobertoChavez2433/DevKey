@@ -24,12 +24,12 @@ import android.util.DisplayMetrics
 import android.util.Log
 import android.util.TypedValue
 import dev.devkey.keyboard.LatinIME
-import dev.devkey.keyboard.computeNearestNeighbors
-import dev.devkey.keyboard.fixAltChars
+import dev.devkey.keyboard.keyboard.switcher.computeNearestNeighbors
+import dev.devkey.keyboard.keyboard.switcher.fixAltChars
+import dev.devkey.keyboard.keyboard.switcher.setEdgeFlags
+import dev.devkey.keyboard.keyboard.switcher.setKeyboardWidthInternal
 import dev.devkey.keyboard.keyboard.xml.loadKeyboard
 import dev.devkey.keyboard.keyboard.xml.populateFromCharacters
-import dev.devkey.keyboard.setEdgeFlags
-import dev.devkey.keyboard.setKeyboardWidthInternal
 import kotlin.math.roundToInt
 
 /**

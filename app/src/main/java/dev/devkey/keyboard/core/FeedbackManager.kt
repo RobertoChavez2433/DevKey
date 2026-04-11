@@ -6,7 +6,7 @@ import android.content.Intent
 import android.media.AudioManager
 import android.os.VibrationEffect
 import android.os.Vibrator
-import dev.devkey.keyboard.Keyboard
+import dev.devkey.keyboard.keyboard.model.Keyboard
 import dev.devkey.keyboard.data.repository.SettingsRepository
 import dev.devkey.keyboard.ui.keyboard.KeyCodes
 import kotlin.math.min

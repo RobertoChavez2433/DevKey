@@ -15,6 +15,8 @@
  */
 
 package dev.devkey.keyboard
+import dev.devkey.keyboard.keyboard.model.Key
+import dev.devkey.keyboard.keyboard.model.Keyboard
 
 import android.util.Log
 import dev.devkey.keyboard.ui.keyboard.KeyCodes

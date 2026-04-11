@@ -14,8 +14,11 @@
  * the License.
  */
 
-package dev.devkey.keyboard
+package dev.devkey.keyboard.keyboard.model
 
+import dev.devkey.keyboard.KeyboardSwitcher
+import dev.devkey.keyboard.LatinIME
+import dev.devkey.keyboard.R
 import java.util.Arrays
 
 /**

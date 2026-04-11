@@ -1,6 +1,6 @@
 package dev.devkey.keyboard.ui.keyboard
 
-import dev.devkey.keyboard.Keyboard
+import dev.devkey.keyboard.keyboard.model.Keyboard
 
 /**
  * Builds the COMPACT layout — now 5 rows matching SwiftKey reference:

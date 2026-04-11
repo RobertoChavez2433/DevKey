@@ -1,5 +1,6 @@
 // Copyright (C) 2008 The Android Open Source Project. Licensed under the Apache License, Version 2.0.
 package dev.devkey.keyboard
+import dev.devkey.keyboard.keyboard.model.Key
 
 import android.content.res.Resources
 import android.graphics.drawable.Drawable

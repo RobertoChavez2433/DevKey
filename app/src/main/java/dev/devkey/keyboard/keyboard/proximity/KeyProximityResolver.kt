@@ -14,7 +14,9 @@
  * the License.
  */
 
-package dev.devkey.keyboard
+package dev.devkey.keyboard.keyboard.proximity
+
+import dev.devkey.keyboard.keyboard.model.Key
 
 /**
  * Resolves which key is the intended target when a touch is near multiple keys,

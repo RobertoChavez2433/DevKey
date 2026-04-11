@@ -1,5 +1,10 @@
 // Copyright (C) 2008 The Android Open Source Project. Licensed under the Apache License, Version 2.0.
 package dev.devkey.keyboard
+import dev.devkey.keyboard.keyboard.model.Key
+import dev.devkey.keyboard.keyboard.model.Keyboard
+import dev.devkey.keyboard.keyboard.model.KeyboardModes
+import dev.devkey.keyboard.keyboard.model.Row
+import dev.devkey.keyboard.keyboard.proximity.KeyProximityResolver
 
 import android.content.Context
 import android.content.res.Resources

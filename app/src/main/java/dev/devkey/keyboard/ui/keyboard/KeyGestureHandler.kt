@@ -10,7 +10,7 @@ import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntSize
-import dev.devkey.keyboard.Keyboard
+import dev.devkey.keyboard.keyboard.model.Keyboard
 import dev.devkey.keyboard.core.KeyPressLogger
 import dev.devkey.keyboard.core.ModifierStateManager
 import dev.devkey.keyboard.core.ModifierType

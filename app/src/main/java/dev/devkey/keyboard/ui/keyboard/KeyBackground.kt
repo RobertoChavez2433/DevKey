@@ -6,7 +6,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.graphics.Color
-import dev.devkey.keyboard.Keyboard
+import dev.devkey.keyboard.keyboard.model.Keyboard
 import dev.devkey.keyboard.ui.theme.DevKeyTheme
 import dev.devkey.keyboard.ui.theme.DevKeyThemeColors
 

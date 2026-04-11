@@ -1,7 +1,7 @@
 package dev.devkey.keyboard.compose
 
 import android.view.inputmethod.EditorInfo
-import dev.devkey.keyboard.Keyboard
+import dev.devkey.keyboard.keyboard.model.Keyboard
 import java.text.Normalizer
 
 class DeadAccentSequence(

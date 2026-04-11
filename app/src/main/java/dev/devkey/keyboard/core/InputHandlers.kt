@@ -7,7 +7,7 @@ import dev.devkey.keyboard.AutoDictionary
 import dev.devkey.keyboard.ASCII_PERIOD
 import dev.devkey.keyboard.ASCII_SPACE
 import dev.devkey.keyboard.DELETE_ACCELERATE_AT
-import dev.devkey.keyboard.Keyboard
+import dev.devkey.keyboard.keyboard.model.Keyboard
 import dev.devkey.keyboard.LatinIME
 import dev.devkey.keyboard.Suggest
 import kotlinx.coroutines.Dispatchers

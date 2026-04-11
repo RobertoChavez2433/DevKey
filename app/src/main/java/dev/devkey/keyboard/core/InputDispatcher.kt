@@ -3,7 +3,7 @@ package dev.devkey.keyboard.core
 import android.os.SystemClock
 import android.util.Log
 import dev.devkey.keyboard.ASCII_ENTER
-import dev.devkey.keyboard.Keyboard
+import dev.devkey.keyboard.keyboard.model.Keyboard
 import dev.devkey.keyboard.LatinIME
 import dev.devkey.keyboard.QUICK_PRESS
 import dev.devkey.keyboard.TextEntryState

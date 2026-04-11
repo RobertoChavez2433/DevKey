@@ -15,6 +15,7 @@
  */
 
 package dev.devkey.keyboard
+import dev.devkey.keyboard.keyboard.model.Key
 
 import android.content.res.Resources
 import android.graphics.Bitmap

@@ -2,7 +2,7 @@ package dev.devkey.keyboard.core
 
 import dev.devkey.keyboard.AutoDictionary
 import dev.devkey.keyboard.EditingUtil
-import dev.devkey.keyboard.Keyboard
+import dev.devkey.keyboard.keyboard.model.Keyboard
 import dev.devkey.keyboard.ASCII_SPACE
 import dev.devkey.keyboard.LatinIME
 import dev.devkey.keyboard.Suggest

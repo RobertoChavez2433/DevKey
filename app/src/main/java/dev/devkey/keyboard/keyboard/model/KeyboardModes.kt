@@ -1,5 +1,6 @@
 // Copyright (C) 2008 The Android Open Source Project. Licensed under the Apache License, Version 2.0.
-package dev.devkey.keyboard
+package dev.devkey.keyboard.keyboard.model
+import dev.devkey.keyboard.R
 
 /** Input mode and keyboard mode constants shared by KeyboardSwitcher, KeyboardIdFactory, and LatinIME. */
 object KeyboardModes {

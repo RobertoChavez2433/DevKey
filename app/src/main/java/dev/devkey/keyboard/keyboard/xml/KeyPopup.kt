@@ -14,9 +14,13 @@
  * the License.
  */
 
-package dev.devkey.keyboard
+package dev.devkey.keyboard.keyboard.xml
 
 import android.content.Context
+import dev.devkey.keyboard.LatinIME
+import dev.devkey.keyboard.R
+import dev.devkey.keyboard.keyboard.model.Key
+import dev.devkey.keyboard.keyboard.model.Keyboard
 
 /**
  * Popup keyboard content building and hint label logic for [Key].

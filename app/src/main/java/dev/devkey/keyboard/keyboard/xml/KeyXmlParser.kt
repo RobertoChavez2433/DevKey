@@ -14,12 +14,17 @@
  * the License.
  */
 
-package dev.devkey.keyboard
+package dev.devkey.keyboard.keyboard.xml
 
 import android.content.res.Resources
 import android.content.res.XmlResourceParser
 import android.util.TypedValue
 import android.util.Xml
+import dev.devkey.keyboard.LatinIME
+import dev.devkey.keyboard.R
+import dev.devkey.keyboard.keyboard.model.Key
+import dev.devkey.keyboard.keyboard.model.Keyboard
+import dev.devkey.keyboard.keyboard.model.Row
 import kotlin.math.roundToInt
 
 /**

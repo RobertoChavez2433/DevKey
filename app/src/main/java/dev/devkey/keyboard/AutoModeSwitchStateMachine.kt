@@ -15,6 +15,7 @@
  */
 
 package dev.devkey.keyboard
+import dev.devkey.keyboard.keyboard.model.Keyboard
 
 import dev.devkey.keyboard.ui.keyboard.KeyCodes
 

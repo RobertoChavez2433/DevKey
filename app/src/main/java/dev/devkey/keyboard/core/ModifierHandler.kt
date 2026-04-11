@@ -3,7 +3,7 @@ package dev.devkey.keyboard.core
 import android.view.KeyEvent
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
-import dev.devkey.keyboard.Keyboard
+import dev.devkey.keyboard.keyboard.model.Keyboard
 import dev.devkey.keyboard.LatinIME
 import dev.devkey.keyboard.ui.keyboard.KeyCodes
 

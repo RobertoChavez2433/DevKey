@@ -15,6 +15,8 @@
  */
 
 package dev.devkey.keyboard
+import dev.devkey.keyboard.keyboard.model.Key
+import dev.devkey.keyboard.keyboard.model.Row
 
 import android.content.res.Resources
 import android.content.res.XmlResourceParser

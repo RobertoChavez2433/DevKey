@@ -2,7 +2,7 @@ package dev.devkey.keyboard.compose
 
 import android.util.Log
 import android.view.inputmethod.EditorInfo
-import dev.devkey.keyboard.Keyboard
+import dev.devkey.keyboard.keyboard.model.Keyboard
 import dev.devkey.keyboard.KeyboardSwitcher
 
 /**

@@ -47,4 +47,7 @@ object SessionDependencies {
 
     /** A pending autocorrect suggestion (non-auto-applied), for the suggestion bar. */
     val pendingCorrection = MutableStateFlow<AutocorrectResult?>(null)
+
+    /** Next-word suggestions from the bigram/legacy pipeline, shown when composing is empty. */
+    val nextWordSuggestions = MutableStateFlow<List<CharSequence>>(emptyList())
 }

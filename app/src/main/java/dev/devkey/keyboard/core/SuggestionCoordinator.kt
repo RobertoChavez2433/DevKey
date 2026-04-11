@@ -1,14 +1,14 @@
 package dev.devkey.keyboard.core
 
-import android.util.Log
-import dev.devkey.keyboard.dictionary.user.AutoDictionary
+import android.view.inputmethod.CompletionInfo
 import dev.devkey.keyboard.core.text.EditingUtil
-import dev.devkey.keyboard.LatinIME
 import dev.devkey.keyboard.suggestion.engine.Suggest
+import dev.devkey.keyboard.suggestion.word.TypedWordAlternatives
 import dev.devkey.keyboard.suggestion.word.WordAlternatives
 import dev.devkey.keyboard.core.input.TextEntryState
 import dev.devkey.keyboard.suggestion.word.WordComposer
 import dev.devkey.keyboard.debug.DevKeyLogger
+import dev.devkey.keyboard.ui.keyboard.SessionDependencies
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -16,28 +16,32 @@ import kotlinx.coroutines.launch
  * Manages suggestion computation, display, and next-word prediction.
  * Extracted from LatinIME to reduce god-class size.
  */
-internal class SuggestionCoordinator(private val ime: LatinIME) {
+internal class SuggestionCoordinator(
+    private val state: ImeState,
+    private val icProvider: InputConnectionProvider,
+    private val candidateViewHost: CandidateViewHost
+) {
 
     fun postUpdateSuggestions() {
-        ime.suggestionsJob?.cancel()
-        ime.suggestionsJob = ime.serviceScope.launch {
+        state.suggestionsJob?.cancel()
+        state.suggestionsJob = state.serviceScope.launch {
             delay(100)
             updateSuggestions()
         }
     }
 
     fun postUpdateOldSuggestions() {
-        ime.oldSuggestionsJob?.cancel()
-        ime.oldSuggestionsJob = ime.serviceScope.launch {
+        state.oldSuggestionsJob?.cancel()
+        state.oldSuggestionsJob = state.serviceScope.launch {
             delay(300)
             setOldSuggestions()
         }
     }
 
     fun isPredictionWanted(): Boolean =
-        (ime.mShowSuggestions || ime.mSuggestionForceOn) && !ime.suggestionsDisabled()
+        (state.mShowSuggestions || state.mSuggestionForceOn) && !state.suggestionsDisabled()
 
-    fun isCandidateStripVisible(): Boolean = ime.isPredictionOn()
+    fun isCandidateStripVisible(): Boolean = state.isPredictionOn(isPredictionWanted())
 
     fun clearSuggestions() {
         setSuggestions(null, completions = false, typedWordValid = false, haveMinimalSuggestion = false)
@@ -49,24 +53,24 @@ internal class SuggestionCoordinator(private val ime: LatinIME) {
         typedWordValid: Boolean,
         haveMinimalSuggestion: Boolean
     ) {
-        if (ime.mIsShowingHint) {
-            ime.setCandidatesViewShown(true)
-            ime.mIsShowingHint = false
+        if (state.mIsShowingHint) {
+            candidateViewHost.setCandidatesViewShown(true)
+            state.mIsShowingHint = false
         }
-        ime.mCandidateView?.setSuggestions(suggestions, completions, typedWordValid, haveMinimalSuggestion)
+        state.mCandidateView?.setSuggestions(suggestions, completions, typedWordValid, haveMinimalSuggestion)
     }
 
     fun updateSuggestions() {
-        if (ime.mSuggest == null || !ime.isPredictionOn()) return
-        if (!ime.mPredicting) {
+        if (state.mSuggest == null || !state.isPredictionOn(isPredictionWanted())) return
+        if (!state.mPredicting) {
             setNextSuggestions()
             return
         }
-        showSuggestions(ime.mWord)
+        showSuggestions(state.mWord)
     }
 
     fun getTypedSuggestions(word: WordComposer): List<CharSequence> {
-        return ime.mSuggest!!.getSuggestions(null, word, false, null)
+        return state.mSuggest!!.getSuggestions(null, word, false, null)
     }
 
     fun showCorrections(alternatives: WordAlternatives) {
@@ -75,16 +79,16 @@ internal class SuggestionCoordinator(private val ime: LatinIME) {
     }
 
     fun showSuggestions(word: WordComposer) {
-        val prevWord = EditingUtil.getPreviousWord(ime.currentInputConnection, ime.mWordSeparators ?: "")
-        val stringList = ime.mSuggest!!.getSuggestions(null, word, false, prevWord)
-        val nextLettersFrequencies = ime.mSuggest!!.getNextLettersFrequencies()
+        val prevWord = EditingUtil.getPreviousWord(icProvider.inputConnection, state.mWordSeparators ?: "")
+        val stringList = state.mSuggest!!.getSuggestions(null, word, false, prevWord)
+        val nextLettersFrequencies = state.mSuggest!!.getNextLettersFrequencies()
 
-        var correctionAvailable = !ime.mInputTypeNoAutoCorrect && ime.mSuggest!!.hasMinimalCorrection()
+        var correctionAvailable = !state.mInputTypeNoAutoCorrect && state.mSuggest!!.hasMinimalCorrection()
         val typedWord = word.getTypedWord() ?: ""
-        var typedWordValid = ime.mSuggest!!.isValidWord(typedWord) ||
-            (ime.preferCapitalization() && ime.mSuggest!!.isValidWord(typedWord.toString().lowercase()))
-        if (ime.mCorrectionMode == Suggest.CORRECTION_FULL
-            || ime.mCorrectionMode == Suggest.CORRECTION_FULL_BIGRAM
+        var typedWordValid = state.mSuggest!!.isValidWord(typedWord) ||
+            (state.preferCapitalization() && state.mSuggest!!.isValidWord(typedWord.toString().lowercase()))
+        if (state.mCorrectionMode == Suggest.CORRECTION_FULL
+            || state.mCorrectionMode == Suggest.CORRECTION_FULL_BIGRAM
         ) {
             correctionAvailable = correctionAvailable or typedWordValid
         }
@@ -100,25 +104,43 @@ internal class SuggestionCoordinator(private val ime: LatinIME) {
         correctionAvailable: Boolean
     ) {
         setSuggestions(stringList, completions = false, typedWordValid = typedWordValid, haveMinimalSuggestion = correctionAvailable)
-        ime.mBestWord = if (stringList != null && stringList.isNotEmpty()) {
+        state.mBestWord = if (stringList != null && stringList.isNotEmpty()) {
             if (correctionAvailable && !typedWordValid && stringList.size > 1) stringList[1] else typedWord
         } else null
-        ime.setCandidatesViewShown(isCandidateStripVisible() || ime.mCompletionOn)
+        candidateViewHost.setCandidatesViewShown(isCandidateStripVisible() || state.mCompletionOn)
     }
 
     fun setOldSuggestions() {
-        if (ime.mCandidateView != null && ime.mCandidateView!!.isShowingAddToDictionaryHint()) return
-        val ic = ime.currentInputConnection ?: return
-        if (!ime.mPredicting) {
-            ime.abortCorrection(true)
+        if (state.mCandidateView != null && state.mCandidateView!!.isShowingAddToDictionaryHint()) return
+        val ic = icProvider.inputConnection ?: return
+        if (!state.mPredicting) {
+            abortCorrection(true)
             setNextSuggestions()
         } else {
-            ime.abortCorrection(true)
+            abortCorrection(true)
+        }
+    }
+
+    fun saveWordInHistory(result: CharSequence?) {
+        if (state.mWord.size() <= 1) {
+            state.mWord.reset()
+            return
+        }
+        if (result.isNullOrEmpty()) return
+        val resultCopy = result.toString()
+        val entry = TypedWordAlternatives(resultCopy, WordComposer(state.mWord), ::getTypedSuggestions)
+        state.mWordHistory.add(entry)
+    }
+
+    fun abortCorrection(force: Boolean) {
+        if (force || TextEntryState.isCorrecting()) {
+            icProvider.inputConnection?.finishComposingText()
+            clearSuggestions()
         }
     }
 
     fun getLastCommittedWordBeforeCursor(): CharSequence? {
-        val ic = ime.currentInputConnection ?: return null
+        val ic = icProvider.inputConnection ?: return null
         val before = ic.getTextBeforeCursor(64, 0) ?: return null
         if (before.isEmpty()) return null
         var end = before.length
@@ -137,23 +159,27 @@ internal class SuggestionCoordinator(private val ime: LatinIME) {
         var emitSource = "no_prev_word"
         var emitLen = 0
         var emitCount = 0
-        val suggestImpl = ime.mSuggest
-        if (suggestImpl != null && ime.isPredictionOn()) {
+        val suggestImpl = state.mSuggest
+        if (suggestImpl != null && state.isPredictionOn(isPredictionWanted())) {
             val prevWord = getLastCommittedWordBeforeCursor()
             if (prevWord != null) {
                 val nextWords = suggestImpl.getNextWordSuggestions(prevWord)
                 if (nextWords.isNotEmpty()) {
                     emitSource = "bigram_hit"; emitLen = prevWord.length; emitCount = nextWords.size
                     setSuggestions(nextWords, completions = false, typedWordValid = false, haveMinimalSuggestion = false)
+                    SessionDependencies.nextWordSuggestions.value = nextWords
                 } else {
                     emitSource = "bigram_miss"; emitLen = prevWord.length
-                    setSuggestions(ime.mSuggestPuncList, completions = false, typedWordValid = false, haveMinimalSuggestion = false)
+                    setSuggestions(state.mSuggestPuncList, completions = false, typedWordValid = false, haveMinimalSuggestion = false)
+                    SessionDependencies.nextWordSuggestions.value = emptyList()
                 }
             } else {
-                setSuggestions(ime.mSuggestPuncList, completions = false, typedWordValid = false, haveMinimalSuggestion = false)
+                setSuggestions(state.mSuggestPuncList, completions = false, typedWordValid = false, haveMinimalSuggestion = false)
+                SessionDependencies.nextWordSuggestions.value = emptyList()
             }
         } else {
-            setSuggestions(ime.mSuggestPuncList, completions = false, typedWordValid = false, haveMinimalSuggestion = false)
+            setSuggestions(state.mSuggestPuncList, completions = false, typedWordValid = false, haveMinimalSuggestion = false)
+            SessionDependencies.nextWordSuggestions.value = emptyList()
         }
         DevKeyLogger.text("next_word_suggestions", mapOf("prev_word_length" to emitLen, "result_count" to emitCount, "source" to emitSource))
     }
@@ -162,53 +188,70 @@ internal class SuggestionCoordinator(private val ime: LatinIME) {
         oldSelStart: Int, newSelStart: Int, newSelEnd: Int,
         candidatesStart: Int, candidatesEnd: Int
     ) {
-        if (ime.mComposing.isNotEmpty() && ime.mPredicting
+        if (state.mComposing.isNotEmpty() && state.mPredicting
             && (newSelStart != candidatesEnd || newSelEnd != candidatesEnd)
-            && ime.mLastSelectionStart != newSelStart
+            && state.mLastSelectionStart != newSelStart
         ) {
-            ime.mComposing.setLength(0)
-            ime.mPredicting = false
+            state.mComposing.setLength(0)
+            state.mPredicting = false
             postUpdateSuggestions()
             TextEntryState.reset()
-            ime.currentInputConnection?.finishComposingText()
-        } else if (!ime.mPredicting && !ime.mJustAccepted) {
+            icProvider.inputConnection?.finishComposingText()
+        } else if (!state.mPredicting && !state.mJustAccepted) {
             when (TextEntryState.getState()) {
                 TextEntryState.State.ACCEPTED_DEFAULT -> {
                     TextEntryState.reset()
-                    ime.mJustAddedAutoSpace = false
+                    state.mJustAddedAutoSpace = false
                 }
                 TextEntryState.State.SPACE_AFTER_PICKED -> {
-                    ime.mJustAddedAutoSpace = false
+                    state.mJustAddedAutoSpace = false
                 }
                 else -> { /* no-op */ }
             }
         }
-        ime.mJustAccepted = false
+        state.mJustAccepted = false
 
-        ime.mLastSelectionStart = newSelStart
-        ime.mLastSelectionEnd = newSelEnd
+        state.mLastSelectionStart = newSelStart
+        state.mLastSelectionEnd = newSelEnd
 
-        if (ime.mReCorrectionEnabled) {
-            if (ime.mKeyboardSwitcher != null && ime.isKeyboardVisible()) {
-                if (ime.isPredictionOn()
-                    && ime.mJustRevertedSeparator == null
+        if (state.mReCorrectionEnabled) {
+            if (state.mKeyboardSwitcher != null && candidateViewHost.isKeyboardVisible()) {
+                if (state.isPredictionOn(isPredictionWanted())
+                    && state.mJustRevertedSeparator == null
                     && (candidatesStart == candidatesEnd
                         || newSelStart != oldSelStart || TextEntryState.isCorrecting())
-                    && (newSelStart < newSelEnd - 1 || !ime.mPredicting)
+                    && (newSelStart < newSelEnd - 1 || !state.mPredicting)
                 ) {
-                    if (ime.isCursorTouchingWord() || ime.mLastSelectionStart < ime.mLastSelectionEnd) {
+                    if (EditingUtil.isCursorTouchingWord(icProvider.inputConnection, state.mWordSeparators ?: "", state.mSuggestPuncList) || state.mLastSelectionStart < state.mLastSelectionEnd) {
                         postUpdateOldSuggestions()
                     } else {
-                        ime.abortCorrection(false)
-                        if (ime.mCandidateView != null
-                            && ime.mSuggestPuncList != ime.mCandidateView!!.getSuggestions() as Any?
-                            && !ime.mCandidateView!!.isShowingAddToDictionaryHint()
+                        abortCorrection(false)
+                        if (state.mCandidateView != null
+                            && state.mSuggestPuncList != state.mCandidateView!!.getSuggestions() as Any?
+                            && !state.mCandidateView!!.isShowingAddToDictionaryHint()
                         ) {
                             setNextSuggestions()
                         }
                     }
                 }
             }
+        }
+    }
+
+    fun onDisplayCompletions(completions: Array<CompletionInfo>?, showCandidates: () -> Unit) {
+        if (state.mCompletionOn) {
+            state.mCompletions = completions
+            if (completions == null) {
+                clearSuggestions()
+                return
+            }
+            val stringList = mutableListOf<CharSequence>()
+            for (ci in completions) {
+                ci.text?.let { stringList.add(it) }
+            }
+            setSuggestions(stringList, completions = true, typedWordValid = true, haveMinimalSuggestion = true)
+            state.mBestWord = null
+            showCandidates()
         }
     }
 }

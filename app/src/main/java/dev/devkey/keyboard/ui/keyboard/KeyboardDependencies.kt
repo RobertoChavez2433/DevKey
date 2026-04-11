@@ -133,7 +133,8 @@ fun rememberKeyboardDependencies(
 
 /**
  * Observes the composing word via [SessionDependencies], debounces it, and
- * drives the prediction pipeline. Returns the current predictions list.
+ * drives the prediction pipeline. When composing is empty, falls back to
+ * next-word suggestions from the bigram/legacy pipeline.
  */
 @Composable
 fun rememberPredictions(): List<PredictionResult> {
@@ -145,10 +146,17 @@ fun rememberPredictions(): List<PredictionResult> {
         .distinctUntilChanged()
         .collectAsState(initial = "")
 
+    val nextWordSuggestions by SessionDependencies.nextWordSuggestions.collectAsState()
+
     LaunchedEffect(composingWord) {
         val pe = SessionDependencies.predictionEngine
         predictions = if (pe != null && composingWord.isNotEmpty()) pe.predict(composingWord) else emptyList()
     }
 
-    return predictions
+    // When composing is empty and PredictionEngine has no results, show next-word suggestions
+    return if (predictions.isEmpty() && composingWord.isEmpty() && nextWordSuggestions.isNotEmpty()) {
+        nextWordSuggestions.take(3).map { PredictionResult(word = it.toString()) }
+    } else {
+        predictions
+    }
 }

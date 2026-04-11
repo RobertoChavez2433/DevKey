@@ -67,11 +67,13 @@ class WhisperProcessor(private val context: Context) {
             val bytes = assetManager.open("filters_vocab_en.bin").use { it.readBytes() }
             val buf = java.nio.ByteBuffer.wrap(bytes).order(java.nio.ByteOrder.LITTLE_ENDIAN)
 
-            // Header (best-effort — different bin layouts exist; treat any read
-            // failure as a graceful skip rather than throwing).
+            // Header: magic:int32, numMelBins:int32, melFilterCount:int32, vocabSize:int32 = 16 bytes
+            if (bytes.size < 16) return false
             val magic = buf.int
-            val melCount = buf.int
-            val melFloats = FloatArray(melCount.coerceAtMost((bytes.size - 8) / 4))
+            val numMelBins = buf.int
+            val melFilterCount = buf.int
+            val vocabSize = buf.int
+            val melFloats = FloatArray(melFilterCount.coerceAtMost((bytes.size - 16) / 4))
             for (i in melFloats.indices) melFloats[i] = buf.float
             melFilters = melFloats
 
@@ -90,7 +92,8 @@ class WhisperProcessor(private val context: Context) {
             Log.i(
                 TAG,
                 "WhisperProcessor: loaded magic=0x${magic.toString(16)} " +
-                        "mel=${melFloats.size} vocab=${vocab.size}"
+                        "melBins=$numMelBins melFilterCount=$melFilterCount " +
+                        "vocabSize=$vocabSize mel=${melFloats.size} vocab=${vocab.size}"
             )
             true
         } catch (e: Exception) {
@@ -140,18 +143,108 @@ class WhisperProcessor(private val context: Context) {
     /**
      * Compute mel spectrogram from normalized audio.
      *
-     * TODO: Implement full mel spectrogram computation following the
-     * whisper_android reference implementation. This requires:
-     * - STFT (Short-Time Fourier Transform)
-     * - Mel filter bank application
-     * - Log magnitude conversion
+     * Pipeline: STFT (Hann window, N_FFT=400, HOP=160) → power spectrum →
+     * mel filter bank application → log10 compression → normalize to [-1, 1].
      *
-     * @param audio Normalized float audio samples.
-     * @return Mel spectrogram as flattened float array.
+     * Reference: nyadla-sys/whisper_android Java implementation.
+     *
+     * @param audio Normalized float audio samples (480,000 = 30s at 16kHz).
+     * @return Mel spectrogram as flattened float array [mel_bin, frame] = 80×3000.
      */
     private fun computeMelSpectrogram(audio: FloatArray): FloatArray {
-        // Placeholder: return zeros until mel computation is implemented
-        return FloatArray(N_MELS * N_FRAMES)
+        val filters = melFilters ?: return FloatArray(N_MELS * N_FRAMES)
+        val nFft = 400
+        val hopLength = 160
+        val nFreqs = nFft / 2 + 1 // 201
+
+        // Hann window
+        val window = FloatArray(nFft) { i ->
+            (0.5 * (1.0 - Math.cos(2.0 * Math.PI * i / nFft))).toFloat()
+        }
+
+        // STFT → power spectrum for each frame
+        val magnitudes = Array(N_FRAMES) { frame ->
+            val offset = frame * hopLength
+            // Windowed frame (zero-padded if near end)
+            val real = FloatArray(nFft)
+            val imag = FloatArray(nFft)
+            for (i in 0 until nFft) {
+                val idx = offset + i
+                real[i] = if (idx < audio.size) audio[idx] * window[i] else 0f
+            }
+            // In-place radix-2 FFT
+            fft(real, imag)
+            // Power spectrum (squared magnitude), only first nFreqs bins
+            FloatArray(nFreqs) { k -> real[k] * real[k] + imag[k] * imag[k] }
+        }
+
+        // Apply mel filter bank: filters is flat [numMelBins * nFreqs] = 80 * 201
+        val output = FloatArray(N_MELS * N_FRAMES)
+        for (mel in 0 until N_MELS) {
+            for (frame in 0 until N_FRAMES) {
+                var sum = 0.0
+                val filterOffset = mel * nFreqs
+                for (k in 0 until nFreqs) {
+                    if (filterOffset + k < filters.size) {
+                        sum += filters[filterOffset + k] * magnitudes[frame][k]
+                    }
+                }
+                // Log10 compression, clamp floor
+                val logVal = if (sum < 1e-10) -10.0 else Math.log10(sum)
+                output[mel * N_FRAMES + frame] = logVal.toFloat()
+            }
+        }
+
+        // Normalize: clamp to max - 8.0 (80dB below peak), then scale to [-1, 1]
+        var maxVal = -Float.MAX_VALUE
+        for (v in output) if (v > maxVal) maxVal = v
+        val floor = maxVal - 8.0f
+        for (i in output.indices) {
+            output[i] = ((output[i].coerceAtLeast(floor) - floor) / 4.0f) - 1.0f
+        }
+
+        return output
+    }
+
+    /**
+     * In-place radix-2 Cooley-Tukey FFT. Input arrays must be power-of-2 length.
+     */
+    private fun fft(real: FloatArray, imag: FloatArray) {
+        val n = real.size
+        // Bit-reversal permutation
+        var j = 0
+        for (i in 1 until n) {
+            var bit = n shr 1
+            while (j and bit != 0) {
+                j = j xor bit
+                bit = bit shr 1
+            }
+            j = j xor bit
+            if (i < j) {
+                var tmp = real[i]; real[i] = real[j]; real[j] = tmp
+                tmp = imag[i]; imag[i] = imag[j]; imag[j] = tmp
+            }
+        }
+        // FFT butterfly
+        var len = 2
+        while (len <= n) {
+            val halfLen = len / 2
+            val angle = -2.0 * Math.PI / len
+            for (i in 0 until n step len) {
+                for (k in 0 until halfLen) {
+                    val theta = angle * k
+                    val cos = Math.cos(theta).toFloat()
+                    val sin = Math.sin(theta).toFloat()
+                    val tReal = real[i + k + halfLen] * cos - imag[i + k + halfLen] * sin
+                    val tImag = real[i + k + halfLen] * sin + imag[i + k + halfLen] * cos
+                    real[i + k + halfLen] = real[i + k] - tReal
+                    imag[i + k + halfLen] = imag[i + k] - tImag
+                    real[i + k] += tReal
+                    imag[i + k] += tImag
+                }
+            }
+            len = len shl 1
+        }
     }
 
     /**

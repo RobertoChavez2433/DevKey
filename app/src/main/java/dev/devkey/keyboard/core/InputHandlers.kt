@@ -8,11 +8,11 @@ import dev.devkey.keyboard.ASCII_PERIOD
 import dev.devkey.keyboard.ASCII_SPACE
 import dev.devkey.keyboard.DELETE_ACCELERATE_AT
 import dev.devkey.keyboard.keyboard.model.Keyboard
-import dev.devkey.keyboard.LatinIME
 import dev.devkey.keyboard.suggestion.engine.Suggest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import dev.devkey.keyboard.core.input.TextEntryState
+import dev.devkey.keyboard.core.text.EditingUtil
 import dev.devkey.keyboard.debug.DevKeyLogger
 import dev.devkey.keyboard.feature.prediction.AutocorrectEngine
 import dev.devkey.keyboard.feature.prediction.AutocorrectResult
@@ -22,37 +22,45 @@ import dev.devkey.keyboard.ui.keyboard.SessionDependencies
  * Handles character input, backspace, and separator logic.
  * Extracted from LatinIME to reduce god-class size.
  */
-internal class InputHandlers(private val ime: LatinIME) {
+internal class InputHandlers(
+    private val state: ImeState,
+    private val icProvider: InputConnectionProvider,
+    private val suggestionCoordinator: SuggestionCoordinator,
+    private val suggestionPicker: SuggestionPicker,
+    private val modifierHandler: ModifierHandler,
+    private val keyEventSender: KeyEventSender,
+    private val puncHeuristics: PunctuationHeuristics
+) {
 
     fun handleDefault(primaryCode: Int, keyCodes: IntArray?) {
-        if (!ime.mComposeMode && ime.mDeadKeysActive
+        if (!state.mComposeMode && state.mDeadKeysActive
             && Character.getType(primaryCode) == Character.NON_SPACING_MARK.toInt()
         ) {
-            if (!ime.mDeadAccentBuffer.execute(primaryCode)) { /* double-press */ }
-            else ime.updateShiftKeyState(ime.currentInputEditorInfo)
-        } else if (ime.processMultiKey(primaryCode)) {
+            if (!state.mDeadAccentBuffer.execute(primaryCode)) { /* double-press */ }
+            else modifierHandler.updateShiftKeyState(icProvider.editorInfo)
+        } else if (processComposeKey(state, primaryCode)) {
             // handled
         } else {
-            if (primaryCode != ASCII_ENTER) ime.mJustAddedAutoSpace = false
-            if (ime.isWordSeparator(primaryCode)) handleSeparator(primaryCode)
+            if (primaryCode != ASCII_ENTER) state.mJustAddedAutoSpace = false
+            if (state.isWordSeparator(primaryCode)) handleSeparator(primaryCode)
             else handleCharacter(primaryCode, keyCodes)
-            ime.mJustRevertedSeparator = null
+            state.mJustRevertedSeparator = null
         }
     }
 
     fun handleBackspace() {
         var deleteChar = false
-        val ic = ime.currentInputConnection ?: return
+        val ic = icProvider.inputConnection ?: return
         ic.beginBatchEdit()
-        if (ime.mPredicting) {
-            val length = ime.mComposing.length
+        if (state.mPredicting) {
+            val length = state.mComposing.length
             if (length > 0) {
-                ime.mComposing.delete(length - 1, length)
-                ime.mWord.deleteLast()
-                ic.setComposingText(ime.mComposing, 1)
-                if (ime.mComposing.isEmpty()) ime.mPredicting = false
-                SessionDependencies.composingWord.value = ime.mComposing.toString()
-                ime.mSuggestionCoordinator.postUpdateSuggestions()
+                state.mComposing.delete(length - 1, length)
+                state.mWord.deleteLast()
+                ic.setComposingText(state.mComposing, 1)
+                if (state.mComposing.isEmpty()) state.mPredicting = false
+                SessionDependencies.composingWord.value = state.mComposing.toString()
+                suggestionCoordinator.postUpdateSuggestions()
             } else {
                 ic.deleteSurroundingText(1, 0)
             }
@@ -61,77 +69,78 @@ internal class InputHandlers(private val ime: LatinIME) {
         }
         TextEntryState.backspace()
         if (TextEntryState.getState() == TextEntryState.State.UNDO_COMMIT) {
-            ime.revertLastWord(deleteChar)
+            revertLastWord(deleteChar)
             ic.endBatchEdit()
             return
-        } else if (ime.mEnteredText != null && ime.sameAsTextBeforeCursor(ic, ime.mEnteredText!!)) {
-            ic.deleteSurroundingText(ime.mEnteredText!!.length, 0)
+        } else if (state.mEnteredText != null && EditingUtil.sameAsTextBeforeCursor(ic, state.mEnteredText!!)) {
+            ic.deleteSurroundingText(state.mEnteredText!!.length, 0)
         } else if (deleteChar) {
-            if (ime.mCandidateView != null && ime.mCandidateView!!.dismissAddToDictionaryHint()) {
-                ime.revertLastWord(deleteChar)
+            if (state.mCandidateView != null && state.mCandidateView!!.dismissAddToDictionaryHint()) {
+                revertLastWord(deleteChar)
             } else {
-                ime.sendDownUpKeyEvents(KeyEvent.KEYCODE_DEL)
-                if (ime.mDeleteCount > DELETE_ACCELERATE_AT) ime.sendDownUpKeyEvents(KeyEvent.KEYCODE_DEL)
+                icProvider.sendDownUpKeyEvents(KeyEvent.KEYCODE_DEL)
+                if (state.mDeleteCount > DELETE_ACCELERATE_AT) icProvider.sendDownUpKeyEvents(KeyEvent.KEYCODE_DEL)
             }
         }
-        ime.mJustRevertedSeparator = null
+        state.mJustRevertedSeparator = null
         ic.endBatchEdit()
     }
 
     fun handleCharacter(primaryCode: Int, keyCodes: IntArray?) {
-        if (ime.mLastSelectionStart == ime.mLastSelectionEnd && TextEntryState.isCorrecting()) {
-            ime.abortCorrection(false)
+        if (state.mLastSelectionStart == state.mLastSelectionEnd && TextEntryState.isCorrecting()) {
+            suggestionCoordinator.abortCorrection(false)
         }
-        if (ime.isAlphabet(primaryCode) && ime.isPredictionOn()
-            && !ime.mModCtrl && !ime.mModAlt && !ime.mModMeta && !ime.isCursorTouchingWord()
+        if (state.isAlphabet(primaryCode) && state.isPredictionOn(suggestionCoordinator.isPredictionWanted())
+            && !state.mModCtrl && !state.mModAlt && !state.mModMeta
+            && !EditingUtil.isCursorTouchingWord(icProvider.inputConnection, state.mWordSeparators ?: "", state.mSuggestPuncList)
         ) {
-            if (!ime.mPredicting) {
-                ime.mPredicting = true
-                ime.mComposing.setLength(0)
-                ime.saveWordInHistory(ime.mBestWord)
-                ime.mWord.reset()
+            if (!state.mPredicting) {
+                state.mPredicting = true
+                state.mComposing.setLength(0)
+                suggestionCoordinator.saveWordInHistory(state.mBestWord)
+                state.mWord.reset()
             }
         }
-        if (ime.mModCtrl || ime.mModAlt || ime.mModMeta) ime.commitTyped(ime.currentInputConnection, true)
-        if (ime.mPredicting) {
-            if (ime.isShiftCapsMode() && ime.mKeyboardSwitcher!!.isAlphabetMode() && ime.mComposing.isEmpty()) {
-                ime.mWord.setFirstCharCapitalized(true)
+        if (state.mModCtrl || state.mModAlt || state.mModMeta) commitTyped(icProvider.inputConnection, true)
+        if (state.mPredicting) {
+            if (modifierHandler.isShiftCapsMode() && state.mKeyboardSwitcher!!.isAlphabetMode() && state.mComposing.isEmpty()) {
+                state.mWord.setFirstCharCapitalized(true)
             }
-            ime.mComposing.append(primaryCode.toChar())
-            ime.mWord.add(primaryCode, keyCodes ?: intArrayOf(primaryCode))
-            val ic = ime.currentInputConnection
+            state.mComposing.append(primaryCode.toChar())
+            state.mWord.add(primaryCode, keyCodes ?: intArrayOf(primaryCode))
+            val ic = icProvider.inputConnection
             if (ic != null) {
-                if (ime.mWord.size() == 1) {
-                    val editorInfo = ime.currentInputEditorInfo
-                    if (editorInfo != null) ime.mWord.setAutoCapitalized(ime.getCursorCapsMode(ic, editorInfo) != 0)
+                if (state.mWord.size() == 1) {
+                    val editorInfo = icProvider.editorInfo
+                    if (editorInfo != null) state.mWord.setAutoCapitalized(modifierHandler.getCursorCapsMode(ic, editorInfo) != 0)
                 }
-                ic.setComposingText(ime.mComposing, 1)
+                ic.setComposingText(state.mComposing, 1)
             }
-            SessionDependencies.composingWord.value = ime.mComposing.toString()
-            ime.mSuggestionCoordinator.postUpdateSuggestions()
+            SessionDependencies.composingWord.value = state.mComposing.toString()
+            suggestionCoordinator.postUpdateSuggestions()
         } else {
-            ime.sendModifiableKeyChar(primaryCode.toChar())
+            keyEventSender.sendModifiableKeyChar(primaryCode.toChar())
         }
-        ime.updateShiftKeyState(ime.currentInputEditorInfo)
-        TextEntryState.typedCharacter(primaryCode.toChar(), ime.isWordSeparator(primaryCode))
+        modifierHandler.updateShiftKeyState(icProvider.editorInfo)
+        TextEntryState.typedCharacter(primaryCode.toChar(), state.isWordSeparator(primaryCode))
     }
 
     fun handleSeparator(primaryCode: Int) {
-        if (ime.mCandidateView != null && ime.mCandidateView!!.dismissAddToDictionaryHint()) {
-            ime.mSuggestionCoordinator.postUpdateSuggestions()
+        if (state.mCandidateView != null && state.mCandidateView!!.dismissAddToDictionaryHint()) {
+            suggestionCoordinator.postUpdateSuggestions()
         }
         var pickedDefault = false
-        val ic = ime.currentInputConnection
+        val ic = icProvider.inputConnection
         ic?.beginBatchEdit()
-        ime.abortCorrection(false)
-        if (ime.mPredicting) {
-            if (ime.mAutoCorrectOn && primaryCode != '\''.code
-                && (ime.mJustRevertedSeparator == null || ime.mJustRevertedSeparator!!.isEmpty()
-                    || ime.mJustRevertedSeparator!![0].code != primaryCode)
+        suggestionCoordinator.abortCorrection(false)
+        if (state.mPredicting) {
+            if (state.mAutoCorrectOn && primaryCode != '\''.code
+                && (state.mJustRevertedSeparator == null || state.mJustRevertedSeparator!!.isEmpty()
+                    || state.mJustRevertedSeparator!![0].code != primaryCode)
             ) {
-                pickedDefault = ime.mSuggestionPicker.pickDefaultSuggestion()
+                pickedDefault = suggestionPicker.pickDefaultSuggestion()
                 if (primaryCode == ASCII_SPACE) {
-                    if (ime.mAutoCorrectEnabled) ime.mJustAddedAutoSpace = true
+                    if (state.mAutoCorrectEnabled) state.mJustAddedAutoSpace = true
                     else TextEntryState.manualTyped("")
                 }
             } else {
@@ -139,64 +148,63 @@ internal class InputHandlers(private val ime: LatinIME) {
                 val learnEngine = SessionDependencies.learningEngine
                 if (acEngine != null && learnEngine != null
                     && acEngine.aggressiveness != AutocorrectEngine.Aggressiveness.OFF
-                    && ime.mComposing.isNotEmpty()
+                    && state.mComposing.isNotEmpty()
                 ) {
-                    val result = acEngine.getCorrection(ime.mComposing.toString(), learnEngine.getLearnedWords())
+                    val result = acEngine.getCorrection(state.mComposing.toString(), learnEngine.getLearnedWords())
                     if (result is AutocorrectResult.Suggestion && result.autoApply) {
                         ic?.finishComposingText()
-                        ic?.deleteSurroundingText(ime.mComposing.length, 0)
+                        ic?.deleteSurroundingText(state.mComposing.length, 0)
                         ic?.commitText(result.correction, 1)
-                        ime.mPredicting = false
-                        ime.mCommittedLength = result.correction.length
+                        state.mPredicting = false
+                        state.mCommittedLength = result.correction.length
                         SessionDependencies.composingWord.value = ""
                         SessionDependencies.pendingCorrection.value = null
                         DevKeyLogger.text("autocorrect_applied", mapOf("action" to "applied", "level" to acEngine.aggressiveness.name.lowercase()))
                     } else if (result is AutocorrectResult.Suggestion) {
                         SessionDependencies.pendingCorrection.value = result
-                        ime.commitTyped(ic, true)
-                    } else ime.commitTyped(ic, true)
-                } else ime.commitTyped(ic, true)
+                        commitTyped(ic, true)
+                    } else commitTyped(ic, true)
+                } else commitTyped(ic, true)
             }
         }
-        if (ime.mJustAddedAutoSpace && primaryCode == ASCII_ENTER) {
-            ime.removeTrailingSpace(); ime.mJustAddedAutoSpace = false
+        if (state.mJustAddedAutoSpace && primaryCode == ASCII_ENTER) {
+            puncHeuristics.removeTrailingSpace(); state.mJustAddedAutoSpace = false
         }
-        ime.sendModifiableKeyChar(primaryCode.toChar())
+        keyEventSender.sendModifiableKeyChar(primaryCode.toChar())
         if (TextEntryState.getState() == TextEntryState.State.PUNCTUATION_AFTER_ACCEPTED && primaryCode == ASCII_PERIOD) {
-            ime.reswapPeriodAndSpace()
+            puncHeuristics.reswapPeriodAndSpace()
         }
         TextEntryState.typedCharacter(primaryCode.toChar(), true)
         if (TextEntryState.getState() == TextEntryState.State.PUNCTUATION_AFTER_ACCEPTED && primaryCode != ASCII_ENTER) {
-            ime.swapPunctuationAndSpace()
-        } else if (ime.isPredictionOn() && primaryCode == ASCII_SPACE) {
-            ime.doubleSpace()
+            puncHeuristics.swapPunctuationAndSpace()
+        } else if (state.isPredictionOn(suggestionCoordinator.isPredictionWanted()) && primaryCode == ASCII_SPACE) {
+            puncHeuristics.doubleSpace(state.mCorrectionMode)
         }
-        if (pickedDefault) TextEntryState.backToAcceptedDefault(ime.mWord.getTypedWord())
-        ime.updateShiftKeyState(ime.currentInputEditorInfo)
+        if (pickedDefault) TextEntryState.backToAcceptedDefault(state.mWord.getTypedWord())
+        modifierHandler.updateShiftKeyState(icProvider.editorInfo)
+        if (!state.mPredicting && primaryCode == ASCII_SPACE
+            && state.isPredictionOn(suggestionCoordinator.isPredictionWanted())
+        ) {
+            suggestionCoordinator.setNextSuggestions()
+        }
         ic?.endBatchEdit()
-        if (primaryCode == ASCII_SPACE) {
-            DevKeyLogger.text("next_word_suggestions", mapOf(
-                "source" to if (pickedDefault) "picked_default" else "space_only",
-                "prev_word_length" to 0, "result_count" to 0
-            ))
-        }
     }
 
     fun commitTyped(inputConnection: InputConnection?, manual: Boolean) {
-        if (ime.mPredicting) {
-            ime.mPredicting = false
-            if (ime.mComposing.isNotEmpty()) {
-                inputConnection?.commitText(ime.mComposing, 1)
-                ime.mCommittedLength = ime.mComposing.length
+        if (state.mPredicting) {
+            state.mPredicting = false
+            if (state.mComposing.isNotEmpty()) {
+                inputConnection?.commitText(state.mComposing, 1)
+                state.mCommittedLength = state.mComposing.length
                 if (manual) {
-                    TextEntryState.manualTyped(ime.mComposing)
+                    TextEntryState.manualTyped(state.mComposing)
                 } else {
-                    TextEntryState.acceptedTyped(ime.mComposing)
+                    TextEntryState.acceptedTyped(state.mComposing)
                 }
-                ime.mSuggestionPicker.addToDictionaries(ime.mComposing, AutoDictionary.FREQUENCY_FOR_TYPED)
-                val word = ime.mComposing.toString()
+                suggestionPicker.addToDictionaries(state.mComposing, AutoDictionary.FREQUENCY_FOR_TYPED)
+                val word = state.mComposing.toString()
                 SessionDependencies.learningEngine?.let { le ->
-                    ime.serviceScope.launch(Dispatchers.IO) {
+                    state.serviceScope.launch(Dispatchers.IO) {
                         le.onWordCommitted(
                             word,
                             isCommand = SessionDependencies.commandModeDetector?.isCommandMode() == true,
@@ -207,29 +215,29 @@ internal class InputHandlers(private val ime: LatinIME) {
             }
             SessionDependencies.composingWord.value = ""
             SessionDependencies.pendingCorrection.value = null
-            ime.mSuggestionCoordinator.updateSuggestions()
+            suggestionCoordinator.updateSuggestions()
         }
     }
 
     fun revertLastWord(deleteChar: Boolean) {
-        val length = ime.mComposing.length
-        if (!ime.mPredicting && length > 0) {
-            val ic = ime.currentInputConnection
-            ime.mPredicting = true
-            ime.mJustRevertedSeparator = ic?.getTextBeforeCursor(1, 0)
+        val length = state.mComposing.length
+        if (!state.mPredicting && length > 0) {
+            val ic = icProvider.inputConnection
+            state.mPredicting = true
+            state.mJustRevertedSeparator = ic?.getTextBeforeCursor(1, 0)
             if (deleteChar) ic?.deleteSurroundingText(1, 0)
-            var toDelete = ime.mCommittedLength
-            val toTheLeft = ic?.getTextBeforeCursor(ime.mCommittedLength, 0)
-            if (toTheLeft != null && toTheLeft.isNotEmpty() && ime.isWordSeparator(toTheLeft[0].code)) {
+            var toDelete = state.mCommittedLength
+            val toTheLeft = ic?.getTextBeforeCursor(state.mCommittedLength, 0)
+            if (toTheLeft != null && toTheLeft.isNotEmpty() && state.isWordSeparator(toTheLeft[0].code)) {
                 toDelete--
             }
             ic?.deleteSurroundingText(toDelete, 0)
-            ic?.setComposingText(ime.mComposing, 1)
+            ic?.setComposingText(state.mComposing, 1)
             TextEntryState.backspace()
-            ime.mSuggestionCoordinator.postUpdateSuggestions()
+            suggestionCoordinator.postUpdateSuggestions()
         } else {
-            ime.sendDownUpKeyEvents(KeyEvent.KEYCODE_DEL)
-            ime.mJustRevertedSeparator = null
+            icProvider.sendDownUpKeyEvents(KeyEvent.KEYCODE_DEL)
+            state.mJustRevertedSeparator = null
         }
     }
 

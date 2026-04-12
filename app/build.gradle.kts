@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.ksp)
     alias(libs.plugins.compose.compiler)
     alias(libs.plugins.kotlin.serialization)
+    id("io.gitlab.arturbosch.detekt")
 }
 
 android {
@@ -80,7 +81,16 @@ android {
 
     lint {
         checkReleaseBuilds = true
-        abortOnError = false
+        abortOnError = !project.hasProperty("lint.ide")
+        warningsAsErrors = false
+        checkDependencies = true
+        if (!project.hasProperty("lint.ide")) {
+            baseline = file("lint-baseline.xml")
+        }
+        htmlReport = true
+        xmlReport = true
+        textReport = true
+        sarifReport = true
     }
 }
 
@@ -123,14 +133,22 @@ dependencies {
 
     // Testing — unit tests
     testImplementation(libs.junit)
-    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
-    testImplementation("org.json:json:20231013")
-    testImplementation("org.robolectric:robolectric:4.12.1")
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.json)
+    testImplementation(libs.robolectric)
 
     // Testing — Compose UI instrumented tests
     androidTestImplementation(platform(libs.compose.bom))
-    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
-    androidTestImplementation("androidx.test.ext:junit:1.1.5")
-    androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
-    debugImplementation("androidx.compose.ui:ui-test-manifest")
+    androidTestImplementation(libs.compose.ui.test.junit4)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.espresso.core)
+    debugImplementation(libs.compose.ui.test.manifest)
+
+    // Detekt — Compose-specific rules
+    detektPlugins(libs.detekt.compose.rules)
+}
+
+detekt {
+    buildUponDefaultConfig = true
+    config.setFrom("$rootDir/detekt.yml")
 }

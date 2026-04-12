@@ -79,7 +79,7 @@ fun rememberKeyboardDependencies(
                 override fun onReceive(c: android.content.Context, i: android.content.Intent) =
                     KeyMapGenerator.dumpToLogcat(c, currentView, layoutMode)
             }
-            context.registerReceiver(r, android.content.IntentFilter("dev.devkey.keyboard.DUMP_KEY_MAP"), android.content.Context.RECEIVER_EXPORTED)
+            androidx.core.content.ContextCompat.registerReceiver(context, r, android.content.IntentFilter("dev.devkey.keyboard.DUMP_KEY_MAP"), androidx.core.content.ContextCompat.RECEIVER_EXPORTED)
             onDispose { try { context.unregisterReceiver(r) } catch (_: IllegalArgumentException) {} }
         }
 
@@ -93,7 +93,7 @@ fun rememberKeyboardDependencies(
                     DevKeyLogger.ime("keyboard_mode_reset", mapOf("to" to "Normal"))
                 }
             }
-            context.registerReceiver(resetR, android.content.IntentFilter("dev.devkey.keyboard.RESET_KEYBOARD_MODE"), android.content.Context.RECEIVER_EXPORTED)
+            androidx.core.content.ContextCompat.registerReceiver(context, resetR, android.content.IntentFilter("dev.devkey.keyboard.RESET_KEYBOARD_MODE"), androidx.core.content.ContextCompat.RECEIVER_EXPORTED)
 
             // SET_KEYBOARD_MODE — e2e harness opens any panel without needing tap coords
             val setR = object : android.content.BroadcastReceiver() {
@@ -114,14 +114,14 @@ fun rememberKeyboardDependencies(
                     DevKeyLogger.ime("keyboard_mode_set", mapOf("mode" to modeName.lowercase()))
                 }
             }
-            context.registerReceiver(setR, android.content.IntentFilter("dev.devkey.keyboard.SET_KEYBOARD_MODE"), android.content.Context.RECEIVER_EXPORTED)
+            androidx.core.content.ContextCompat.registerReceiver(context, setR, android.content.IntentFilter("dev.devkey.keyboard.SET_KEYBOARD_MODE"), androidx.core.content.ContextCompat.RECEIVER_EXPORTED)
 
             // TOGGLE_COMMAND_MODE — e2e harness triggers command mode without a terminal app
             val cmdR = object : android.content.BroadcastReceiver() {
                 override fun onReceive(c: android.content.Context, i: android.content.Intent) =
                     commandModeDetector.toggleManualOverride()
             }
-            context.registerReceiver(cmdR, android.content.IntentFilter("dev.devkey.keyboard.TOGGLE_COMMAND_MODE"), android.content.Context.RECEIVER_EXPORTED)
+            androidx.core.content.ContextCompat.registerReceiver(context, cmdR, android.content.IntentFilter("dev.devkey.keyboard.TOGGLE_COMMAND_MODE"), androidx.core.content.ContextCompat.RECEIVER_EXPORTED)
 
             onDispose {
                 try { context.unregisterReceiver(resetR) } catch (_: IllegalArgumentException) {}
@@ -144,10 +144,12 @@ fun rememberPredictions(): List<PredictionResult> {
     var predictions by remember { mutableStateOf<List<PredictionResult>>(emptyList()) }
 
     @OptIn(FlowPreview::class)
-    val composingWord by SessionDependencies.composingWord
-        .debounce(100L)
-        .distinctUntilChanged()
-        .collectAsState(initial = "")
+    val debouncedComposingFlow = remember {
+        SessionDependencies.composingWord
+            .debounce(100L)
+            .distinctUntilChanged()
+    }
+    val composingWord by debouncedComposingFlow.collectAsState(initial = "")
 
     val nextWordSuggestions by SessionDependencies.nextWordSuggestions.collectAsState()
 

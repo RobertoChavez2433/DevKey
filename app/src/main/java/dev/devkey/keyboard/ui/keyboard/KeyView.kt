@@ -47,10 +47,10 @@ fun KeyView(
     onKeyAction: (Int) -> Unit,
     onKeyPress: (Int) -> Unit,
     onKeyRelease: (Int) -> Unit,
+    modifier: Modifier = Modifier,
     ctrlHeld: Boolean = false,
     showHints: Boolean = false,
-    hintBright: Boolean = false,
-    modifier: Modifier = Modifier
+    hintBright: Boolean = false
 ) {
     val view = LocalView.current
     val coroutineScope = rememberCoroutineScope()

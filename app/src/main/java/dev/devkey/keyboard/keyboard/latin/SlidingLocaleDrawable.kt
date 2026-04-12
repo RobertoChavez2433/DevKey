@@ -27,6 +27,7 @@ import android.graphics.PixelFormat
 import android.graphics.drawable.Drawable
 import android.text.TextPaint
 import android.view.ViewConfiguration
+import androidx.core.content.res.ResourcesCompat
 
 /**
  * Animation to be displayed on the spacebar preview popup when switching
@@ -71,10 +72,8 @@ class SlidingLocaleDrawable(
         mTextPaint.alpha = OPACITY_FULLY_OPAQUE
         mTextPaint.isAntiAlias = true
         mMiddleX = (mWidth - mBackground.intrinsicWidth) / 2
-        @Suppress("DEPRECATION")
-        mLeftDrawable = mRes.getDrawable(R.drawable.sym_keyboard_feedback_language_arrows_left)
-        @Suppress("DEPRECATION")
-        mRightDrawable = mRes.getDrawable(R.drawable.sym_keyboard_feedback_language_arrows_right)
+        mLeftDrawable = ResourcesCompat.getDrawable(mRes, R.drawable.sym_keyboard_feedback_language_arrows_left, null)!!
+        mRightDrawable = ResourcesCompat.getDrawable(mRes, R.drawable.sym_keyboard_feedback_language_arrows_right, null)!!
         mThreshold = ViewConfiguration.get(mContext).scaledTouchSlop
     }
 

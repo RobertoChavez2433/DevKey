@@ -4,23 +4,23 @@ import dev.devkey.keyboard.R
 
 import android.content.res.Resources
 import android.graphics.drawable.Drawable
+import androidx.core.content.res.ResourcesCompat
 
 /** Pre-loaded drawable icons for LatinKeyboard, extracted to reduce field count. */
-@Suppress("DEPRECATION")
 internal class LatinKeyboardIcons(res: Resources) {
-    val shiftLocked: Drawable = res.getDrawable(R.drawable.sym_keyboard_shift_locked)
-    val space: Drawable = res.getDrawable(R.drawable.sym_keyboard_space)
-    val spaceAutoCompletion: Drawable = res.getDrawable(R.drawable.sym_keyboard_space_led)
-    val spacePreview: Drawable = res.getDrawable(R.drawable.sym_keyboard_feedback_space)
-    val mic: Drawable = res.getDrawable(R.drawable.sym_keyboard_mic)
-    val micPreview: Drawable = res.getDrawable(R.drawable.sym_keyboard_feedback_mic).also { setDefaultBounds(it) }
-    val settings: Drawable = res.getDrawable(R.drawable.sym_keyboard_settings)
-    val settingsPreview: Drawable = res.getDrawable(R.drawable.sym_keyboard_feedback_settings)
-    val arrowLeft: Drawable = res.getDrawable(R.drawable.sym_keyboard_language_arrows_left)
-    val arrowRight: Drawable = res.getDrawable(R.drawable.sym_keyboard_language_arrows_right)
-    val mic123: Drawable = res.getDrawable(R.drawable.sym_keyboard_123_mic)
-    val mic123Preview: Drawable = res.getDrawable(R.drawable.sym_keyboard_feedback_123_mic).also { setDefaultBounds(it) }
-    val hint: Drawable = res.getDrawable(R.drawable.hint_popup)
+    val shiftLocked: Drawable = ResourcesCompat.getDrawable(res, R.drawable.sym_keyboard_shift_locked, null)!!
+    val space: Drawable = ResourcesCompat.getDrawable(res, R.drawable.sym_keyboard_space, null)!!
+    val spaceAutoCompletion: Drawable = ResourcesCompat.getDrawable(res, R.drawable.sym_keyboard_space_led, null)!!
+    val spacePreview: Drawable = ResourcesCompat.getDrawable(res, R.drawable.sym_keyboard_feedback_space, null)!!
+    val mic: Drawable = ResourcesCompat.getDrawable(res, R.drawable.sym_keyboard_mic, null)!!
+    val micPreview: Drawable = ResourcesCompat.getDrawable(res, R.drawable.sym_keyboard_feedback_mic, null)!!.also { setDefaultBounds(it) }
+    val settings: Drawable = ResourcesCompat.getDrawable(res, R.drawable.sym_keyboard_settings, null)!!
+    val settingsPreview: Drawable = ResourcesCompat.getDrawable(res, R.drawable.sym_keyboard_feedback_settings, null)!!
+    val arrowLeft: Drawable = ResourcesCompat.getDrawable(res, R.drawable.sym_keyboard_language_arrows_left, null)!!
+    val arrowRight: Drawable = ResourcesCompat.getDrawable(res, R.drawable.sym_keyboard_language_arrows_right, null)!!
+    val mic123: Drawable = ResourcesCompat.getDrawable(res, R.drawable.sym_keyboard_123_mic, null)!!
+    val mic123Preview: Drawable = ResourcesCompat.getDrawable(res, R.drawable.sym_keyboard_feedback_123_mic, null)!!.also { setDefaultBounds(it) }
+    val hint: Drawable = ResourcesCompat.getDrawable(res, R.drawable.hint_popup, null)!!
 }
 
 internal fun setDefaultBounds(drawable: Drawable) =

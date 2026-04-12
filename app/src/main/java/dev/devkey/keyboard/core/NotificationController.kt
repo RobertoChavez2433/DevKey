@@ -29,7 +29,7 @@ internal class NotificationController(
             val pFilter = IntentFilter(NotificationReceiver.ACTION_SHOW).apply {
                 addAction(NotificationReceiver.ACTION_SETTINGS)
             }
-            context.registerReceiver(notificationReceiver, pFilter, Context.RECEIVER_NOT_EXPORTED)
+            ContextCompat.registerReceiver(context, notificationReceiver, pFilter, ContextCompat.RECEIVER_NOT_EXPORTED)
 
             val contentIntent = PendingIntent.getBroadcast(
                 context, 1, Intent(NotificationReceiver.ACTION_SHOW), PendingIntent.FLAG_IMMUTABLE
@@ -71,14 +71,12 @@ internal class NotificationController(
     }
 
     private fun createChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                context.getString(R.string.notification_channel_name),
-                NotificationManager.IMPORTANCE_LOW
-            ).apply { description = context.getString(R.string.notification_channel_description) }
-            (context.getSystemService(NotificationManager::class.java)).createNotificationChannel(channel)
-        }
+        val channel = NotificationChannel(
+            CHANNEL_ID,
+            context.getString(R.string.notification_channel_name),
+            NotificationManager.IMPORTANCE_LOW
+        ).apply { description = context.getString(R.string.notification_channel_description) }
+        (context.getSystemService(NotificationManager::class.java)).createNotificationChannel(channel)
     }
 
     companion object {

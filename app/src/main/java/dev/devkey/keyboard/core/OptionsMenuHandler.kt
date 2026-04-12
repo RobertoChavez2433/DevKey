@@ -5,7 +5,6 @@ import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
 import android.content.res.Resources
-import android.os.Build
 import android.view.WindowManager
 import android.view.inputmethod.InputMethodManager
 import dev.devkey.keyboard.R
@@ -27,11 +26,7 @@ internal class OptionsMenuHandler(
         mOptionsDialog != null && mOptionsDialog!!.isShowing
 
     fun onOptionKeyPressed() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            launchSettings(DevKeySettingsActivity::class.java)
-        } else {
-            if (!isShowingOptionDialog()) showOptionsMenu()
-        }
+        launchSettings(DevKeySettingsActivity::class.java)
     }
 
     fun onOptionKeyLongPressed() {

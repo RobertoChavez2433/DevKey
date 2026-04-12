@@ -6,6 +6,7 @@ import dev.devkey.keyboard.keyboard.model.Key
 import android.content.res.Resources
 import android.graphics.drawable.Drawable
 import android.view.inputmethod.EditorInfo
+import androidx.core.content.res.ResourcesCompat
 
 internal object EnterKeyAppearance {
     fun apply(key: Key, res: Resources, options: Int) {
@@ -15,14 +16,14 @@ internal object EnterKeyAppearance {
             EditorInfo.IME_ACTION_NEXT -> { key.iconPreview = null; key.icon = null; key.label = res.getText(R.string.label_next_key) }
             EditorInfo.IME_ACTION_DONE -> { key.iconPreview = null; key.icon = null; key.label = res.getText(R.string.label_done_key) }
             EditorInfo.IME_ACTION_SEARCH -> {
-                @Suppress("DEPRECATION") key.iconPreview = res.getDrawable(R.drawable.sym_keyboard_feedback_search)
-                @Suppress("DEPRECATION") key.icon = res.getDrawable(R.drawable.sym_keyboard_search)
+                key.iconPreview = ResourcesCompat.getDrawable(res, R.drawable.sym_keyboard_feedback_search, null)
+                key.icon = ResourcesCompat.getDrawable(res, R.drawable.sym_keyboard_search, null)
                 key.label = null
             }
             EditorInfo.IME_ACTION_SEND -> { key.iconPreview = null; key.icon = null; key.label = res.getText(R.string.label_send_key) }
             else -> {
-                @Suppress("DEPRECATION") key.iconPreview = res.getDrawable(R.drawable.sym_keyboard_feedback_return)
-                @Suppress("DEPRECATION") key.icon = res.getDrawable(R.drawable.sym_keyboard_return)
+                key.iconPreview = ResourcesCompat.getDrawable(res, R.drawable.sym_keyboard_feedback_return, null)
+                key.icon = ResourcesCompat.getDrawable(res, R.drawable.sym_keyboard_return, null)
                 key.label = null
             }
         }

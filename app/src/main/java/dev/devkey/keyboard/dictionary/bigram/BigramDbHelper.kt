@@ -180,7 +180,7 @@ internal fun writeBigramBatch(
             )
             val pairId: Int
             if (c.moveToFirst()) {
-                pairId = c.getInt(c.getColumnIndex(MAIN_COLUMN_ID))
+                pairId = c.getInt(c.getColumnIndexOrThrow(MAIN_COLUMN_ID))
                 db.delete(FREQ_TABLE_NAME, "$FREQ_COLUMN_PAIR_ID=?", arrayOf(pairId.toString()))
             } else {
                 pairId = db.insert(MAIN_TABLE_NAME, null, getContentValues(bi.word1, bi.word2, locale)).toInt()

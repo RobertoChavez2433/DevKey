@@ -32,11 +32,11 @@ fun KeyRow(
     onKeyAction: (Int) -> Unit,
     onKeyPress: (Int) -> Unit,
     onKeyRelease: (Int) -> Unit,
+    modifier: Modifier = Modifier,
     ctrlHeld: Boolean = false,
     showHints: Boolean = false,
     hintBright: Boolean = false,
-    rowHeight: Dp = DevKeyThemeDimensions.keyAreaMinHeight,
-    modifier: Modifier = Modifier
+    rowHeight: Dp = DevKeyThemeDimensions.keyAreaMinHeight
 ) {
     Row(
         modifier = modifier

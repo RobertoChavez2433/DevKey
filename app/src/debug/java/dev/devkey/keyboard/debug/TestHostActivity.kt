@@ -1,11 +1,13 @@
 package dev.devkey.keyboard.debug
 
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.Bundle
+import androidx.core.content.ContextCompat
 import android.text.InputType
 import android.view.Gravity
 import android.view.WindowManager
@@ -49,6 +51,7 @@ class TestHostActivity : Activity() {
             setPadding(32, 32, 32, 32)
         }
 
+        @SuppressLint("SetTextI18n") // Debug-only test host label, not user-visible text
         val label = TextView(this).apply {
             text = "DevKey Test Host — EditText below"
             textSize = 14f
@@ -88,10 +91,11 @@ class TestHostActivity : Activity() {
         // Re-request focus on resume in case a layout broadcast caused the
         // keyboard to recompose and drop focus.
         findViewById<EditText>(ID_TEST_EDIT)?.requestFocus()
-        registerReceiver(
+        ContextCompat.registerReceiver(
+            this,
             clearTextReceiver,
             IntentFilter("dev.devkey.keyboard.debug.CLEAR_EDIT_TEXT"),
-            RECEIVER_EXPORTED
+            ContextCompat.RECEIVER_EXPORTED
         )
     }
 

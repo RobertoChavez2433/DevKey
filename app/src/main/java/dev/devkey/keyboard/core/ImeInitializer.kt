@@ -5,6 +5,7 @@ import android.content.IntentFilter
 import android.media.AudioManager
 import android.os.Vibrator
 import android.view.inputmethod.InputMethodManager
+import androidx.core.content.ContextCompat
 import androidx.preference.PreferenceManager
 import dev.devkey.keyboard.*
 import dev.devkey.keyboard.keyboard.switcher.KeyboardSwitcher
@@ -75,10 +76,14 @@ internal class ImeInitializer(
         val pluginManager = PluginManager(ime)
         ime.mPluginManager = pluginManager
         val pFilter = IntentFilter().apply { addDataScheme("package"); addAction("android.intent.action.PACKAGE_ADDED"); addAction("android.intent.action.PACKAGE_REPLACED"); addAction("android.intent.action.PACKAGE_REMOVED") }
-        ime.registerReceiver(pluginManager, pFilter, Context.RECEIVER_NOT_EXPORTED)
-        if (KeyMapGenerator.isDebugBuild(context)) ime.registerReceiver(pluginManager, IntentFilter("dev.devkey.keyboard.RESCAN_PLUGINS"), Context.RECEIVER_EXPORTED)
-        ime.registerReceiver(feedbackManager.ringerModeReceiver, IntentFilter(AudioManager.RINGER_MODE_CHANGED_ACTION), Context.RECEIVER_NOT_EXPORTED)
-        col.notificationController = NotificationController(context, { ime.requestShowSelf(InputMethodManager.SHOW_FORCED) })
+        ContextCompat.registerReceiver(ime, pluginManager, pFilter, ContextCompat.RECEIVER_NOT_EXPORTED)
+        if (KeyMapGenerator.isDebugBuild(context)) ContextCompat.registerReceiver(ime, pluginManager, IntentFilter("dev.devkey.keyboard.RESCAN_PLUGINS"), ContextCompat.RECEIVER_EXPORTED)
+        ContextCompat.registerReceiver(ime, feedbackManager.ringerModeReceiver, IntentFilter(AudioManager.RINGER_MODE_CHANGED_ACTION), ContextCompat.RECEIVER_NOT_EXPORTED)
+        col.notificationController = NotificationController(context, {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                ime.requestShowSelf(InputMethodManager.SHOW_FORCED)
+            }
+        })
         col.notificationController.setNotification(state.mKeyboardNotification)
 
         if (KeyMapGenerator.isDebugBuild(context)) { ime.mDebugReceivers = dev.devkey.keyboard.debug.DebugReceiverManager(context).also { it.registerAll() } }

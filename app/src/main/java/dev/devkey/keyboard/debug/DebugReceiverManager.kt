@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import androidx.core.content.ContextCompat
 import androidx.preference.PreferenceManager
 import dev.devkey.keyboard.data.repository.SettingsRepository
 import kotlinx.coroutines.launch
@@ -33,10 +34,11 @@ internal class DebugReceiverManager(private val context: Context) {
                 }
             }
         }
-        context.registerReceiver(
+        ContextCompat.registerReceiver(
+            context,
             enableDebugServerReceiver,
             IntentFilter("dev.devkey.keyboard.ENABLE_DEBUG_SERVER"),
-            Context.RECEIVER_EXPORTED
+            ContextCompat.RECEIVER_EXPORTED
         )
 
         setLayoutModeReceiver = object : BroadcastReceiver() {
@@ -47,14 +49,15 @@ internal class DebugReceiverManager(private val context: Context) {
                     return
                 }
                 PreferenceManager.getDefaultSharedPreferences(context)
-                    .edit().putString(SettingsRepository.KEY_LAYOUT_MODE, mode).commit()
+                    .edit().putString(SettingsRepository.KEY_LAYOUT_MODE, mode).apply()
                 DevKeyLogger.ime("layout_mode_set", mapOf("mode" to mode))
             }
         }
-        context.registerReceiver(
+        ContextCompat.registerReceiver(
+            context,
             setLayoutModeReceiver,
             IntentFilter("dev.devkey.keyboard.SET_LAYOUT_MODE"),
-            Context.RECEIVER_EXPORTED
+            ContextCompat.RECEIVER_EXPORTED
         )
 
         val allowedBoolKeys = setOf(
@@ -72,14 +75,15 @@ internal class DebugReceiverManager(private val context: Context) {
                 }
                 val value = intent.getBooleanExtra("value", false)
                 val prefs = PreferenceManager.getDefaultSharedPreferences(context)
-                prefs.edit().putBoolean(key, value).commit()
+                prefs.edit().putBoolean(key, value).apply()
                 DevKeyLogger.ime("bool_pref_set", mapOf("key" to key, "value" to value))
             }
         }
-        context.registerReceiver(
+        ContextCompat.registerReceiver(
+            context,
             setBoolPrefReceiver,
             IntentFilter("dev.devkey.keyboard.SET_BOOL_PREF"),
-            Context.RECEIVER_EXPORTED
+            ContextCompat.RECEIVER_EXPORTED
         )
 
         setAutocorrectLevelReceiver = object : BroadcastReceiver() {
@@ -90,14 +94,15 @@ internal class DebugReceiverManager(private val context: Context) {
                     return
                 }
                 PreferenceManager.getDefaultSharedPreferences(context)
-                    .edit().putString(SettingsRepository.KEY_AUTOCORRECT_LEVEL, level).commit()
+                    .edit().putString(SettingsRepository.KEY_AUTOCORRECT_LEVEL, level).apply()
                 DevKeyLogger.ime("autocorrect_level_set", mapOf("level" to level))
             }
         }
-        context.registerReceiver(
+        ContextCompat.registerReceiver(
+            context,
             setAutocorrectLevelReceiver,
             IntentFilter("dev.devkey.keyboard.SET_AUTOCORRECT_LEVEL"),
-            Context.RECEIVER_EXPORTED
+            ContextCompat.RECEIVER_EXPORTED
         )
 
         voiceProcessFileReceiver = object : BroadcastReceiver() {
@@ -117,10 +122,11 @@ internal class DebugReceiverManager(private val context: Context) {
                 }
             }
         }
-        context.registerReceiver(
+        ContextCompat.registerReceiver(
+            context,
             voiceProcessFileReceiver,
             IntentFilter("dev.devkey.keyboard.VOICE_PROCESS_FILE"),
-            Context.RECEIVER_EXPORTED
+            ContextCompat.RECEIVER_EXPORTED
         )
 
         resetCircuitBreakerReceiver = object : BroadcastReceiver() {
@@ -128,10 +134,11 @@ internal class DebugReceiverManager(private val context: Context) {
                 DevKeyLogger.resetCircuitBreaker()
             }
         }
-        context.registerReceiver(
+        ContextCompat.registerReceiver(
+            context,
             resetCircuitBreakerReceiver,
             IntentFilter("dev.devkey.keyboard.RESET_CIRCUIT_BREAKER"),
-            Context.RECEIVER_EXPORTED
+            ContextCompat.RECEIVER_EXPORTED
         )
 
         clearLearnedWordsReceiver = object : BroadcastReceiver() {
@@ -147,10 +154,11 @@ internal class DebugReceiverManager(private val context: Context) {
                 }
             }
         }
-        context.registerReceiver(
+        ContextCompat.registerReceiver(
+            context,
             clearLearnedWordsReceiver,
             IntentFilter("dev.devkey.keyboard.CLEAR_LEARNED_WORDS"),
-            Context.RECEIVER_EXPORTED
+            ContextCompat.RECEIVER_EXPORTED
         )
     }
 

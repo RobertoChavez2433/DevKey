@@ -27,6 +27,7 @@ import android.graphics.PorterDuff
 import android.graphics.Rect
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
+import androidx.core.content.res.ResourcesCompat
 import java.util.Locale
 
 /**
@@ -155,12 +156,11 @@ class SpaceBarRenderer(
         return buffer
     }
 
-    @Suppress("DEPRECATION")
     fun updateSpaceBarForLocale(isAutoCompletion: Boolean, locale: Locale?, languageSwitcher: LanguageSwitcher?) {
         mSpaceKey.icon = when {
             locale != null -> BitmapDrawable(mRes, drawSpaceBar(OPACITY_FULLY_OPAQUE, isAutoCompletion, locale, languageSwitcher))
             isAutoCompletion -> BitmapDrawable(mRes, drawSpaceBar(OPACITY_FULLY_OPAQUE, isAutoCompletion, null, null))
-            else -> mRes.getDrawable(R.drawable.sym_keyboard_space)
+            else -> ResourcesCompat.getDrawable(mRes, R.drawable.sym_keyboard_space, null)
         }
     }
 

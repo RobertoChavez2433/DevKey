@@ -45,6 +45,8 @@
 # TensorFlow Lite
 -keep class org.tensorflow.lite.** { *; }
 -keep class org.tensorflow.lite.support.** { *; }
+-dontwarn com.google.auto.value.AutoValue$Builder
+-dontwarn com.google.auto.value.AutoValue
 
 # Keep Keyboard and Key classes used reflectively
 -keep class dev.devkey.keyboard.Keyboard { *; }

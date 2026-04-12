@@ -40,6 +40,7 @@ internal fun Modifier.keyGestureHandler(
     isPressed: MutableState<Boolean>,
     popupCodes: MutableState<List<Int>?>,
     popupActiveIndex: MutableIntState,
+    longPressFired: MutableState<Boolean>,
     keySize: MutableState<IntSize>,
     density: Density,
     view: View,
@@ -57,7 +58,7 @@ internal fun Modifier.keyGestureHandler(
             keySize, density, view, coroutineScope, onKeyAction, onKeyPress, onKeyRelease
         )
         else -> handleNormalKeyGesture(
-            key, isPressed, view, coroutineScope, onKeyAction, onKeyPress, onKeyRelease
+            key, isPressed, longPressFired, view, coroutineScope, onKeyAction, onKeyPress, onKeyRelease
         )
     }
 }
@@ -94,6 +95,7 @@ private suspend fun PointerInputScope.handleModifierGesture(
 private suspend fun PointerInputScope.handleNormalKeyGesture(
     key: KeyData,
     isPressed: MutableState<Boolean>,
+    longPressFired: MutableState<Boolean>,
     view: View,
     coroutineScope: CoroutineScope,
     onKeyAction: (Int) -> Unit,
@@ -103,6 +105,7 @@ private suspend fun PointerInputScope.handleNormalKeyGesture(
     detectTapGestures(
         onPress = {
             isPressed.value = true
+            longPressFired.value = false
             onKeyPress(key.primaryCode)
             KeyPressLogger.logKeyDown(key.primaryLabel, key.primaryCode, key.type.name)
             val job = coroutineScope.launch {
@@ -123,6 +126,7 @@ private suspend fun PointerInputScope.handleNormalKeyGesture(
                         delay(delayMs)
                     }
                 } else if (key.longPressCode != null) {
+                    longPressFired.value = true
                     DevKeyLogger.text("long_press_fired",
                         mapOf("label" to key.primaryLabel, "code" to key.primaryCode, "lp_code" to key.longPressCode))
                     onKeyAction(key.longPressCode)
@@ -132,6 +136,7 @@ private suspend fun PointerInputScope.handleNormalKeyGesture(
             val released = tryAwaitRelease()
             job.cancel()
             isPressed.value = false
+            longPressFired.value = false
             if (released && !job.isCompleted) {
                 KeyPressLogger.logKeyTap(key.primaryLabel, key.primaryCode)
                 onKeyAction(key.primaryCode)

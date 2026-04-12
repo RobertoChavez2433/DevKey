@@ -37,6 +37,10 @@ tools/e2e/fixtures/
 app/src/main/assets/whisper-tiny.en.tflite
 app/src/main/assets/filters_vocab_en.bin
 
+# Signing
+*.jks
+*.keystore
+
 # Claude Code
 .claude/settings.local.json
 .claude/screenshots/

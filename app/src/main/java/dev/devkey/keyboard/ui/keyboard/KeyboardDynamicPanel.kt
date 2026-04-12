@@ -76,13 +76,13 @@ fun KeyboardDynamicPanel(
                 onSuggestionClick = { result ->
                     val ic = currentInputConnection?.invoke()
                     if (ic != null) {
-                        ic.finishComposingText()
-                        val len = SessionDependencies.composingWord.value.length
-                        if (len > 0) ic.deleteSurroundingText(len, 0)
+                        // commitText replaces any active composing region automatically
                         ic.commitText(result.word + " ", 1)
                     } else {
                         bridge.onText(result.word + " ")
                     }
+                    // Reset legacy ImeState so next keystroke starts a fresh composition
+                    SessionDependencies.resetPredictionState?.invoke()
                     SessionDependencies.commitWord(result.word, coroutineScope)
                     SessionDependencies.composingWord.value = ""
                     SessionDependencies.pendingCorrection.value = null

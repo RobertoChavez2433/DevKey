@@ -153,7 +153,11 @@ fun DevKeyKeyboard(
             hintBright = prefs.hintBright,
             showNumberRow = prefs.showNumberRow.value,
             bridge = deps.bridge,
-            currentInputConnection = currentInputConnection
+            currentInputConnection = currentInputConnection,
+            onVoiceKey = {
+                deps.modeManager.setMode(KeyboardMode.Voice)
+                coroutineScope.launch { deps.voiceInputEngine.startListening() }
+            }
         )
     }
 }

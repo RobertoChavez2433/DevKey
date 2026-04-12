@@ -44,7 +44,13 @@ async function broadcast(action, extras = {}) {
     //      The driver is the single issuer so tests don't shell out to adb directly.
     const args = ['shell', 'am', 'broadcast', '-a', action];
     for (const [k, v] of Object.entries(extras)) {
-        args.push('--es', k, String(v));
+        if (typeof v === 'boolean') {
+            args.push('--ez', k, String(v));
+        } else if (typeof v === 'number' && Number.isInteger(v)) {
+            args.push('--ei', k, String(v));
+        } else {
+            args.push('--es', k, String(v));
+        }
     }
     return run(args);
 }

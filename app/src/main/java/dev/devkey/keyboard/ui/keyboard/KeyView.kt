@@ -61,10 +61,12 @@ fun KeyView(
     val popupCodesState = remember { mutableStateOf<List<Int>?>(null) }
     val popupActiveIndexState = remember { mutableIntStateOf(0) }
     val keySizeState = remember { mutableStateOf(IntSize.Zero) }
+    val longPressFiredState = remember { mutableStateOf(false) }
 
     val isPressed by isPressedState
     val popupCodes by popupCodesState
     val popupActiveIndex by popupActiveIndexState
+    val longPressFired by longPressFiredState
 
     // Observe modifier states for visual feedback
     val shiftState by modifierState.shiftState.collectAsState()
@@ -152,6 +154,7 @@ fun KeyView(
                 isPressed = isPressedState,
                 popupCodes = popupCodesState,
                 popupActiveIndex = popupActiveIndexState,
+                longPressFired = longPressFiredState,
                 keySize = keySizeState,
                 density = density,
                 view = view,
@@ -193,9 +196,14 @@ fun KeyView(
                 density = density
             )
         } else if (isPressed && key.type == KeyType.LETTER && displayLabel.length <= 2) {
-            // Single-character press preview for letter keys
+            // Show long-press character when long press has fired, otherwise base character
+            val previewLabel = if (longPressFired && key.longPressCode != null) {
+                key.longPressLabel ?: key.longPressCode.toChar().toString()
+            } else {
+                displayLabel
+            }
             KeyPressPreview(
-                label = displayLabel,
+                label = previewLabel,
                 keySize = keySizeState.value,
                 density = density
             )

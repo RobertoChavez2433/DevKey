@@ -3,6 +3,7 @@ package dev.devkey.keyboard.core
 import dev.devkey.keyboard.ASCII_SPACE
 import dev.devkey.keyboard.LatinIME
 import dev.devkey.keyboard.data.repository.SettingsRepository
+import dev.devkey.keyboard.ui.keyboard.SessionDependencies
 
 /**
  * Phase 2 collaborator wiring: creates collaborators that cross-reference
@@ -88,6 +89,8 @@ internal class ImeCollaboratorWiring(
             updateShiftState = { attr -> col.modifierHandler.updateShiftKeyState(attr) },
             editorInfoProvider = { ime.currentInputEditorInfo }
         )
+
+        SessionDependencies.resetPredictionState = { state.resetPrediction() }
 
         col.inputHandlers = inputHandlers
         col.inputDispatcher = inputDispatcher

@@ -32,7 +32,8 @@ fun KeyboardRenderLayer(
     hintBright: Boolean,
     showNumberRow: Boolean,
     bridge: dev.devkey.keyboard.core.KeyboardActionBridge,
-    currentInputConnection: (() -> android.view.inputmethod.InputConnection?)? = null
+    currentInputConnection: (() -> android.view.inputmethod.InputConnection?)? = null,
+    onVoiceKey: (() -> Unit)? = null
 ) {
     // 3. Ctrl Mode banner (independent of KeyboardMode)
     AnimatedVisibility(
@@ -89,6 +90,9 @@ fun KeyboardRenderLayer(
                         // Emoji key — show system emoji picker
                         // TODO: implement InputMethodService.switchToNextInputMethod()
                         // For now, no-op (emoji picker requires IME service access)
+                    }
+                    KeyCodes.KEYCODE_VOICE -> {
+                        onVoiceKey?.invoke()
                     }
                     KeyCodes.SMART_BACK_ESC -> {
                         // Smart backspace/esc — resolve using InputConnection

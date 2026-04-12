@@ -17,14 +17,15 @@
 ** limitations under the License.
 */
 -->
-<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2"
+    xmlns:tools="http://schemas.android.com/tools">
     <string name="alternates_for_a">àáâãäåæ</string>
     <string name="alternates_for_e">3€èéêë</string>
     <string name="alternates_for_i">8ïîíì</string>
     <string name="alternates_for_o">9øœöõôóò</string>
     <string name="alternates_for_u">7üûúù</string>
     <string name="alternates_for_s">§ß</string>
-    <string name="alternates_for_n">ñ</string>
+    <string name="alternates_for_n" tools:ignore="Typos">ñ</string>
     <string name="alternates_for_c">ç</string>
     <string name="alternates_for_y">6ÿý</string>
 </resources>

@@ -12,33 +12,41 @@
 		<TableRow>
 			<Button android:text="@string/main_setup_configure_imes"
 				android:id="@+id/main_setup_btn_configure_imes"
+				style="?android:attr/buttonBarButtonStyle"
 				android:layout_width="wrap_content"
 				android:layout_height="wrap_content" />
 			<Button android:text="@string/main_setup_input_lang"
 				android:id="@+id/main_setup_btn_input_lang"
+				style="?android:attr/buttonBarButtonStyle"
 				android:layout_width="wrap_content"
 				android:layout_height="wrap_content" />
 		</TableRow>
 		<TableRow>
 			<Button android:text="@string/main_setup_set_ime"
 				android:id="@+id/main_setup_btn_set_ime"
+				style="?android:attr/buttonBarButtonStyle"
 				android:layout_width="wrap_content"
 				android:layout_height="wrap_content" />
 			<Button android:text="@string/main_setup_get_dicts"
 				android:id="@+id/main_setup_btn_get_dicts"
+				style="?android:attr/buttonBarButtonStyle"
 				android:layout_width="wrap_content"
 				android:layout_height="wrap_content" />
 		</TableRow>
 		<TableRow>
 			<Button android:text="@string/main_setup_settings"
 				android:id="@+id/main_setup_btn_settings"
+				style="?android:attr/buttonBarButtonStyle"
 				android:layout_width="wrap_content"
 				android:layout_height="wrap_content" />
 			<EditText android:text="@string/main_setup_test"
 				android:id="@+id/main_setup_edit_test"
 				android:layout_width="fill_parent"
 				android:gravity="center"
-				android:layout_height="wrap_content" />
+				android:layout_height="wrap_content"
+				android:inputType="text"
+				android:hint="@string/main_setup_test"
+				android:importantForAutofill="no" />
 		</TableRow>
 	</TableLayout>
 	<TextView android:layout_height="wrap_content" android:id="@+id/main_description"

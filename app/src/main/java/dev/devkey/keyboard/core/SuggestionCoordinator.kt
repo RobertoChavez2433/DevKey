@@ -222,7 +222,12 @@ internal class SuggestionCoordinator(
                         || newSelStart != oldSelStart || TextEntryState.isCorrecting())
                     && (newSelStart < newSelEnd - 1 || !state.mPredicting)
                 ) {
-                    if (EditingUtil.isCursorTouchingWord(icProvider.inputConnection, state.mWordSeparators ?: "", state.mSuggestPuncList) || state.mLastSelectionStart < state.mLastSelectionEnd) {
+                    if (EditingUtil.isCursorTouchingWord(
+                            icProvider.inputConnection,
+                            state.mWordSeparators ?: "",
+                            state.mSuggestPuncList
+                        ) || state.mLastSelectionStart < state.mLastSelectionEnd
+                    ) {
                         postUpdateOldSuggestions()
                     } else {
                         abortCorrection(false)

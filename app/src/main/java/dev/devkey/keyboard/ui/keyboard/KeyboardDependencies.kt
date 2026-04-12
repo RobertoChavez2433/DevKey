@@ -79,7 +79,11 @@ fun rememberKeyboardDependencies(
                 override fun onReceive(c: android.content.Context, i: android.content.Intent) =
                     KeyMapGenerator.dumpToLogcat(c, currentView, layoutMode)
             }
-            androidx.core.content.ContextCompat.registerReceiver(context, r, android.content.IntentFilter("dev.devkey.keyboard.DUMP_KEY_MAP"), androidx.core.content.ContextCompat.RECEIVER_EXPORTED)
+            androidx.core.content.ContextCompat.registerReceiver(
+                context, r,
+                android.content.IntentFilter("dev.devkey.keyboard.DUMP_KEY_MAP"),
+                androidx.core.content.ContextCompat.RECEIVER_EXPORTED
+            )
             onDispose { try { context.unregisterReceiver(r) } catch (_: IllegalArgumentException) {} }
         }
 
@@ -93,7 +97,11 @@ fun rememberKeyboardDependencies(
                     DevKeyLogger.ime("keyboard_mode_reset", mapOf("to" to "Normal"))
                 }
             }
-            androidx.core.content.ContextCompat.registerReceiver(context, resetR, android.content.IntentFilter("dev.devkey.keyboard.RESET_KEYBOARD_MODE"), androidx.core.content.ContextCompat.RECEIVER_EXPORTED)
+            androidx.core.content.ContextCompat.registerReceiver(
+                context, resetR,
+                android.content.IntentFilter("dev.devkey.keyboard.RESET_KEYBOARD_MODE"),
+                androidx.core.content.ContextCompat.RECEIVER_EXPORTED
+            )
 
             // SET_KEYBOARD_MODE — e2e harness opens any panel without needing tap coords
             val setR = object : android.content.BroadcastReceiver() {
@@ -114,14 +122,22 @@ fun rememberKeyboardDependencies(
                     DevKeyLogger.ime("keyboard_mode_set", mapOf("mode" to modeName.lowercase()))
                 }
             }
-            androidx.core.content.ContextCompat.registerReceiver(context, setR, android.content.IntentFilter("dev.devkey.keyboard.SET_KEYBOARD_MODE"), androidx.core.content.ContextCompat.RECEIVER_EXPORTED)
+            androidx.core.content.ContextCompat.registerReceiver(
+                context, setR,
+                android.content.IntentFilter("dev.devkey.keyboard.SET_KEYBOARD_MODE"),
+                androidx.core.content.ContextCompat.RECEIVER_EXPORTED
+            )
 
             // TOGGLE_COMMAND_MODE — e2e harness triggers command mode without a terminal app
             val cmdR = object : android.content.BroadcastReceiver() {
                 override fun onReceive(c: android.content.Context, i: android.content.Intent) =
                     commandModeDetector.toggleManualOverride()
             }
-            androidx.core.content.ContextCompat.registerReceiver(context, cmdR, android.content.IntentFilter("dev.devkey.keyboard.TOGGLE_COMMAND_MODE"), androidx.core.content.ContextCompat.RECEIVER_EXPORTED)
+            androidx.core.content.ContextCompat.registerReceiver(
+                context, cmdR,
+                android.content.IntentFilter("dev.devkey.keyboard.TOGGLE_COMMAND_MODE"),
+                androidx.core.content.ContextCompat.RECEIVER_EXPORTED
+            )
 
             onDispose {
                 try { context.unregisterReceiver(resetR) } catch (_: IllegalArgumentException) {}

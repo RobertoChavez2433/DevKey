@@ -30,7 +30,9 @@ internal class ImeStateLoader(
         state.mHeightPortrait = ImePrefsUtil.getHeight(prefs, PREF_HEIGHT_PORTRAIT, res.getString(R.string.default_height_portrait))
         state.mHeightLandscape = ImePrefsUtil.getHeight(prefs, PREF_HEIGHT_LANDSCAPE, res.getString(R.string.default_height_landscape))
         settingsRepository.hintMode = prefs.getString(PREF_HINT_MODE, res.getString(R.string.default_hint_mode))!!.toInt()
-        settingsRepository.longpressTimeout = ImePrefsUtil.getPrefInt(prefs, PREF_LONGPRESS_TIMEOUT, res.getString(R.string.default_long_press_duration))
+        settingsRepository.longpressTimeout = ImePrefsUtil.getPrefInt(
+            prefs, PREF_LONGPRESS_TIMEOUT, res.getString(R.string.default_long_press_duration)
+        )
         settingsRepository.renderMode = ImePrefsUtil.getPrefInt(prefs, PREF_RENDER_MODE, res.getString(R.string.default_render_mode))
         settingsRepository.initPrefs(prefs, res)
     }
@@ -88,7 +90,13 @@ internal class ImeStateLoader(
         sendKeyCharFn = { ch -> ime.sendKeyChar(ch) },
         sendDownUpKeyEventsFn = { code -> ime.sendDownUpKeyEvents(code) },
         settings = settingsRepository,
-        ctrlAToastAction = { Toast.makeText(context.applicationContext, res.getString(R.string.toast_ctrl_a_override_info), Toast.LENGTH_LONG).show() }
+        ctrlAToastAction = {
+            Toast.makeText(
+                context.applicationContext,
+                res.getString(R.string.toast_ctrl_a_override_info),
+                Toast.LENGTH_LONG
+            ).show()
+        }
     )
 
     fun createPuncHeuristics(): PunctuationHeuristics = PunctuationHeuristics(

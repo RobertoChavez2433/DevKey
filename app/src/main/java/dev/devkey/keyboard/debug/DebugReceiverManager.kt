@@ -163,7 +163,11 @@ internal class DebugReceiverManager(private val context: Context) {
     }
 
     fun unregisterAll() {
-        listOf(enableDebugServerReceiver, setLayoutModeReceiver, setBoolPrefReceiver, setAutocorrectLevelReceiver, voiceProcessFileReceiver, clearLearnedWordsReceiver, resetCircuitBreakerReceiver).forEach { r ->
+        listOf(
+            enableDebugServerReceiver, setLayoutModeReceiver, setBoolPrefReceiver,
+            setAutocorrectLevelReceiver, voiceProcessFileReceiver,
+            clearLearnedWordsReceiver, resetCircuitBreakerReceiver
+        ).forEach { r ->
             try { r?.let { context.unregisterReceiver(it) } } catch (_: IllegalArgumentException) {}
         }
         enableDebugServerReceiver = null

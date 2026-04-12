@@ -48,10 +48,21 @@ class Row {
     constructor(res: Resources, parent: Keyboard, parser: XmlResourceParser) {
         this.parent = parent
         var a = res.obtainAttributes(Xml.asAttributeSet(parser), R.styleable.Keyboard)
-        defaultWidth = Keyboard.getDimensionOrFraction(a, R.styleable.Keyboard_keyWidth, parent.mDisplayWidth, parent.mDefaultWidth)
-        defaultHeight = Keyboard.getDimensionOrFraction(a, R.styleable.Keyboard_keyHeight, parent.mDisplayHeight, parent.mDefaultHeight.toFloat()).roundToInt()
-        defaultHorizontalGap = Keyboard.getDimensionOrFraction(a, R.styleable.Keyboard_horizontalGap, parent.mDisplayWidth, parent.mDefaultHorizontalGap)
-        verticalGap = Keyboard.getDimensionOrFraction(a, R.styleable.Keyboard_verticalGap, parent.mDisplayHeight, parent.mDefaultVerticalGap.toFloat()).roundToInt()
+        defaultWidth = Keyboard.getDimensionOrFraction(
+            a, R.styleable.Keyboard_keyWidth, parent.mDisplayWidth, parent.mDefaultWidth
+        )
+        defaultHeight = Keyboard.getDimensionOrFraction(
+            a, R.styleable.Keyboard_keyHeight, parent.mDisplayHeight,
+            parent.mDefaultHeight.toFloat()
+        ).roundToInt()
+        defaultHorizontalGap = Keyboard.getDimensionOrFraction(
+            a, R.styleable.Keyboard_horizontalGap, parent.mDisplayWidth,
+            parent.mDefaultHorizontalGap
+        )
+        verticalGap = Keyboard.getDimensionOrFraction(
+            a, R.styleable.Keyboard_verticalGap, parent.mDisplayHeight,
+            parent.mDefaultVerticalGap.toFloat()
+        ).roundToInt()
         a.recycle()
         a = res.obtainAttributes(Xml.asAttributeSet(parser), R.styleable.Keyboard_Row)
         mode = a.getResourceId(R.styleable.Keyboard_Row_keyboardMode, 0)

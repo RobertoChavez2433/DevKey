@@ -154,7 +154,10 @@ class VoiceInputEngine(private val context: Context) {
                 val flatInput = processor.processAudio(audioData)
                 if (flatInput == null) {
                     _state.value = VoiceState.IDLE
-                    DevKeyLogger.voice("state_transition", mapOf("state" to "IDLE", "source" to "stopListening", "reason" to "audio_processing_failed"))
+                    DevKeyLogger.voice("state_transition", mapOf(
+                        "state" to "IDLE", "source" to "stopListening",
+                        "reason" to "audio_processing_failed"
+                    ))
                     return@withContext "[Audio processing failed]"
                 }
 
@@ -181,14 +184,22 @@ class VoiceInputEngine(private val context: Context) {
 
                 val transcription = processor.decodeTokens(outputTokens2D[0])
                 _state.value = VoiceState.IDLE
-                DevKeyLogger.voice("processing_complete", mapOf("result_length" to transcription.length, "duration_ms" to (System.currentTimeMillis() - startMs), "source" to "stopListening"))
+                DevKeyLogger.voice("processing_complete", mapOf(
+                    "result_length" to transcription.length,
+                    "duration_ms" to (System.currentTimeMillis() - startMs),
+                    "source" to "stopListening"
+                ))
                 DevKeyLogger.voice("state_transition", mapOf("state" to "IDLE", "source" to "stopListening", "reason" to "inference_complete"))
                 transcription.ifEmpty { "[No speech detected]" }
             } catch (e: Exception) {
                 Log.e(TAG, "Whisper inference failed", e)
                 _state.value = VoiceState.IDLE
                 DevKeyLogger.voice("error", mapOf("kind" to "inference_failed", "source" to "stopListening"))
-                DevKeyLogger.voice("state_transition", mapOf("state" to "IDLE", "source" to "stopListening", "reason" to "inference_exception", "duration_ms" to (System.currentTimeMillis() - startMs)))
+                DevKeyLogger.voice("state_transition", mapOf(
+                    "state" to "IDLE", "source" to "stopListening",
+                    "reason" to "inference_exception",
+                    "duration_ms" to (System.currentTimeMillis() - startMs)
+                ))
                 "[Transcription error]"
             }
         }

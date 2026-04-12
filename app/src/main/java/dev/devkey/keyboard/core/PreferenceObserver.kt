@@ -72,11 +72,16 @@ internal class PreferenceObserver(
                 needReload = true
             }
             PREF_KEYBOARD_NOTIFICATION -> {
-                state.mKeyboardNotification = sharedPreferences.getBoolean(PREF_KEYBOARD_NOTIFICATION, res.getBoolean(R.bool.default_keyboard_notification))
+                state.mKeyboardNotification = sharedPreferences.getBoolean(
+                    PREF_KEYBOARD_NOTIFICATION, res.getBoolean(R.bool.default_keyboard_notification)
+                )
                 notificationController.setNotification(state.mKeyboardNotification)
             }
             PREF_SUGGESTIONS_IN_LANDSCAPE -> {
-                state.mSuggestionsInLandscape = sharedPreferences.getBoolean(PREF_SUGGESTIONS_IN_LANDSCAPE, res.getBoolean(R.bool.default_suggestions_in_landscape))
+                state.mSuggestionsInLandscape = sharedPreferences.getBoolean(
+                    PREF_SUGGESTIONS_IN_LANDSCAPE,
+                    res.getBoolean(R.bool.default_suggestions_in_landscape)
+                )
                 state.mSuggestionForceOff = false; state.mSuggestionForceOn = false
                 candidateViewHost.setCandidatesViewShown(isPredictionOn())
             }
@@ -86,18 +91,27 @@ internal class PreferenceObserver(
                 needReload = true
             }
             PREF_HEIGHT_PORTRAIT -> {
-                state.mHeightPortrait = ImePrefsUtil.getHeight(sharedPreferences, PREF_HEIGHT_PORTRAIT, res.getString(R.string.default_height_portrait))
+                state.mHeightPortrait = ImePrefsUtil.getHeight(
+                    sharedPreferences, PREF_HEIGHT_PORTRAIT,
+                    res.getString(R.string.default_height_portrait)
+                )
                 needReload = true
             }
             PREF_HEIGHT_LANDSCAPE -> {
-                state.mHeightLandscape = ImePrefsUtil.getHeight(sharedPreferences, PREF_HEIGHT_LANDSCAPE, res.getString(R.string.default_height_landscape))
+                state.mHeightLandscape = ImePrefsUtil.getHeight(
+                    sharedPreferences, PREF_HEIGHT_LANDSCAPE,
+                    res.getString(R.string.default_height_landscape)
+                )
                 needReload = true
             }
             PREF_HINT_MODE -> {
                 settings.hintMode = sharedPreferences.getString(PREF_HINT_MODE, res.getString(R.string.default_hint_mode))!!.toInt()
                 needReload = true
             }
-            PREF_LONGPRESS_TIMEOUT -> settings.longpressTimeout = ImePrefsUtil.getPrefInt(sharedPreferences, PREF_LONGPRESS_TIMEOUT, res.getString(R.string.default_long_press_duration))
+            PREF_LONGPRESS_TIMEOUT -> settings.longpressTimeout = ImePrefsUtil.getPrefInt(
+                sharedPreferences, PREF_LONGPRESS_TIMEOUT,
+                res.getString(R.string.default_long_press_duration)
+            )
             PREF_RENDER_MODE -> {
                 settings.renderMode = ImePrefsUtil.getPrefInt(sharedPreferences, PREF_RENDER_MODE, res.getString(R.string.default_render_mode))
                 needReload = true
@@ -105,7 +119,9 @@ internal class PreferenceObserver(
             PREF_SWIPE_UP -> swipeHandler.swipeUpAction = sharedPreferences.getString(PREF_SWIPE_UP, res.getString(R.string.default_swipe_up))
             PREF_SWIPE_DOWN -> swipeHandler.swipeDownAction = sharedPreferences.getString(PREF_SWIPE_DOWN, res.getString(R.string.default_swipe_down))
             PREF_SWIPE_LEFT -> swipeHandler.swipeLeftAction = sharedPreferences.getString(PREF_SWIPE_LEFT, res.getString(R.string.default_swipe_left))
-            PREF_SWIPE_RIGHT -> swipeHandler.swipeRightAction = sharedPreferences.getString(PREF_SWIPE_RIGHT, res.getString(R.string.default_swipe_right))
+            PREF_SWIPE_RIGHT -> swipeHandler.swipeRightAction = sharedPreferences.getString(
+                PREF_SWIPE_RIGHT, res.getString(R.string.default_swipe_right)
+            )
             PREF_VOL_UP -> swipeHandler.volUpAction = sharedPreferences.getString(PREF_VOL_UP, res.getString(R.string.default_vol_up))
             PREF_VOL_DOWN -> swipeHandler.volDownAction = sharedPreferences.getString(PREF_VOL_DOWN, res.getString(R.string.default_vol_down))
             PREF_VIBRATE_LEN -> {

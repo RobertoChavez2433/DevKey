@@ -188,7 +188,10 @@ internal fun Keyboard.parseKeyboardAttributes(res: Resources, parser: XmlResourc
     mDefaultHeight = Keyboard.getDimensionOrFraction(a, R.styleable.Keyboard_keyHeight, mDisplayHeight, mDefaultHeight.toFloat()).roundToInt()
     mDefaultHorizontalGap = Keyboard.getDimensionOrFraction(a, R.styleable.Keyboard_horizontalGap, mDisplayWidth, 0f)
     mDefaultVerticalGap = Keyboard.getDimensionOrFraction(a, R.styleable.Keyboard_verticalGap, mDisplayHeight, 0f).roundToInt()
-    mHorizontalPad = Keyboard.getDimensionOrFraction(a, R.styleable.Keyboard_horizontalPad, mDisplayWidth, res.getDimension(R.dimen.key_horizontal_pad))
+    mHorizontalPad = Keyboard.getDimensionOrFraction(
+        a, R.styleable.Keyboard_horizontalPad, mDisplayWidth,
+        res.getDimension(R.dimen.key_horizontal_pad)
+    )
     mVerticalPad = Keyboard.getDimensionOrFraction(a, R.styleable.Keyboard_verticalPad, mDisplayHeight, res.getDimension(R.dimen.key_vertical_pad))
     mLayoutRows = a.getInteger(R.styleable.Keyboard_layoutRows, Keyboard.DEFAULT_LAYOUT_ROWS)
     mLayoutColumns = a.getInteger(R.styleable.Keyboard_layoutColumns, Keyboard.DEFAULT_LAYOUT_COLUMNS)

@@ -195,7 +195,9 @@ internal class InputViewSetup(
             state.mLastSelectionStart = et.startOffset + et.selectionStart
             state.mLastSelectionEnd = et.startOffset + et.selectionEnd
 
-            if (!et.text.isNullOrEmpty() && EditingUtil.isCursorTouchingWord(icProvider.inputConnection, state.mWordSeparators ?: "", state.mSuggestPuncList)) {
+            if (!et.text.isNullOrEmpty() && EditingUtil.isCursorTouchingWord(
+                    icProvider.inputConnection, state.mWordSeparators ?: "", state.mSuggestPuncList
+                )) {
                 suggestionCoordinator.postUpdateOldSuggestions()
             }
         }

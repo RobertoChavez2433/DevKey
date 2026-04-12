@@ -70,7 +70,9 @@ class KeyEventSender(
     fun sendAltKey(ic: InputConnection?, isDown: Boolean, chording: Boolean) = mcc.sendAltKey(ic, isDown, chording)
     fun sendMetaKey(ic: InputConnection?, isDown: Boolean, chording: Boolean) = mcc.sendMetaKey(ic, isDown, chording)
     fun sendModifierKeysDown(shifted: Boolean, ic: InputConnection? = inputConnectionProvider()) = mcc.sendModifierKeysDown(shifted, ic)
-    fun handleModifierKeysUp(shifted: Boolean, sendKey: Boolean, ic: InputConnection? = inputConnectionProvider()) = mcc.handleModifierKeysUp(shifted, sendKey, ic)
+    fun handleModifierKeysUp(
+        shifted: Boolean, sendKey: Boolean, ic: InputConnection? = inputConnectionProvider()
+    ) = mcc.handleModifierKeysUp(shifted, sendKey, ic)
     fun sendModifierKeysUp(shifted: Boolean, ic: InputConnection? = inputConnectionProvider()) = mcc.sendModifierKeysUp(shifted, ic)
 
     fun sendSpecialKey(code: Int) {

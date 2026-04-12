@@ -98,13 +98,20 @@ fun CommandAppManagerScreen(
             text = "Auto-detected terminal apps:",
             color = DevKeyThemeColors.settingsCategoryColor,
             style = MaterialTheme.typography.labelMedium,
-            modifier = Modifier.padding(start = DevKeyThemeDimensions.managerRowPadH, top = DevKeyThemeDimensions.managerSectionPadTop, bottom = DevKeyThemeDimensions.managerSectionPadBottom)
+            modifier = Modifier.padding(
+                start = DevKeyThemeDimensions.managerRowPadH,
+                top = DevKeyThemeDimensions.managerSectionPadTop,
+                bottom = DevKeyThemeDimensions.managerSectionPadBottom
+            )
         )
         Text(
             text = CommandModeDetector.TERMINAL_PACKAGES.joinToString(", "),
             color = DevKeyThemeColors.settingsDescriptionColor,
             style = MaterialTheme.typography.bodySmall,
-            modifier = Modifier.padding(horizontal = DevKeyThemeDimensions.managerRowPadH, vertical = DevKeyThemeDimensions.managerRowPadVSm)
+            modifier = Modifier.padding(
+                horizontal = DevKeyThemeDimensions.managerRowPadH,
+                vertical = DevKeyThemeDimensions.managerRowPadVSm
+            )
         )
         HorizontalDivider(
             color = DevKeyThemeColors.settingsDividerColor,
@@ -124,7 +131,11 @@ fun CommandAppManagerScreen(
                 text = "Custom overrides:",
                 color = DevKeyThemeColors.settingsCategoryColor,
                 style = MaterialTheme.typography.labelMedium,
-                modifier = Modifier.padding(start = DevKeyThemeDimensions.managerRowPadH, top = DevKeyThemeDimensions.managerSectionPadTop, bottom = DevKeyThemeDimensions.managerSectionPadBottom)
+                modifier = Modifier.padding(
+                    start = DevKeyThemeDimensions.managerRowPadH,
+                    top = DevKeyThemeDimensions.managerSectionPadTop,
+                    bottom = DevKeyThemeDimensions.managerSectionPadBottom
+                )
             )
             LazyColumn(
                 modifier = Modifier.fillMaxSize()

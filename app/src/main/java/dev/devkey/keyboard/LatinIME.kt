@@ -63,22 +63,37 @@ class LatinIME : InputMethodService(),
     }
 
     override fun onDestroy() { lifecycle.onDestroy(); sInstance = null; super.onDestroy() }
-    override fun onConfigurationChanged(conf: Configuration) { lifecycle.onConfigurationChanged(conf); state.mConfigurationChanging = true; super.onConfigurationChanged(conf); state.mConfigurationChanging = false }
+    override fun onConfigurationChanged(conf: Configuration) {
+        lifecycle.onConfigurationChanged(conf)
+        state.mConfigurationChanging = true
+        super.onConfigurationChanged(conf)
+        state.mConfigurationChanging = false
+    }
     override fun onCreateInputView(): View = lifecycle.onCreateInputView()
     override fun onCreateCandidatesView(): View? = lifecycle.onCreateCandidatesView()
     override fun onStartInputView(attribute: EditorInfo, restarting: Boolean) = col.inputViewSetup.onStartInputView(attribute, restarting)
     override fun onFinishInput() { super.onFinishInput(); lifecycle.onFinishInput() }
     override fun onFinishInputView(finishingInput: Boolean) { super.onFinishInputView(finishingInput); lifecycle.onFinishInputView() }
-    override fun onUpdateSelection(oSS: Int, oSE: Int, nSS: Int, nSE: Int, cS: Int, cE: Int) { super.onUpdateSelection(oSS, oSE, nSS, nSE, cS, cE); col.suggestionCoordinator.onSelectionChanged(oSS, nSS, nSE, cS, cE) }
+    override fun onUpdateSelection(oSS: Int, oSE: Int, nSS: Int, nSE: Int, cS: Int, cE: Int) {
+        super.onUpdateSelection(oSS, oSE, nSS, nSE, cS, cE)
+        col.suggestionCoordinator.onSelectionChanged(oSS, nSS, nSE, cS, cE)
+    }
     override fun onExtractedTextClicked() { if (!lifecycle.suppressExtractedClick()) super.onExtractedTextClicked() }
     override fun onExtractedCursorMovement(dx: Int, dy: Int) { if (!lifecycle.suppressExtractedClick()) super.onExtractedCursorMovement(dx, dy) }
     override fun hideWindow() { lifecycle.hideWindow(); super.hideWindow() }
     override fun onDisplayCompletions(completions: Array<CompletionInfo>?) = lifecycle.onDisplayCompletions(completions)
-    override fun setCandidatesViewShownInternal(shown: Boolean, needsInputViewShown: Boolean) = col.candidateViewManager.setCandidatesViewShownInternal(shown, needsInputViewShown)
-    override fun onFinishCandidatesView(finishingInput: Boolean) { super.onFinishCandidatesView(finishingInput); col.candidateViewManager.onFinishCandidatesView() }
+    override fun setCandidatesViewShownInternal(shown: Boolean, needsInputViewShown: Boolean) =
+        col.candidateViewManager.setCandidatesViewShownInternal(shown, needsInputViewShown)
+    override fun onFinishCandidatesView(finishingInput: Boolean) {
+        super.onFinishCandidatesView(finishingInput)
+        col.candidateViewManager.onFinishCandidatesView()
+    }
     override fun onEvaluateInputViewShown(): Boolean = state.mForceKeyboardOn || super.onEvaluateInputViewShown()
     override fun setCandidatesViewShown(shown: Boolean) = setCandidatesViewShownInternal(shown, needsInputViewShown = true)
-    override fun onComputeInsets(outInsets: Insets) { super.onComputeInsets(outInsets); if (!isFullscreenMode) outInsets.contentTopInsets = outInsets.visibleTopInsets }
+    override fun onComputeInsets(outInsets: Insets) {
+        super.onComputeInsets(outInsets)
+        if (!isFullscreenMode) outInsets.contentTopInsets = outInsets.visibleTopInsets
+    }
     override fun onEvaluateFullscreenMode(): Boolean = lifecycle.onEvaluateFullscreenMode(super.onEvaluateFullscreenMode())
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean = lifecycle.onKeyDown(keyCode, event) ?: super.onKeyDown(keyCode, event)
     override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean = lifecycle.onKeyUp(keyCode, event) ?: super.onKeyUp(keyCode, event)
@@ -89,17 +104,29 @@ class LatinIME : InputMethodService(),
     override fun onPress(primaryCode: Int) = col.modifierHandler.onPress(primaryCode)
     override fun onRelease(primaryCode: Int) = col.modifierHandler.onRelease(primaryCode)
 
-    override fun promoteToUserDictionary(word: String, frequency: Int) { if (!state.mUserDictionary!!.isValidWord(word)) state.mUserDictionary!!.addWord(word, frequency) }
+    override fun promoteToUserDictionary(word: String, frequency: Int) {
+        if (!state.mUserDictionary!!.isValidWord(word)) {
+            state.mUserDictionary!!.addWord(word, frequency)
+        }
+    }
     override fun getCurrentWord(): WordComposer = state.mWord
     override fun onSharedPreferenceChanged(sharedPreferences: SharedPreferences, key: String?) {
         col.preferenceObserver.onPreferenceChanged(sharedPreferences, key)
     }
 
     fun pickSuggestionManually(index: Int, suggestion: CharSequence) = col.suggestionPicker.pickSuggestionManually(index, suggestion)
-    fun addWordToDictionary(word: String): Boolean { state.mUserDictionary!!.addWord(word, 128); col.suggestionCoordinator.postUpdateSuggestions(); return true }
+    fun addWordToDictionary(word: String): Boolean {
+        state.mUserDictionary!!.addWord(word, 128)
+        col.suggestionCoordinator.postUpdateSuggestions()
+        return true
+    }
     fun changeKeyboardMode() = col.modifierHandler.changeKeyboardMode()
     fun onAutoCompletionStateChanged(isAutoCompletion: Boolean) = state.mKeyboardSwitcher!!.onAutoCompletionStateChanged(isAutoCompletion)
-    internal fun handleClose() { col.inputHandlers.commitTyped(currentInputConnection, true); requestHideSelf(0); dev.devkey.keyboard.core.input.TextEntryState.endSession() }
+    internal fun handleClose() {
+        col.inputHandlers.commitTyped(currentInputConnection, true)
+        requestHideSelf(0)
+        dev.devkey.keyboard.core.input.TextEntryState.endSession()
+    }
     override fun dump(fd: FileDescriptor, fout: PrintWriter, args: Array<out String>?) { super.dump(fd, fout, args); lifecycle.dump(fd, fout) }
 
     companion object {

@@ -67,30 +67,27 @@ class WhisperProcessor(private val context: Context) {
             val bytes = assetManager.open("filters_vocab_en.bin").use { it.readBytes() }
             val buf = java.nio.ByteBuffer.wrap(bytes).order(java.nio.ByteOrder.LITTLE_ENDIAN)
 
-            // Header: magic:int32, numMelBins:int32, numFreqs:int32 = 12 bytes
-            // (no vocabSize field — vocab starts after mel filter floats)
-            if (bytes.size < 12) return false
+            // Header: magic:int32 numMelBins:int32 numFreqs:int32 vocabSize:int32 = 16 bytes
+            // Canonical nyadla-sys/whisper-tiny.en.tflite companion format.
+            if (bytes.size < 16) return false
             val magic = buf.int
             val numMelBins = buf.int
             val numFreqs = buf.int
+            val vocabSize = buf.int
             val melFilterCount = numMelBins * numFreqs
-            val melFloats = FloatArray(melFilterCount.coerceAtMost((bytes.size - 12) / 4))
+            val melFloats = FloatArray(melFilterCount.coerceAtMost((bytes.size - 16) / 4))
             for (i in melFloats.indices) melFloats[i] = buf.float
             melFilters = melFloats
 
-            // Vocabulary section: starts with vocabSize:int32, then vocabSize
-            // entries each with length:int32 followed by UTF-8 bytes.
+            // Vocabulary section: vocabSize entries, each length:int32 + UTF-8 bytes.
             val vocab = mutableListOf<String>()
-            if (buf.remaining() >= 4) {
-                val vocabSize = buf.int
-                for (i in 0 until vocabSize) {
-                    if (buf.remaining() < 4) break
-                    val len = buf.int
-                    if (len <= 0 || len > buf.remaining()) break
-                    val tokenBytes = ByteArray(len)
-                    buf.get(tokenBytes)
-                    vocab.add(String(tokenBytes, Charsets.UTF_8))
-                }
+            for (i in 0 until vocabSize) {
+                if (buf.remaining() < 4) break
+                val len = buf.int
+                if (len <= 0 || len > buf.remaining()) break
+                val tokenBytes = ByteArray(len)
+                buf.get(tokenBytes)
+                vocab.add(String(tokenBytes, Charsets.UTF_8))
             }
             vocabulary = vocab
 
@@ -98,7 +95,8 @@ class WhisperProcessor(private val context: Context) {
                 TAG,
                 "WhisperProcessor: loaded magic=0x${magic.toString(16)} " +
                         "melBins=$numMelBins numFreqs=$numFreqs " +
-                        "melFilters=${melFloats.size} vocab=${vocab.size}"
+                        "vocabSize=$vocabSize melFilters=${melFloats.size} " +
+                        "vocab=${vocab.size}"
             )
             true
         } catch (e: Exception) {
@@ -116,7 +114,7 @@ class WhisperProcessor(private val context: Context) {
      * @param sampleRate The sample rate of the input audio (should be 16000).
      * @return Float array suitable for TF Lite interpreter input, or null if processing fails.
      */
-    fun processAudio(pcmData: ShortArray, sampleRate: Int = SAMPLE_RATE): FloatArray? {
+    fun processAudio(pcmData: ShortArray, _sampleRate: Int = SAMPLE_RATE): FloatArray? {
         if (pcmData.isEmpty()) return null
 
         // Step 1: Convert ShortArray PCM to float (-1.0 to 1.0)
@@ -201,12 +199,12 @@ class WhisperProcessor(private val context: Context) {
             }
         }
 
-        // Normalize: clamp to max - 8.0 (80dB below peak), then scale to [-1, 1]
+        // Normalize per canonical Whisper: clamp to max - 8.0, then (x + 4) / 4
         var maxVal = -Float.MAX_VALUE
         for (v in output) if (v > maxVal) maxVal = v
         val floor = maxVal - 8.0f
         for (i in output.indices) {
-            output[i] = ((output[i].coerceAtLeast(floor) - floor) / 4.0f) - 1.0f
+            output[i] = (output[i].coerceAtLeast(floor) + 4.0f) / 4.0f
         }
 
         return output

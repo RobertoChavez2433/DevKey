@@ -186,6 +186,18 @@ def ensure_keyboard_visible(serial: Optional[str] = None) -> None:
             ),
             capture_output=True,
         )
+        # H002: Reset the circuit breaker between tests so a prior test's
+        # HTTP failures don't suppress events for the next test.
+        subprocess.run(
+            _adb_cmd(
+                [
+                    "shell", "am", "broadcast",
+                    "-a", "dev.devkey.keyboard.RESET_CIRCUIT_BREAKER",
+                ],
+                serial,
+            ),
+            capture_output=True,
+        )
 
 
 def assert_logcat_contains(tag: str, pattern: str, timeout: float = 2.0,

@@ -91,7 +91,9 @@ class LatinIME : InputMethodService(),
 
     override fun promoteToUserDictionary(word: String, frequency: Int) { if (!state.mUserDictionary!!.isValidWord(word)) state.mUserDictionary!!.addWord(word, frequency) }
     override fun getCurrentWord(): WordComposer = state.mWord
-    override fun onSharedPreferenceChanged(sharedPreferences: SharedPreferences, key: String?) = col.preferenceObserver.onPreferenceChanged(sharedPreferences, key)
+    override fun onSharedPreferenceChanged(sharedPreferences: SharedPreferences, key: String?) {
+        col.preferenceObserver.onPreferenceChanged(sharedPreferences, key)
+    }
 
     fun pickSuggestionManually(index: Int, suggestion: CharSequence) = col.suggestionPicker.pickSuggestionManually(index, suggestion)
     fun addWordToDictionary(word: String): Boolean { state.mUserDictionary!!.addWord(word, 128); col.suggestionCoordinator.postUpdateSuggestions(); return true }

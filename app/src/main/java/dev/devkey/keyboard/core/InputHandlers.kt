@@ -95,7 +95,8 @@ internal class InputHandlers(
         if (state.mLastSelectionStart == state.mLastSelectionEnd && TextEntryState.isCorrecting()) {
             suggestionCoordinator.abortCorrection(false)
         }
-        if (state.isAlphabet(primaryCode) && state.isPredictionOn(suggestionCoordinator.isPredictionWanted())
+        val predOn = state.isPredictionOn(suggestionCoordinator.isPredictionWanted())
+        if (state.isAlphabet(primaryCode) && predOn
             && !state.mModCtrl && !state.mModAlt && !state.mModMeta
             && !EditingUtil.isCursorTouchingWord(icProvider.inputConnection, state.mWordSeparators ?: "", state.mSuggestPuncList)
         ) {

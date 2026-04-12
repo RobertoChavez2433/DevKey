@@ -10,6 +10,7 @@ import dev.devkey.keyboard.core.prefs.ImePrefsUtil
 import dev.devkey.keyboard.suggestion.engine.Suggest
 import dev.devkey.keyboard.data.repository.SettingsRepository
 import dev.devkey.keyboard.feature.prediction.AutocorrectEngine
+import dev.devkey.keyboard.debug.DevKeyLogger
 import dev.devkey.keyboard.ui.keyboard.SessionDependencies
 import java.util.Locale
 
@@ -118,6 +119,12 @@ internal class PreferenceObserver(
                     "off" -> AutocorrectEngine.Aggressiveness.OFF
                     else -> AutocorrectEngine.Aggressiveness.MILD
                 }
+            }
+            PREF_AUTO_CAP -> {
+                state.mAutoCapPref = sharedPreferences.getBoolean(
+                    PREF_AUTO_CAP, res.getBoolean(R.bool.default_auto_cap)
+                )
+                state.mAutoCapActive = state.mAutoCapPref && state.mLanguageSwitcher!!.allowAutoCap()
             }
         }
 

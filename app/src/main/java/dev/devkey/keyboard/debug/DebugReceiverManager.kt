@@ -15,6 +15,7 @@ internal class DebugReceiverManager(private val context: Context) {
     private var setAutocorrectLevelReceiver: BroadcastReceiver? = null
     private var voiceProcessFileReceiver: BroadcastReceiver? = null
     private var clearLearnedWordsReceiver: BroadcastReceiver? = null
+    private var resetCircuitBreakerReceiver: BroadcastReceiver? = null
 
     fun registerAll() {
         enableDebugServerReceiver = object : BroadcastReceiver() {
@@ -39,14 +40,14 @@ internal class DebugReceiverManager(private val context: Context) {
         )
 
         setLayoutModeReceiver = object : BroadcastReceiver() {
-            override fun onReceive(context: Context, intent: Intent) {
+            override fun onReceive(ctx: Context, intent: Intent) {
                 val mode = intent.getStringExtra("mode") ?: return
                 if (mode !in setOf("full", "compact", "compact_dev")) {
                     DevKeyLogger.error("set_layout_mode_rejected", mapOf("mode" to mode))
                     return
                 }
                 PreferenceManager.getDefaultSharedPreferences(context)
-                    .edit().putString(SettingsRepository.KEY_LAYOUT_MODE, mode).apply()
+                    .edit().putString(SettingsRepository.KEY_LAYOUT_MODE, mode).commit()
                 DevKeyLogger.ime("layout_mode_set", mapOf("mode" to mode))
             }
         }
@@ -63,15 +64,15 @@ internal class DebugReceiverManager(private val context: Context) {
             SettingsRepository.KEY_SHOW_SUGGESTIONS,
         )
         setBoolPrefReceiver = object : BroadcastReceiver() {
-            override fun onReceive(context: Context, intent: Intent) {
+            override fun onReceive(ctx: Context, intent: Intent) {
                 val key = intent.getStringExtra("key") ?: return
                 if (key !in allowedBoolKeys) {
                     DevKeyLogger.error("set_bool_pref_rejected", mapOf("key" to key))
                     return
                 }
                 val value = intent.getBooleanExtra("value", false)
-                PreferenceManager.getDefaultSharedPreferences(context)
-                    .edit().putBoolean(key, value).apply()
+                val prefs = PreferenceManager.getDefaultSharedPreferences(context)
+                prefs.edit().putBoolean(key, value).commit()
                 DevKeyLogger.ime("bool_pref_set", mapOf("key" to key, "value" to value))
             }
         }
@@ -82,14 +83,14 @@ internal class DebugReceiverManager(private val context: Context) {
         )
 
         setAutocorrectLevelReceiver = object : BroadcastReceiver() {
-            override fun onReceive(context: Context, intent: Intent) {
+            override fun onReceive(ctx: Context, intent: Intent) {
                 val level = intent.getStringExtra("level") ?: return
                 if (level !in listOf("off", "mild", "aggressive")) {
                     DevKeyLogger.error("set_autocorrect_level_rejected", mapOf("level" to level))
                     return
                 }
                 PreferenceManager.getDefaultSharedPreferences(context)
-                    .edit().putString(SettingsRepository.KEY_AUTOCORRECT_LEVEL, level).apply()
+                    .edit().putString(SettingsRepository.KEY_AUTOCORRECT_LEVEL, level).commit()
                 DevKeyLogger.ime("autocorrect_level_set", mapOf("level" to level))
             }
         }
@@ -122,6 +123,17 @@ internal class DebugReceiverManager(private val context: Context) {
             Context.RECEIVER_EXPORTED
         )
 
+        resetCircuitBreakerReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                DevKeyLogger.resetCircuitBreaker()
+            }
+        }
+        context.registerReceiver(
+            resetCircuitBreakerReceiver,
+            IntentFilter("dev.devkey.keyboard.RESET_CIRCUIT_BREAKER"),
+            Context.RECEIVER_EXPORTED
+        )
+
         clearLearnedWordsReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
                 val engine = dev.devkey.keyboard.ui.keyboard.SessionDependencies.learningEngine
@@ -143,7 +155,7 @@ internal class DebugReceiverManager(private val context: Context) {
     }
 
     fun unregisterAll() {
-        listOf(enableDebugServerReceiver, setLayoutModeReceiver, setBoolPrefReceiver, setAutocorrectLevelReceiver, voiceProcessFileReceiver, clearLearnedWordsReceiver).forEach { r ->
+        listOf(enableDebugServerReceiver, setLayoutModeReceiver, setBoolPrefReceiver, setAutocorrectLevelReceiver, voiceProcessFileReceiver, clearLearnedWordsReceiver, resetCircuitBreakerReceiver).forEach { r ->
             try { r?.let { context.unregisterReceiver(it) } } catch (_: IllegalArgumentException) {}
         }
         enableDebugServerReceiver = null
@@ -152,5 +164,6 @@ internal class DebugReceiverManager(private val context: Context) {
         setAutocorrectLevelReceiver = null
         voiceProcessFileReceiver = null
         clearLearnedWordsReceiver = null
+        resetCircuitBreakerReceiver = null
     }
 }

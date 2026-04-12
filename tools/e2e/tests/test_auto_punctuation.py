@@ -58,6 +58,26 @@ def _setup():
         keyboard.load_key_map(serial)
     _wait_for_dictionary(serial)
     _clear_edit_text(serial)
+    # H005: Toggle show_suggestions false→true so onSharedPreferenceChanged
+    # fires and mShowSuggestions is definitely set.
+    driver.clear_logs()
+    driver.broadcast(
+        "dev.devkey.keyboard.SET_BOOL_PREF",
+        {"key": "show_suggestions", "value": False},
+    )
+    try:
+        driver.wait_for("DevKey/IME", "bool_pref_set", timeout_ms=2000)
+    except Exception:
+        pass
+    driver.clear_logs()
+    driver.broadcast(
+        "dev.devkey.keyboard.SET_BOOL_PREF",
+        {"key": "show_suggestions", "value": True},
+    )
+    try:
+        driver.wait_for("DevKey/IME", "bool_pref_set", timeout_ms=2000)
+    except Exception:
+        pass
     # Enable autocorrect; verify event delivery with round-trip
     # to recover from any prior circuit breaker trip
     for attempt in range(3):
@@ -74,14 +94,23 @@ def _setup():
     time.sleep(0.3)
     driver.broadcast("dev.devkey.keyboard.RESET_KEYBOARD_MODE", {})
     time.sleep(0.3)
+    # Warmup: type a space and delete it to settle the Compose layout
+    keyboard.tap_key_by_code(SPACE_CODE, serial)
+    time.sleep(0.3)
+    keyboard.tap_key_by_code(-301, serial)  # backspace
+    time.sleep(0.3)
+    _clear_edit_text(serial)
     return serial
 
 
 def _type_word(word, serial):
     """Tap each character with inter-key delay for reliable composing."""
-    for ch in word:
+    for i, ch in enumerate(word):
         keyboard.tap_key(ch, serial)
-        time.sleep(0.15)
+        # First character triggers candidate strip recomposition —
+        # allow extra settle time so subsequent taps aren't
+        # mis-dispatched during Compose re-layout.
+        time.sleep(0.35 if i == 0 else 0.15)
 
 
 def test_double_space_period():
@@ -90,13 +119,13 @@ def test_double_space_period():
     Assert double_space_applied event fires.
     """
     serial = _setup()
-    # Allow circuit breaker recovery from prior test's event volume
-    time.sleep(3.0)
     driver.clear_logs()
 
     _type_word("hi", serial)
     keyboard.tap_key_by_code(SPACE_CODE, serial)
-    time.sleep(0.15)
+    # First space triggers word commit + suggestion recomposition;
+    # allow settle time before the second space.
+    time.sleep(0.35)
     keyboard.tap_key_by_code(SPACE_CODE, serial)
 
     entry = driver.wait_for(

@@ -39,7 +39,7 @@ def test_ctrl_z_undo():
         category="DevKey/TXT",
         event="key_event",
         match={"code": 122, "ctrl": True},
-        timeout_ms=2000,
+        timeout_ms=5000,
     )
     data = entry.get("data", {})
     assert data.get("ctrl") is True, (

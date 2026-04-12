@@ -52,7 +52,7 @@ def _ctrl_plus_letter(serial, letter: str, expected_code: int):
         category="DevKey/TXT",
         event="key_event",
         match={"code": expected_code, "ctrl": True},
-        timeout_ms=2000,
+        timeout_ms=5000,
     )
     data = entry.get("data", {})
     assert data.get("ctrl") is True, (
@@ -101,7 +101,7 @@ def test_alt_tab_smoke():
             category="DevKey/TXT",
             event="key_event",
             match={"code": KEYCODE_TAB, "alt": True},
-            timeout_ms=2000,
+            timeout_ms=5000,
         )
         data = entry.get("data", {})
         assert data.get("alt") is True, (

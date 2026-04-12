@@ -112,11 +112,14 @@ def test_backspace_plain():
     data = entry["data"]
     assert data["was_composing"] is False
 
-    # Restore suggestions for subsequent tests
+    # H005: Restore suggestions for subsequent tests — wait for confirmation
+    # so that the next test inherits mShowSuggestions=true and prediction works.
+    driver.clear_logs()
     driver.broadcast(
         "dev.devkey.keyboard.SET_BOOL_PREF",
         {"key": "show_suggestions", "value": True},
     )
+    driver.wait_for("DevKey/IME", "bool_pref_set", timeout_ms=3000)
 
 
 def test_key_repeat_on_hold():
@@ -151,6 +154,14 @@ def test_word_learning_commits_word():
     Typing a word + space must emit word_committed with the correct word_length.
     """
     serial = _setup()
+    # H005: Explicitly enable suggestions — a prior test (test_backspace_plain)
+    # may have left mShowSuggestions=false, preventing composing mode.
+    driver.clear_logs()
+    driver.broadcast(
+        "dev.devkey.keyboard.SET_BOOL_PREF",
+        {"key": "show_suggestions", "value": True},
+    )
+    driver.wait_for("DevKey/IME", "bool_pref_set", timeout_ms=3000)
     driver.broadcast(
         "dev.devkey.keyboard.SET_AUTOCORRECT_LEVEL",
         {"level": "mild"},

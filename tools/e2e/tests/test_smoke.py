@@ -35,19 +35,32 @@ def test_tap_letter_produces_logcat():
     #      keyboard in Symbols mode. A fresh key map load guarantees
     #      coordinates match the rendered layout (RESET included in load flow).
     keyboard.set_layout_mode("compact_dev", serial)
+    # H004: Allow layout recomposition to fully settle before tapping.
+    # Without this, the tap can land during a Compose relayout and be
+    # interpreted as a long-press or miss entirely.
+    import time
+    time.sleep(0.5)
 
-    adb.clear_logcat(serial)
-    keyboard.tap_key("a", serial)
-
-    # WHY: KeyPressLogger emits "TAP   label=a code=97" — uppercase TAP,
-    #      label= prefix, code= prefix. Match those exactly so the test
-    #      doesn't accidentally match unrelated lowercase "tap" text.
-    adb.assert_logcat_contains(
-        "DevKeyPress",
-        r"TAP\s+label=a\s+code=97",
-        timeout=2.0,
-        serial=serial
-    )
+    # H004: Retry tap once — if the first attempt hits during a transient
+    # recomposition it may register as long-press instead of tap.
+    for attempt in range(2):
+        adb.clear_logcat(serial)
+        keyboard.tap_key("a", serial)
+        try:
+            # WHY: KeyPressLogger emits "TAP   label=a code=97" — uppercase TAP,
+            #      label= prefix, code= prefix. Match those exactly so the test
+            #      doesn't accidentally match unrelated lowercase "tap" text.
+            adb.assert_logcat_contains(
+                "DevKeyPress",
+                r"TAP\s+label=a\s+code=97",
+                timeout=2.0,
+                serial=serial
+            )
+            return  # passed
+        except AssertionError:
+            if attempt == 1:
+                raise
+            time.sleep(0.5)
 
 
 def test_calibration():

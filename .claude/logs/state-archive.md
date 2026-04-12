@@ -3,6 +3,12 @@
 Older session-history entries were pruned on 2026-04-10 to keep the live
 `.claude` surface lean.
 
+### Session 51 (2026-04-11)
+
+- Punctuation heuristics bug fixed; key coordinate offset fixed.
+- 14 new E2E tests. Long press tests hardened with retry logic.
+- Best run: 52/54.
+
 ### Session 50 (2026-04-11)
 
 - Consolidated word learning to `SessionDependencies.commitWord()`.

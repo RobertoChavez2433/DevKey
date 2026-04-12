@@ -1,6 +1,4 @@
-// WHY: Structured logging with categories and hypothesis tagging for systematic debugging.
-// Session-scoped hypothesis markers (H001, H002...) are temporary investigation tools
-// that MUST be removed after each debug session (Phase 9 cleanup gate).
+// WHY: Structured logging with categories for systematic debugging.
 package dev.devkey.keyboard.debug
 
 import android.util.Log
@@ -65,6 +63,15 @@ object DevKeyLogger {
     private const val HTTP_CONNECT_TIMEOUT_MS = 300
     private const val HTTP_READ_TIMEOUT_MS = 300
 
+    /**
+     * Reset the circuit breaker, allowing event forwarding to resume immediately.
+     * Called between tests via RESET_CIRCUIT_BREAKER broadcast.
+     */
+    fun resetCircuitBreaker() {
+        consecutiveFailures.set(0)
+        circuitBreakerUntilMs.set(0L)
+    }
+
     /** Enable HTTP server forwarding for Deep debug mode. */
     fun enableServer(url: String) {
         serverUrl = url
@@ -98,17 +105,6 @@ object DevKeyLogger {
     fun error(message: String, data: Map<String, Any?> = emptyMap()) =
         log(Category.ERROR, message, data)
 
-    /**
-     * Session-scoped hypothesis marker. MUST be removed after debug session.
-     * Grep "hypothesis(" to find all markers for cleanup.
-     */
-    fun hypothesis(id: String, category: Category, description: String, data: Map<String, Any?> = emptyMap()) {
-        val tag = "DevKey/$id"
-        val fullMessage = "[${category.tag}] $description"
-        Log.d(tag, formatMessage(fullMessage, data))
-        sendToServer(category.tag, fullMessage, data, hypothesisId = id)
-    }
-
     private fun log(category: Category, message: String, data: Map<String, Any?>) {
         Log.d(category.tag, formatMessage(message, data))
         sendToServer(category.tag, message, data)
@@ -123,8 +119,7 @@ object DevKeyLogger {
     private fun sendToServer(
         category: String,
         message: String,
-        data: Map<String, Any?>,
-        hypothesisId: String? = null
+        data: Map<String, Any?>
     ) {
         val url = serverUrl ?: return
         // Circuit breaker — if the driver has failed N times in a row, suppress
@@ -132,7 +127,10 @@ object DevKeyLogger {
         // compare) so this runs unconditionally on the main thread.
         val now = System.currentTimeMillis()
         val breakerUntil = circuitBreakerUntilMs.get()
-        if (now < breakerUntil) return
+        if (now < breakerUntil) {
+            Log.d("DevKey/CBK", "Circuit breaker suppressed: $message (${breakerUntil - now}ms remaining)")
+            return
+        }
 
         scope.launch {
             try {
@@ -151,7 +149,6 @@ object DevKeyLogger {
                             }
                         }
                     })
-                    hypothesisId?.let { put("hypothesis", it) }
                 }
                 val conn = URL("$url/log").openConnection() as HttpURLConnection
                 conn.requestMethod = "POST"

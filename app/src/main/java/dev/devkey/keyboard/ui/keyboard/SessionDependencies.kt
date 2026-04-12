@@ -2,6 +2,7 @@ package dev.devkey.keyboard.ui.keyboard
 
 import dev.devkey.keyboard.suggestion.engine.Suggest
 import dev.devkey.keyboard.feature.command.CommandModeDetector
+import dev.devkey.keyboard.debug.DevKeyLogger
 import dev.devkey.keyboard.feature.prediction.AutocorrectEngine
 import dev.devkey.keyboard.feature.prediction.AutocorrectResult
 import dev.devkey.keyboard.feature.prediction.DictionaryProvider
@@ -60,6 +61,14 @@ object SessionDependencies {
     var voiceInputEngine: VoiceInputEngine? = null
 
     /**
+     * Resets the legacy ImeState prediction fields (mPredicting, mComposing, etc.).
+     * Set from ImeCollaboratorWiring so the Compose suggestion bar can cleanly
+     * accept a prediction without leaving stale legacy state.
+     */
+    @Volatile
+    var resetPredictionState: (() -> Unit)? = null
+
+    /**
      * Canonical word-commit handler. ALL call sites that commit a word to the
      * learning engine MUST go through this method — no direct calls to
      * LearningEngine.onWordCommitted() elsewhere.
@@ -79,6 +88,7 @@ object SessionDependencies {
                 isCommand = commandModeDetector?.isCommandMode() == true,
                 contextApp = currentPackageName
             )
+            DevKeyLogger.text("word_committed", mapOf("word_length" to word.length))
         }
     }
 }

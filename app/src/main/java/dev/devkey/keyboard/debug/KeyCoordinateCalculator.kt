@@ -48,10 +48,19 @@ internal object KeyCoordinateCalculator {
 
         val location = IntArray(2)
         keyboardView.getLocationOnScreen(location)
-        val keyboardTopY = location[1].toFloat()
+        val viewTopY = location[1].toFloat()
+        // The key area starts after toolbar, chevron bar, and suggestion bar.
+        // Rather than hardcoding those heights, derive from the view's total
+        // height minus the computed key area height.
+        val viewHeight = keyboardView.height.toFloat()
+        val keyAreaTopY = if (viewHeight > keyAreaHeightPx) {
+            viewTopY + (viewHeight - keyAreaHeightPx)
+        } else {
+            viewTopY
+        }
 
         return rawBoundsForMode(context, layoutMode, dm.widthPixels.toFloat(), keyAreaHeightPx, density)
-            .offsetY(keyboardTopY)
+            .offsetY(keyAreaTopY)
     }
 
     /**
@@ -99,16 +108,18 @@ internal object KeyCoordinateCalculator {
             rowWeights = getRowWeightsForMode(LayoutMode.FULL)
         )
 
-        val keyboardTopY = if (keyboardView != null) {
+        val keyAreaTopY = if (keyboardView != null) {
             val location = IntArray(2)
             keyboardView.getLocationOnScreen(location)
-            location[1].toFloat()
+            val viewTopY = location[1].toFloat()
+            val viewHeight = keyboardView.height.toFloat()
+            if (viewHeight > keyAreaHeightPx) viewTopY + (viewHeight - keyAreaHeightPx) else viewTopY
         } else {
             val toolbarHeightPx = TOOLBAR_HEIGHT_DP * density
             dm.heightPixels - toolbarHeightPx - keyAreaHeightPx
         }
 
-        return rawBounds.offsetY(keyboardTopY)
+        return rawBounds.offsetY(keyAreaTopY)
     }
 
     /** Reads display metrics via WindowManager (includes system decorations). */

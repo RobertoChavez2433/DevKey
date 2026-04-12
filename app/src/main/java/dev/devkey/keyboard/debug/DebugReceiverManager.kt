@@ -59,6 +59,8 @@ internal class DebugReceiverManager(private val context: Context) {
         val allowedBoolKeys = setOf(
             SettingsRepository.KEY_SHOW_TOOLBAR,
             SettingsRepository.KEY_SHOW_NUMBER_ROW,
+            SettingsRepository.KEY_AUTO_CAP,
+            SettingsRepository.KEY_SHOW_SUGGESTIONS,
         )
         setBoolPrefReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {

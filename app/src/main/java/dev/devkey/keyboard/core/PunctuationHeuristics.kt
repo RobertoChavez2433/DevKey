@@ -2,6 +2,7 @@ package dev.devkey.keyboard.core
 
 import android.view.inputmethod.InputConnection
 import dev.devkey.keyboard.data.repository.SettingsRepository
+import dev.devkey.keyboard.debug.DevKeyLogger
 import dev.devkey.keyboard.ui.keyboard.KeyCodes
 
 internal class PunctuationHeuristics(
@@ -23,6 +24,7 @@ internal class PunctuationHeuristics(
             ic.commitText("${lastTwo[1]} ", 1)
             ic.endBatchEdit()
             updateShiftKeyState()
+            DevKeyLogger.text("punc_space_swapped", emptyMap())
         }
     }
 
@@ -39,11 +41,11 @@ internal class PunctuationHeuristics(
             ic.commitText(" ..", 1)
             ic.endBatchEdit()
             updateShiftKeyState()
+            DevKeyLogger.text("period_reswapped", emptyMap())
         }
     }
 
-    fun doubleSpace(correctionMode: Int) {
-        if (correctionMode == CORRECTION_NONE) return
+    fun doubleSpace() {
         val ic = icProvider() ?: return
         val lastThree = ic.getTextBeforeCursor(3, 0)
         if (lastThree != null && lastThree.length == 3
@@ -56,6 +58,7 @@ internal class PunctuationHeuristics(
             ic.commitText(". ", 1)
             ic.endBatchEdit()
             updateShiftKeyState()
+            DevKeyLogger.text("double_space_applied", mapOf("chars_removed" to 2))
         }
     }
 
@@ -76,6 +79,7 @@ internal class PunctuationHeuristics(
         val lastOne = ic.getTextBeforeCursor(1, 0)
         if (lastOne != null && lastOne.length == 1 && lastOne[0] == ASCII_SPACE) {
             ic.deleteSurroundingText(1, 0)
+            DevKeyLogger.text("trailing_space_removed", emptyMap())
         }
     }
 
@@ -106,6 +110,5 @@ internal class PunctuationHeuristics(
     companion object {
         private val ASCII_SPACE = KeyCodes.ASCII_SPACE.toChar()
         private val ASCII_PERIOD = KeyCodes.ASCII_PERIOD.toChar()
-        const val CORRECTION_NONE = 0
     }
 }

@@ -4,6 +4,7 @@ import android.view.KeyEvent
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
 import dev.devkey.keyboard.data.repository.SettingsRepository
+import dev.devkey.keyboard.debug.DevKeyLogger
 import dev.devkey.keyboard.keyboard.model.Keyboard
 import dev.devkey.keyboard.ui.keyboard.KeyCodes
 
@@ -121,6 +122,9 @@ internal class ModifierHandler(
                 else -> Keyboard.SHIFT_OFF
             }
             state.mKeyboardSwitcher!!.setShiftState(newState)
+            if (!isShifted && !isCapsLock && isCaps) {
+                DevKeyLogger.ime("auto_cap_applied", mapOf("new_shift_state" to newState))
+            }
         }
         if (ic != null) {
             val states = KeyEvent.META_FUNCTION_ON or

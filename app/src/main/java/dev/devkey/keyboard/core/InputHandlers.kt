@@ -48,7 +48,12 @@ internal class InputHandlers(
 
     fun handleBackspace() {
         var deleteChar = false
-        val ic = icProvider.inputConnection ?: return
+        val wasComposing = state.mPredicting
+        val ic = icProvider.inputConnection
+        if (ic == null) {
+            DevKeyLogger.text("backspace_handled", mapOf("was_composing" to wasComposing, "ic_null" to true))
+            return
+        }
         ic.beginBatchEdit()
         if (state.mPredicting) {
             val length = state.mComposing.length
@@ -69,6 +74,7 @@ internal class InputHandlers(
         if (TextEntryState.getState() == TextEntryState.State.UNDO_COMMIT) {
             revertLastWord(deleteChar)
             ic.endBatchEdit()
+            DevKeyLogger.text("backspace_handled", mapOf("was_composing" to wasComposing))
             return
         } else if (state.mEnteredText != null && EditingUtil.sameAsTextBeforeCursor(ic, state.mEnteredText!!)) {
             ic.deleteSurroundingText(state.mEnteredText!!.length, 0)
@@ -82,6 +88,7 @@ internal class InputHandlers(
         }
         state.mJustRevertedSeparator = null
         ic.endBatchEdit()
+        DevKeyLogger.text("backspace_handled", mapOf("was_composing" to wasComposing))
     }
 
     fun handleCharacter(primaryCode: Int, keyCodes: IntArray?) {
@@ -144,11 +151,12 @@ internal class InputHandlers(
             } else {
                 val acEngine = SessionDependencies.autocorrectEngine
                 val learnEngine = SessionDependencies.learningEngine
+                val typedWord = state.mComposing.toString()
                 if (acEngine != null && learnEngine != null
                     && acEngine.aggressiveness != AutocorrectEngine.Aggressiveness.OFF
                     && state.mComposing.isNotEmpty()
                 ) {
-                    val result = acEngine.getCorrection(state.mComposing.toString(), learnEngine.getCustomWords())
+                    val result = acEngine.getCorrection(typedWord, learnEngine.getCustomWords())
                     if (result is AutocorrectResult.Suggestion && result.autoApply) {
                         ic?.finishComposingText()
                         ic?.deleteSurroundingText(state.mComposing.length, 0)
@@ -158,11 +166,22 @@ internal class InputHandlers(
                         SessionDependencies.composingWord.value = ""
                         SessionDependencies.pendingCorrection.value = null
                         DevKeyLogger.text("autocorrect_applied", mapOf("action" to "applied", "level" to acEngine.aggressiveness.name.lowercase()))
+                        TextEntryState.acceptedDefault(typedWord, result.correction)
                     } else if (result is AutocorrectResult.Suggestion) {
                         SessionDependencies.pendingCorrection.value = result
                         commitTyped(ic, true)
-                    } else commitTyped(ic, true)
-                } else commitTyped(ic, true)
+                        TextEntryState.acceptedDefault(typedWord, typedWord)
+                    } else {
+                        commitTyped(ic, true)
+                        TextEntryState.acceptedDefault(typedWord, typedWord)
+                    }
+                } else {
+                    commitTyped(ic, true)
+                    TextEntryState.acceptedDefault(typedWord, typedWord)
+                }
+                pickedDefault = true
+                state.mJustAccepted = true
+                if (primaryCode == ASCII_SPACE) state.mJustAddedAutoSpace = true
             }
         }
         if (state.mJustAddedAutoSpace && primaryCode == ASCII_ENTER) {
@@ -176,7 +195,7 @@ internal class InputHandlers(
         if (TextEntryState.getState() == TextEntryState.State.PUNCTUATION_AFTER_ACCEPTED && primaryCode != ASCII_ENTER) {
             puncHeuristics.swapPunctuationAndSpace()
         } else if (state.isPredictionOn(suggestionCoordinator.isPredictionWanted()) && primaryCode == ASCII_SPACE) {
-            puncHeuristics.doubleSpace(state.mCorrectionMode)
+            puncHeuristics.doubleSpace()
         }
         if (pickedDefault) TextEntryState.backToAcceptedDefault(state.mWord.getTypedWord())
         modifierHandler.updateShiftKeyState(icProvider.editorInfo)

@@ -19,26 +19,26 @@
 -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <!-- Title for Latin keyboard  -->
-    <string name="english_ime_name">DevKey</string>
+    <string name="english_ime_name" translatable="false">DevKey</string>
     <!-- Title for Latin keyboard settings activity / dialog -->
-    <string name="english_ime_settings">DevKey Settings</string>
+    <string name="english_ime_settings" translatable="false">DevKey Settings</string>
     <!-- Title for Latin keyboard input options dialog -->
     <string name="english_ime_input_options">Input options</string>
 
     <!-- Various configuration titles -->
-    <string name="title_keyboard_view_settings">Keyboard view settings</string>
-    <string name="title_keyboard_height_portrait">Keyboard height, portrait</string>
-    <string name="title_keyboard_height_landscape">Keyboard height, landscape</string>
-    <string name="title_key_layout_options">Key layout options</string>
-    <string name="title_key_behavior_settings">Key behavior settings</string>
-    <string name="title_long_press_alternate_keys">Long-press alternate keys</string>
-    <string name="title_suggested_punctuation">Suggested punctuation</string>
-    <string name="title_input_mode_settings">Input mode settings</string>
-    <string name="title_debugging">Debugging</string>
-    <string name="title_input_connection_details">Input connection details</string>
-    <string name="title_version">Version</string>
-    <string name="title_swipe_gestures">Swipe gestures (experimental)</string>
-    <string name="title_hardware_key_actions">Hardware key actions</string>
+    <string name="title_keyboard_view_settings" translatable="false">Keyboard view settings</string>
+    <string name="title_keyboard_height_portrait" translatable="false">Keyboard height, portrait</string>
+    <string name="title_keyboard_height_landscape" translatable="false">Keyboard height, landscape</string>
+    <string name="title_key_layout_options" translatable="false">Key layout options</string>
+    <string name="title_key_behavior_settings" translatable="false">Key behavior settings</string>
+    <string name="title_long_press_alternate_keys" translatable="false">Long-press alternate keys</string>
+    <string name="title_suggested_punctuation" translatable="false">Suggested punctuation</string>
+    <string name="title_input_mode_settings" translatable="false">Input mode settings</string>
+    <string name="title_debugging" translatable="false">Debugging</string>
+    <string name="title_input_connection_details" translatable="false">Input connection details</string>
+    <string name="title_version" translatable="false">Version</string>
+    <string name="title_swipe_gestures" translatable="false">Swipe gestures (experimental)</string>
+    <string name="title_hardware_key_actions" translatable="false">Hardware key actions</string>
 
     <!-- Option to provide vibrate/haptic feedback on keypress -->
     <string name="vibrate_on_keypress">Vibrate on keypress</string>
@@ -121,7 +121,7 @@
     <!-- Option to always hide the settings key -->
     <string name="settings_key_mode_always_hide_name">Always hide</string>
     <!-- Array of the settings key modes -->
-    <string-array name="settings_key_modes">
+    <string-array name="settings_key_modes" translatable="false">
         <item>@string/settings_key_mode_auto_name</item>
         <item>@string/settings_key_mode_always_show_name</item>
         <item>@string/settings_key_mode_always_hide_name</item>
@@ -333,11 +333,11 @@
     <!-- The summary for the preferences item for enabling to correct suggestions by touching words you have typed -->
     <string name="prefs_enable_recorrection_summary">Touch entered words to correct them</string>
 
-    <string name="pref_screen_feedback_title">Key feedback settings</string>
-    <string name="pref_screen_feedback_title_summary">Configure key sound, vibrate, preview popup etc.</string>
+    <string name="pref_screen_feedback_title" translatable="false">Key feedback settings</string>
+    <string name="pref_screen_feedback_title_summary" translatable="false">Configure key sound, vibrate, preview popup etc.</string>
 
-    <string name="pref_screen_view_title">Theme and label settings</string>
-    <string name="pref_screen_view_title_summary">Configure theming and label display</string>
+    <string name="pref_screen_view_title" translatable="false">Theme and label settings</string>
+    <string name="pref_screen_view_title_summary" translatable="false">Configure theming and label display</string>
 
     <!-- Description for keyboard theme switcher -->
     <string name="keyboard_layout">Keyboard Theme</string>
@@ -381,121 +381,121 @@
     <string name="subtype_mode_keyboard">keyboard</string>
     <string name="subtype_mode_voice">voice</string>
 
-    <string name="title_keyboard_mode_portrait">Keyboard mode, portrait</string>
-    <string name="title_keyboard_mode_landscape">Keyboard mode, landscape</string>
-    <string-array name="keyboard_mode_entries">
+    <string name="title_keyboard_mode_portrait" translatable="false">Keyboard mode, portrait</string>
+    <string name="title_keyboard_mode_landscape" translatable="false">Keyboard mode, landscape</string>
+    <string-array name="keyboard_mode_entries" translatable="false">
         <item>4-row Gingerbread layout</item>
         <item>5-row compact layout (US QWERTY only!)</item>
         <item>Full 5-row layout</item>
     </string-array>
-    <string-array name="keyboard_mode_values">
+    <string-array name="keyboard_mode_values" translatable="false">
         <item>0</item>
         <item>1</item>
         <item>2</item>
     </string-array>
 
-    <string name="title_ctrl_a_override">Ctrl-A (select all) override</string>
-    <string name="toast_ctrl_a_override_info">Ctrl-A is disabled. Use Ctrl-Alt-A instead, or enable it in settings.</string>
-    <string name="default_ctrl_a_override">0</string>
+    <string name="title_ctrl_a_override" translatable="false">Ctrl-A (select all) override</string>
+    <string name="toast_ctrl_a_override_info" translatable="false">Ctrl-A is disabled. Use Ctrl-Alt-A instead, or enable it in settings.</string>
+    <string name="default_ctrl_a_override" translatable="false">0</string>
     <string-array name="ctrl_a_override_entries">
         <item>Disable Ctrl-A, use Ctrl-Alt-A instead</item>
         <item>Disable Ctrl-A completely</item>
         <item>Use Ctrl-A (no override)</item>
     </string-array>
-    <string-array name="ctrl_a_override_values">
+    <string-array name="ctrl_a_override_values" translatable="false">
         <item>0</item>
         <item>1</item>
         <item>2</item>
     </string-array>
 
-    <string name="title_chording_ctrl_key">Ctrl key code</string>
-    <string name="default_chording_ctrl_key">0</string>
+    <string name="title_chording_ctrl_key" translatable="false">Ctrl key code</string>
+    <string name="default_chording_ctrl_key" translatable="false">0</string>
     <string-array name="chording_ctrl_key_entries">
         <item>None (ignored when not modifying other keys)</item>
         <item>Left Ctrl</item>
         <item>Right Ctrl</item>
     </string-array>
-    <string-array name="chording_ctrl_key_values">
+    <string-array name="chording_ctrl_key_values" translatable="false">
         <item>0</item>
         <item>113</item>
         <item>114</item>
     </string-array>
 
-    <string name="title_chording_alt_key">Alt key code</string>
-    <string name="default_chording_alt_key">0</string>
+    <string name="title_chording_alt_key" translatable="false">Alt key code</string>
+    <string name="default_chording_alt_key" translatable="false">0</string>
     <string-array name="chording_alt_key_entries">
         <item>None (ignored when not modifying other keys)</item>
         <item>Left Alt</item>
         <item>Right Alt</item>
     </string-array>
-    <string-array name="chording_alt_key_values">
+    <string-array name="chording_alt_key_values" translatable="false">
         <item>0</item>
         <item>57</item>
         <item>58</item>
     </string-array>
 
-    <string name="title_chording_meta_key">Meta key code</string>
-    <string name="default_chording_meta_key">0</string>
+    <string name="title_chording_meta_key" translatable="false">Meta key code</string>
+    <string name="default_chording_meta_key" translatable="false">0</string>
     <string-array name="chording_meta_key_entries">
         <item>None (ignored when not modifying other keys)</item>
         <item>Left Meta</item>
         <item>Right Meta</item>
     </string-array>
-    <string-array name="chording_meta_key_values">
+    <string-array name="chording_meta_key_values" translatable="false">
         <item>0</item>
         <item>117</item>
         <item>118</item>
     </string-array>
     
-    <string name="title_suggestions_in_landscape">Suggestions in landscape mode</string>
-    <string name="summary_suggestions_in_landscape_true">Same as in portrait mode</string>
-    <string name="summary_suggestions_in_landscape_false">Hide suggestions in landscape mode</string>
+    <string name="title_suggestions_in_landscape" translatable="false">Suggestions in landscape mode</string>
+    <string name="summary_suggestions_in_landscape_true" translatable="false">Same as in portrait mode</string>
+    <string name="summary_suggestions_in_landscape_false" translatable="false">Hide suggestions in landscape mode</string>
 
-    <string name="title_fullscreen_override">Landscape mode fullscreen editor</string>
-    <string name="summary_fullscreen_override_true">Disabled, use standard view</string>
-    <string name="summary_fullscreen_override_false">Enabled on small devices</string>
+    <string name="title_fullscreen_override" translatable="false">Landscape mode fullscreen editor</string>
+    <string name="summary_fullscreen_override_true" translatable="false">Disabled, use standard view</string>
+    <string name="summary_fullscreen_override_false" translatable="false">Enabled on small devices</string>
 
-    <string name="title_force_keyboard_on">Show soft keyboard</string>
-    <string name="summary_force_keyboard_on_true">Always</string>
-    <string name="summary_force_keyboard_on_false">When no hardware keyboard is available</string>
+    <string name="title_force_keyboard_on" translatable="false">Show soft keyboard</string>
+    <string name="summary_force_keyboard_on_true" translatable="false">Always</string>
+    <string name="summary_force_keyboard_on_false" translatable="false">When no hardware keyboard is available</string>
 
-    <string name="title_keyboard_notification">Use permanent notification</string>
-    <string name="summary_keyboard_notification_true">Activate the keyboard by tapping the notification</string>
-    <string name="summary_keyboard_notification_false">No notification</string>
+    <string name="title_keyboard_notification" translatable="false">Use permanent notification</string>
+    <string name="summary_keyboard_notification_true" translatable="false">Activate the keyboard by tapping the notification</string>
+    <string name="summary_keyboard_notification_false" translatable="false">No notification</string>
 
-    <string name="title_application_category">Application-specific settings</string>
+    <string name="title_application_category" translatable="false">Application-specific settings</string>
     
-    <string name="title_connectbot_tab_hack">ConnectBot tab key mode</string>
-    <string name="summary_connectbot_tab_hack_true">Enable compatibility workaround</string>
-    <string name="summary_connectbot_tab_hack_false">Send plain Tab key event</string>
+    <string name="title_connectbot_tab_hack" translatable="false">ConnectBot tab key mode</string>
+    <string name="summary_connectbot_tab_hack_true" translatable="false">Enable compatibility workaround</string>
+    <string name="summary_connectbot_tab_hack_false" translatable="false">Send plain Tab key event</string>
 
-    <string name="title_caps_lock">Double-tap Shift mode</string>
-    <string name="summary_caps_lock_true">Caps Lock (q1 => Q1)</string>
-    <string name="summary_caps_lock_false">Shift Lock (q1 => Q!)</string>
+    <string name="title_caps_lock" translatable="false">Double-tap Shift mode</string>
+    <string name="summary_caps_lock_true" translatable="false">Caps Lock (q1 => Q1)</string>
+    <string name="summary_caps_lock_false" translatable="false">Shift Lock (q1 => Q!)</string>
 
-    <string name="title_shift_lock_modifiers">Apply Shift Lock to modifier keys?</string>
-    <string name="summary_shift_lock_modifiers_true">Yes, including arrow keys</string>
-    <string name="summary_shift_lock_modifiers_false">No, normal keys only</string>
+    <string name="title_shift_lock_modifiers" translatable="false">Apply Shift Lock to modifier keys?</string>
+    <string name="summary_shift_lock_modifiers_true" translatable="false">Yes, including arrow keys</string>
+    <string name="summary_shift_lock_modifiers_false" translatable="false">No, normal keys only</string>
     
-    <string name="title_hint_mode">Labeled alternate keys</string>
+    <string name="title_hint_mode" translatable="false">Labeled alternate keys</string>
     <string-array name="hint_modes">
         <item>Hide hint labels</item>
         <item>Show ASCII punctuation</item>
         <item>Show all hint labels</item>
     </string-array>
 
-    <string-array name="hint_modes_values">
+    <string-array name="hint_modes_values" translatable="false">
         <item>0</item>
         <item>1</item>
         <item>2</item>
     </string-array>
-    <string name="default_hint_mode">1</string>
+    <string name="default_hint_mode" translatable="false">1</string>
 
-    <string name="title_touch_pos">Debug touch screen position</string>
-    <string name="summary_touch_pos_true">Show feedback for touch screen location</string>
-    <string name="summary_touch_pos_false">Off</string>
+    <string name="title_touch_pos" translatable="false">Debug touch screen position</string>
+    <string name="summary_touch_pos_true" translatable="false">Show feedback for touch screen location</string>
+    <string name="summary_touch_pos_false" translatable="false">Off</string>
 
-    <string name="title_slide_keys">Sliding key events</string>
+    <string name="title_slide_keys" translatable="false">Sliding key events</string>
     <!-- Values are a bitmap, see use in PointerTracker -->
     <string-array name="slide_keys_entries">
         <item>Ignore keys during sliding movement (Recommended)</item>
@@ -504,7 +504,7 @@
         <item>Send first and last key</item>
         <item>Send all keys touched during sliding movement</item>
     </string-array>
-    <string-array name="slide_keys_values">
+    <string-array name="slide_keys_values" translatable="false">
         <item>0</item>
         <item>1</item>
         <item>2</item>
@@ -512,56 +512,56 @@
         <item>4</item>
     </string-array>
  
-    <string name="percent">percent</string>
+    <string name="percent" translatable="false">percent</string>
 
-    <string name="title_top_row_scale">5th row height adjustment</string>
+    <string name="title_top_row_scale" translatable="false">5th row height adjustment</string>
         
-    <string name="title_label_scale">Key label scaling</string>
-    <string name="title_candidate_scale">Suggestion label scaling</string>
+    <string name="title_label_scale" translatable="false">Key label scaling</string>
+    <string name="title_candidate_scale" translatable="false">Suggestion label scaling</string>
 
-    <string name="title_vibrate_len">Vibrate duration</string>
+    <string name="title_vibrate_len" translatable="false">Vibrate duration</string>
 
-    <string name="title_click_volume">Key click volume</string>
-    <string name="default_click_volume">0.2</string>
-    <string name="title_click_method">Click volume control method</string>
-    <string name="default_click_method">0</string>
+    <string name="title_click_volume" translatable="false">Key click volume</string>
+    <string name="default_click_volume" translatable="false">0.2</string>
+    <string name="title_click_method" translatable="false">Click volume control method</string>
+    <string name="default_click_method" translatable="false">0</string>
     <string-array name="click_method_entries">
         <item>System default (ignore click volume)</item>
         <item>Absolute click volume</item>
         <item>Follow media volume</item>
         <item>Reverse media volume</item>
     </string-array>
-    <string-array name="click_method_values">
+    <string-array name="click_method_values" translatable="false">
         <item>0</item>
         <item>1</item>
         <item>2</item>
         <item>3</item>
     </string-array>
     
-    <string name="title_long_press_duration">Long-press duration</string>
+    <string name="title_long_press_duration" translatable="false">Long-press duration</string>
 
-    <string name="title_render_mode">Drawing method</string>
-    <string name="render_mode_unavailable">(not changeable on this device)</string>
+    <string name="title_render_mode" translatable="false">Drawing method</string>
+    <string name="render_mode_unavailable" translatable="false">(not changeable on this device)</string>
     <string-array name="render_mode_entries">
         <item>Direct draw (saves memory)</item>
         <item>Software buffered (default)</item>
         <item>Hardware accelerated (experimental)</item>
     </string-array>
     <!-- Keep these values in sync with android.view.View LAYER_TYPE_* definitions -->
-    <string-array name="render_mode_values">
+    <string-array name="render_mode_values" translatable="false">
         <item>0</item>
         <item>1</item>
         <item>2</item>
     </string-array>
         
-    <string name="pref_screen_actions_title">Gesture and key actions</string>
-    <string name="pref_screen_actions_title_summary">Configure actions for swipe gestures and hardware keys</string>
-    <string name="title_swipe_up">Swipe up</string>
-    <string name="title_swipe_down">Swipe down</string>
-    <string name="title_swipe_left">Swipe left</string>
-    <string name="title_swipe_right">Swipe right</string>
-    <string name="title_vol_up">Volume up</string>
-    <string name="title_vol_down">Volume down</string>
+    <string name="pref_screen_actions_title" translatable="false">Gesture and key actions</string>
+    <string name="pref_screen_actions_title_summary" translatable="false">Configure actions for swipe gestures and hardware keys</string>
+    <string name="title_swipe_up" translatable="false">Swipe up</string>
+    <string name="title_swipe_down" translatable="false">Swipe down</string>
+    <string name="title_swipe_left" translatable="false">Swipe left</string>
+    <string name="title_swipe_right" translatable="false">Swipe right</string>
+    <string name="title_vol_up" translatable="false">Volume up</string>
+    <string name="title_vol_down" translatable="false">Volume down</string>
         <string-array name="swipe_action_entries">
         <item>(no action)</item>
         <item>Close keyboard</item>
@@ -575,7 +575,7 @@
         <item>Previous language</item>
 -       <item>Next language</item>
         </string-array>
-    <string-array name="swipe_action_values">
+    <string-array name="swipe_action_values" translatable="false">
         <item>none</item>
         <item>close</item>
         <item>extension</item>
@@ -588,14 +588,14 @@
         <item>lang_prev</item>
 -       <item>lang_next</item>
     </string-array>    
-    <string name="default_swipe_up">extension</string>
-    <string name="default_swipe_down">close</string>
-    <string name="default_swipe_left">none</string>
-    <string name="default_swipe_right">none</string>
-    <string name="default_vol_up">none</string>
-    <string name="default_vol_down">none</string>
+    <string name="default_swipe_up" translatable="false">extension</string>
+    <string name="default_swipe_down" translatable="false">close</string>
+    <string name="default_swipe_left" translatable="false">none</string>
+    <string name="default_swipe_right" translatable="false">none</string>
+    <string name="default_vol_up" translatable="false">none</string>
+    <string name="default_vol_down" translatable="false">none</string>
         
-    <string name="title_popup_content">Popup mini-keyboard contents</string>
+    <string name="title_popup_content" translatable="false">Popup mini-keyboard contents</string>
     <string-array name="popup_content_entries">
         <item>No popups</item>
         <item>No popups, use auto-repeat</item>
@@ -605,7 +605,7 @@
         <item>Add self: 3 &#x21d2; 3#³, e &#x21d2; eEé</item>
     </string-array>
     <!--  The values are a bitmap, keep in sync with Keyboard.java -->
-    <string-array name="popup_content_values">
+    <string-array name="popup_content_values" translatable="false">
         <item>256</item>
         <item>768</item>
         <item>0</item>
@@ -613,18 +613,18 @@
         <item>3</item>
         <item>7</item>
     </string-array>
-    <string name="default_popup_content">1</string>
+    <string name="default_popup_content" translatable="false">1</string>
 
-    <string name="voice_not_enabled_warning">Voice input is not available in this version.</string>
-    <string name="recorrect_warning">FYI: recorrection does not work correctly on pre-Gingerbread devices due to missing operating system support.</string>
-    <string name="no_market_warning">Unable to launch Play Store.</string>
-    <string name="main_setup_configure_imes">Enable keyboard</string>
-    <string name="main_setup_set_ime">Set input method</string>
-    <string name="main_setup_get_dicts">More</string>
-    <string name="main_setup_input_lang">Input languages</string>
-    <string name="main_setup_settings">Settings</string>
-    <string name="main_setup_test">Test</string>
-    <string name="main_body"><Data>
+    <string name="voice_not_enabled_warning" translatable="false">Voice input is not available in this version.</string>
+    <string name="recorrect_warning" translatable="false">FYI: recorrection does not work correctly on pre-Gingerbread devices due to missing operating system support.</string>
+    <string name="no_market_warning" translatable="false">Unable to launch Play Store.</string>
+    <string name="main_setup_configure_imes" translatable="false">Enable keyboard</string>
+    <string name="main_setup_set_ime" translatable="false">Set input method</string>
+    <string name="main_setup_get_dicts" translatable="false">More</string>
+    <string name="main_setup_input_lang" translatable="false">Input languages</string>
+    <string name="main_setup_settings" translatable="false">Settings</string>
+    <string name="main_setup_test" translatable="false">Test</string>
+    <string name="main_body" translatable="false"><Data>
       <![CDATA["
         <h2>Enabling DevKey</h2>
 
@@ -655,11 +655,11 @@
         <p>Visit the DevKey project page for more information, user guides, and support.</p>
       "]]>
     </Data></string>
-    <string name="text_test">Test</string>
-    <string name="seek_pref_0">0%</string>
-    <string name="seek_pref_val">x%</string>
-    <string name="seek_pref_max">100%</string>
-    <string name="notification_channel_name">DevKey</string>
-    <string name="notification_channel_description">DevKey keyboard notifications</string>
-    <string name="notification_action_settings">Settings</string>
+    <string name="text_test" translatable="false">Test</string>
+    <string name="seek_pref_0" translatable="false">0%</string>
+    <string name="seek_pref_val" translatable="false">x%</string>
+    <string name="seek_pref_max" translatable="false">100%</string>
+    <string name="notification_channel_name" translatable="false">DevKey</string>
+    <string name="notification_channel_description" translatable="false">DevKey keyboard notifications</string>
+    <string name="notification_action_settings" translatable="false">Settings</string>
 </resources>

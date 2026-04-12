@@ -107,7 +107,6 @@ fun MacroManagerScreen(
 
     editingMacro?.let { macro ->
         MacroRenameDialog(
-            macro = macro,
             editName = editName,
             onNameChange = { editName = it },
             onConfirm = {

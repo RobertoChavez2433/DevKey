@@ -96,7 +96,6 @@ class DevKeySettingsActivity : ComponentActivity() {
                         database = database,
                         versionName = versionName,
                         showConflictDialog = showConflictDialog,
-                        pendingBackup = pendingBackup,
                         onStartExport = { startExport() },
                         onStartImport = { startImport() },
                         onConflictStrategy = { strategy ->

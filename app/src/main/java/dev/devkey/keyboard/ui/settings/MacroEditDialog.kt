@@ -14,7 +14,6 @@ import dev.devkey.keyboard.data.db.entity.MacroEntity
  */
 @Composable
 internal fun MacroRenameDialog(
-    macro: MacroEntity,
     editName: String,
     onNameChange: (String) -> Unit,
     onConfirm: () -> Unit,

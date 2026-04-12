@@ -18,6 +18,8 @@ style:
     active: false
   MaxLineLength:
     maxLineLength: 150
+  UnusedParameter:
+    allowedNames: "_.*"
   WildcardImport:
     active: false
   ReturnCount:

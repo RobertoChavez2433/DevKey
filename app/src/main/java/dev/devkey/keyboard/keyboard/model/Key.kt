@@ -150,7 +150,7 @@ open class Key {
     }
 
     fun onPressed() { pressed = true }
-    fun onReleased(inside: Boolean) { pressed = false }
+    fun onReleased(_inside: Boolean) { pressed = false }
 
     open fun isInside(x: Int, y: Int): Boolean {
         val leftEdge = edgeFlags and Keyboard.EDGE_LEFT > 0

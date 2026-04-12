@@ -74,7 +74,7 @@ class LocaleDragController(
     /**
      * Called when touch enters the space key region. Returns true if now locked in space.
      */
-    fun onTouchInSpace(adjustedX: Int, adjustedY: Int, isInsideSpace: Boolean): Boolean {
+    fun onTouchInSpace(adjustedX: Int, _adjustedY: Int, isInsideSpace: Boolean): Boolean {
         if (currentlyInSpace) {
             val diff = adjustedX - mSpaceDragStartX
             if (Math.abs(diff - spaceDragLastDiff) > 0) {

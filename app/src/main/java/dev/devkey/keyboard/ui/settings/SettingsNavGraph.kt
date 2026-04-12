@@ -2,7 +2,6 @@ package dev.devkey.keyboard.ui.settings
 
 import androidx.compose.runtime.Composable
 import dev.devkey.keyboard.data.db.DevKeyDatabase
-import dev.devkey.keyboard.data.export.DevKeyBackup
 import dev.devkey.keyboard.data.export.ImportManager
 import dev.devkey.keyboard.data.repository.SettingsRepository
 import dev.devkey.keyboard.feature.command.CommandModeRepository
@@ -35,7 +34,6 @@ internal fun SettingsNavGraph(
     database: DevKeyDatabase,
     versionName: String,
     showConflictDialog: Boolean,
-    pendingBackup: DevKeyBackup?,
     onStartExport: () -> Unit,
     onStartImport: () -> Unit,
     onConflictStrategy: (ImportManager.ConflictStrategy) -> Unit,

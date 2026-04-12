@@ -17,7 +17,7 @@ import dev.devkey.keyboard.ui.theme.DevKeyThemeColors
  * Utility/modifier keys use the SAME fill color as letter keys. All key types
  * collapse to (keyBg, keyText) except the active-state highlight on modifiers.
  */
-internal fun getKeyColors(key: KeyData): Pair<Color, Color> =
+internal fun getKeyColors(_key: KeyData): Pair<Color, Color> =
     DevKeyThemeColors.keyBg to DevKeyThemeColors.keyText
 
 /**

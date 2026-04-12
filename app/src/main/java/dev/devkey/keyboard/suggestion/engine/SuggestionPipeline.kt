@@ -55,7 +55,7 @@ internal class SuggestionPipeline(
     fun getSuggestions(
         view: View?,
         wordComposer: WordComposer,
-        includeTypedWordIfValid: Boolean,
+        _includeTypedWordIfValid: Boolean,
         prevWordForBigram: CharSequence?
     ): List<CharSequence> {
         val correctionMode = correctionModeProvider()

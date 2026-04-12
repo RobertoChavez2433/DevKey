@@ -125,7 +125,7 @@ internal class ImeLifecycleDelegate(
         return if (displayHeight > dimen || state.mFullscreenOverride) false else superResult
     }
 
-    fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean? {
+    fun onKeyDown(keyCode: Int, _event: KeyEvent): Boolean? {
         when (keyCode) {
             KeyEvent.KEYCODE_BACK -> { /* Compose keyboard handles back key internally */ }
             KeyEvent.KEYCODE_VOLUME_UP -> {
@@ -147,7 +147,7 @@ internal class ImeLifecycleDelegate(
         return if (handled) true else null
     }
 
-    fun dump(fd: FileDescriptor, fout: PrintWriter) {
+    fun dump(_fd: FileDescriptor, fout: PrintWriter) {
         state.dump(PrintWriterPrinter(fout), col.feedbackManager)
     }
 

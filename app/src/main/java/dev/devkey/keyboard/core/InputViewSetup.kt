@@ -35,7 +35,7 @@ internal class InputViewSetup(
 
     var commandModeDetector: CommandModeDetector? = null
 
-    fun onStartInputView(attribute: EditorInfo, restarting: Boolean) {
+    fun onStartInputView(attribute: EditorInfo, _restarting: Boolean) {
         keyboardSettings.editorPackageName = attribute.packageName
         keyboardSettings.editorFieldName = attribute.fieldName
         keyboardSettings.editorFieldId = attribute.fieldId

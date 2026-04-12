@@ -51,7 +51,7 @@ object TextEntryState {
 
     private var sState = State.UNKNOWN
 
-    fun newSession(context: Context) {
+    fun newSession(_context: Context) {
         sSessionCount++
         sAutoSuggestCount = 0
         sBackspaceCount = 0
@@ -90,11 +90,11 @@ object TextEntryState {
         }
     }
 
-    fun manualTyped(typedWord: CharSequence?) {
+    fun manualTyped(_typedWord: CharSequence?) {
         sState = State.START
     }
 
-    fun acceptedTyped(typedWord: CharSequence?) {
+    fun acceptedTyped(_typedWord: CharSequence?) {
         sWordNotInDictionaryCount++
         sState = State.PICKED_SUGGESTION
     }

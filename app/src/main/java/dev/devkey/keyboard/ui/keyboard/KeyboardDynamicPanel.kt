@@ -57,7 +57,7 @@ fun KeyboardDynamicPanel(
     pendingMacroSteps: List<MacroStep>,
     onRecordingStopped: (List<MacroStep>) -> Unit,
     onMacroNameDialogDismiss: () -> Unit,
-    inputMode: InputMode,
+    @Suppress("UnusedParameter") inputMode: InputMode,
     currentInputConnection: (() -> android.view.inputmethod.InputConnection?)? = null
 ) {
     val context = LocalContext.current

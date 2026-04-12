@@ -239,6 +239,26 @@ def main():
         "dev.devkey.keyboard.ENABLE_DEBUG_SERVER",
         {"url": _ime_url},
     )
+    # Warmup: wait for the debug_server_enabled event, then verify with a
+    # round-trip pref broadcast. Retries absorb post-install connection lag.
+    for attempt in range(5):
+        try:
+            driver.clear_logs()
+            driver.broadcast(
+                "dev.devkey.keyboard.SET_BOOL_PREF",
+                {"key": "devkey_show_toolbar", "value": True},
+            )
+            driver.wait_for("DevKey/IME", "bool_pref_set", timeout_ms=2000)
+            break  # pipeline warm
+        except Exception:
+            if attempt < 4:
+                time.sleep(2.0)
+                # Re-send enable in case the first one was dropped
+                driver.broadcast(
+                    "dev.devkey.keyboard.ENABLE_DEBUG_SERVER",
+                    {"url": _ime_url},
+                )
+    driver.clear_logs()
 
     # Run tests
     passed, failed, errors, skipped = run_tests(tests)

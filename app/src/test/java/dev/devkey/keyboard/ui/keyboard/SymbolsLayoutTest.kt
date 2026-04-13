@@ -69,30 +69,30 @@ class SymbolsLayoutTest {
     // --- Long-press mappings ---
 
     @Test
-    fun `dollar sign long-press maps to euro sign`() {
+    fun `dollar sign long-press maps to cent sign`() {
         val row = layout.rows[1]
         val dollarKey = row.keys.find { it.primaryLabel == "$" }
         assertNotNull(dollarKey)
-        assertEquals("\u20AC", dollarKey!!.longPressLabel)
-        assertEquals('\u20AC'.code, dollarKey.longPressCode)
+        assertEquals("\u00A2", dollarKey!!.longPressLabel)
+        assertEquals('\u00A2'.code, dollarKey.longPressCode)
     }
 
     @Test
-    fun `open paren long-press maps to less-than sign`() {
+    fun `open paren long-press maps to open bracket`() {
         val row = layout.rows[1]
         val openParenKey = row.keys.find { it.primaryLabel == "(" }
         assertNotNull(openParenKey)
-        assertEquals("<", openParenKey!!.longPressLabel)
-        assertEquals('<'.code, openParenKey.longPressCode)
+        assertEquals("[", openParenKey!!.longPressLabel)
+        assertEquals('['.code, openParenKey.longPressCode)
     }
 
     @Test
-    fun `close paren long-press maps to greater-than sign`() {
+    fun `close paren long-press maps to close bracket`() {
         val row = layout.rows[1]
         val closeParenKey = row.keys.find { it.primaryLabel == ")" }
         assertNotNull(closeParenKey)
-        assertEquals(">", closeParenKey!!.longPressLabel)
-        assertEquals('>'.code, closeParenKey.longPressCode)
+        assertEquals("]", closeParenKey!!.longPressLabel)
+        assertEquals(']'.code, closeParenKey.longPressCode)
     }
 
     @Test
@@ -178,11 +178,11 @@ class SymbolsLayoutTest {
     }
 
     @Test
-    fun `row 3 double-quote has smart quote long-press`() {
+    fun `row 3 double-quote has guillemet long-press`() {
         val key = layout.rows[2].keys.find { it.primaryLabel == "\"" }
         assertNotNull(key)
-        assertEquals("\u201C", key!!.longPressLabel)
-        assertEquals('\u201C'.code, key.longPressCode)
+        assertEquals("\u00AB", key!!.longPressLabel) // «
+        assertEquals('\u00AB'.code, key.longPressCode)
     }
 
     @Test

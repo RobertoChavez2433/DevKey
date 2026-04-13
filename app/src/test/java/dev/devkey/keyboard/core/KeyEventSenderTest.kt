@@ -1,14 +1,12 @@
 package dev.devkey.keyboard.core
 
 import android.view.KeyEvent
-import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
 import android.content.Context
 import dev.devkey.keyboard.data.repository.SettingsRepository
 import org.robolectric.RuntimeEnvironment
 import dev.devkey.keyboard.keyboard.model.Keyboard
 import dev.devkey.keyboard.core.modifier.ChordeTracker
-import dev.devkey.keyboard.ui.keyboard.KeyCodes
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -44,8 +42,6 @@ class KeyEventSenderTest {
     private var modMeta = false
     private var shiftMod = false
     private var shiftState = Keyboard.SHIFT_OFF
-    private var lastEditorInfo: EditorInfo? = null
-
     // Tracking for side effects
     private var commitTypedCalled = false
     private var lastSendKeyChar: Char? = null
@@ -83,8 +79,6 @@ class KeyEventSenderTest {
         modMeta = false
         shiftMod = false
         shiftState = Keyboard.SHIFT_OFF
-        lastEditorInfo = null
-
         commitTypedCalled = false
         lastSendKeyChar = null
         lastSendDownUpKeyEvents = null
@@ -137,12 +131,10 @@ class KeyEventSenderTest {
     }
 
     private fun createSender(
-        ic: InputConnection? = mockInputConnection,
-        editorInfo: EditorInfo? = lastEditorInfo
+        ic: InputConnection? = mockInputConnection
     ): KeyEventSender {
         return KeyEventSender(
             inputConnectionProvider = { ic },
-            editorInfoProvider = { editorInfo },
             modCtrlProvider = { modCtrl },
             modAltProvider = { modAlt },
             modMetaProvider = { modMeta },

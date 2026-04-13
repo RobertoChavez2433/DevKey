@@ -78,20 +78,20 @@ class KeyBoundsCalculatorTest {
     }
 
     @Test
-    fun `compact layout has 4 rows of bounds`() {
+    fun `compact layout has 5 rows of bounds`() {
         val bounds = computeCompact()
         val rowIndices = bounds.map { it.row }.toSet()
-        assertEquals(4, rowIndices.size)
+        assertEquals(5, rowIndices.size)
     }
 
     @Test
     fun `utility row is shorter than letter rows in full layout`() {
         val bounds = computeFull()
-        // Row 5 is utility, Row 1 is QWERTY (letter)
-        val utilityRowHeight = bounds.filter { it.row == 5 }.let { keys ->
+        // Row 0 is utility, Row 2 is QWERTY (letter)
+        val utilityRowHeight = bounds.filter { it.row == 0 }.let { keys ->
             if (keys.isEmpty()) 0f else keys[0].bottom - keys[0].top
         }
-        val letterRowHeight = bounds.filter { it.row == 1 }.let { keys ->
+        val letterRowHeight = bounds.filter { it.row == 2 }.let { keys ->
             if (keys.isEmpty()) 0f else keys[0].bottom - keys[0].top
         }
         assertTrue(
@@ -103,7 +103,7 @@ class KeyBoundsCalculatorTest {
     @Test
     fun `space bar is widest key in space row`() {
         val bounds = computeFull()
-        val spaceRowIndex = 4 // space row in full layout
+        val spaceRowIndex = 5 // space row in full layout (row 5)
         val spaceRowKeys = bounds.filter { it.row == spaceRowIndex }
         val spaceKey = spaceRowKeys.find { it.label == " " }
         requireNotNull(spaceKey) { "Space key not found in space row" }
@@ -144,7 +144,7 @@ class KeyBoundsCalculatorTest {
         assertTrue("z row not found", zRowIndex >= 0)
 
         val zRowBounds = bounds.filter { it.row == zRowIndex }
-        val shiftKey = zRowBounds.find { it.label == "Shift" }
+        val shiftKey = zRowBounds.find { it.label == "\u21E7" }
         val zKey = zRowBounds.find { it.label == "z" }
         requireNotNull(shiftKey) { "Shift key not found" }
         requireNotNull(zKey) { "z key not found" }
@@ -234,7 +234,7 @@ class KeyBoundsCalculatorTest {
     @Test
     fun `bottom row total width fills available space`() {
         val bounds = computeFull()
-        val spaceRowIndex = 4 // space row in full layout
+        val spaceRowIndex = 5 // space row in full layout (row 5)
         val spaceRowKeys = bounds.filter { it.row == spaceRowIndex }.sortedBy { it.left }
         val totalKeyWidth = spaceRowKeys.sumOf { (it.right - it.left).toDouble() }.toFloat()
         val totalGaps = keyGapPx * (spaceRowKeys.size - 1)

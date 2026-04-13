@@ -20,6 +20,7 @@ import argparse
 import importlib
 import inspect
 import os
+import pathlib
 import sys
 import time
 import traceback
@@ -50,45 +51,97 @@ except ImportError:  # pragma: no cover — exercised only when pytest is absent
 from typing import List, Tuple
 
 
-def discover_tests(test_filter: str = None) -> List[Tuple[str, callable]]:
+def discover_tests(
+    test_filter: str = None,
+    feature: str = None,
+) -> List[Tuple[str, callable]]:
     """
     Discover all test functions in the tests/ directory.
 
     Test functions must start with 'test_' and be in modules starting with 'test_'.
+    Discovers flat files (tests/test_*.py) first, then one-level subdirectories
+    (tests/*/test_*.py).
+
+    Args:
+        test_filter: Run a specific module or test (e.g. 'test_smoke' or
+                     'test_smoke.test_keyboard_visible'). Mutually exclusive
+                     with *feature*.
+        feature:     Restrict discovery to tests/<feature>/test_*.py.
+
     Returns list of (fully_qualified_name, function) tuples.
     """
-    tests_dir = os.path.join(os.path.dirname(__file__), "tests")
+    tests_dir = pathlib.Path(__file__).parent / "tests"
     tests = []
 
-    for filename in sorted(os.listdir(tests_dir)):
-        if not filename.startswith("test_") or not filename.endswith(".py"):
-            continue
+    # Build ordered list of (import_path, prefix, module_short_name, Path).
+    # prefix is "" for flat files, "subdir" for subdirectory files.
+    candidates: list[tuple[str, str, str, pathlib.Path]] = []
 
-        module_name = filename[:-3]  # strip .py
+    if feature:
+        # Only look inside the requested feature subdirectory.
+        for p in sorted(tests_dir.glob(f"{feature}/test_*.py")):
+            subdir = p.parent.name
+            module_name = p.stem
+            import_path = f"tests.{subdir}.{module_name}"
+            candidates.append((import_path, subdir, module_name, p))
+    else:
+        # 1. Flat files: tests/test_*.py
+        for p in sorted(tests_dir.glob("test_*.py")):
+            module_name = p.stem
+            import_path = f"tests.{module_name}"
+            candidates.append((import_path, "", module_name, p))
 
-        # If filter specifies a module, skip non-matching
+        # 2. Subdirectory files: tests/*/test_*.py
+        for p in sorted(tests_dir.glob("*/test_*.py")):
+            subdir = p.parent.name
+            module_name = p.stem
+            import_path = f"tests.{subdir}.{module_name}"
+            candidates.append((import_path, subdir, module_name, p))
+
+    for import_path, prefix, module_name, _ in candidates:
+        # --test filter: supports "test_smoke" (flat only), or
+        # "prediction.test_smoke" (subdirectory), or
+        # "test_smoke.test_func" / "prediction.test_smoke.test_func".
         if test_filter:
-            filter_parts = test_filter.split(".")
-            if filter_parts[0] != module_name:
-                continue
+            parts = test_filter.split(".")
+            if prefix:
+                # Subdirectory module: match "subdir.module" or "subdir.module.func"
+                if parts[0] == prefix:
+                    if len(parts) < 2 or parts[1] != module_name:
+                        continue
+                else:
+                    continue
+            else:
+                # Flat module: match "module" or "module.func"
+                if parts[0] != module_name:
+                    continue
 
         try:
-            module = importlib.import_module(f"tests.{module_name}")
+            module = importlib.import_module(import_path)
         except Exception as e:
-            print(f"  ERROR importing tests.{module_name}: {e}")
+            print(f"  ERROR importing {import_path}: {e}")
             continue
 
         for name, func in inspect.getmembers(module, inspect.isfunction):
             if not name.startswith("test_"):
                 continue
 
-            # If filter specifies a function, skip non-matching
-            if test_filter and "." in test_filter:
-                filter_func = test_filter.split(".", 1)[1]
-                if name != filter_func:
+            # Function-level filter
+            if test_filter:
+                parts = test_filter.split(".")
+                func_part = None
+                if prefix and len(parts) == 3:
+                    func_part = parts[2]
+                elif not prefix and len(parts) == 2:
+                    func_part = parts[1]
+                if func_part and name != func_part:
                     continue
 
-            qualified_name = f"{module_name}.{name}"
+            # Qualified name includes subdirectory prefix for disambiguation.
+            if prefix:
+                qualified_name = f"{prefix}.{module_name}.{name}"
+            else:
+                qualified_name = f"{module_name}.{name}"
             tests.append((qualified_name, func))
 
     return tests
@@ -178,9 +231,14 @@ def main():
     parser = argparse.ArgumentParser(
         description="DevKey E2E Test Runner"
     )
-    parser.add_argument(
+    filter_group = parser.add_mutually_exclusive_group()
+    filter_group.add_argument(
         "--test", "-t",
         help="Run specific test module or test (e.g., test_smoke or test_smoke.test_keyboard_visible)"
+    )
+    filter_group.add_argument(
+        "--feature", "-f",
+        help="Restrict discovery to tests/<feature>/test_*.py subdirectory"
     )
     parser.add_argument(
         "--device", "-d",
@@ -211,12 +269,14 @@ def main():
         sys.path.insert(0, e2e_dir)
 
     # Discover tests
-    tests = discover_tests(args.test)
+    tests = discover_tests(test_filter=args.test, feature=args.feature)
 
     if not tests:
         print("No tests found.")
         if args.test:
             print(f"  Filter '{args.test}' matched nothing.")
+        if args.feature:
+            print(f"  Feature '{args.feature}' matched nothing.")
         sys.exit(1)
 
     if args.list:

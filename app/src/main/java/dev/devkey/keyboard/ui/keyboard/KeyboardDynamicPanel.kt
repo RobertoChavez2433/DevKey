@@ -86,6 +86,7 @@ fun KeyboardDynamicPanel(
                     SessionDependencies.commitWord(result.word, coroutineScope)
                     SessionDependencies.composingWord.value = ""
                     SessionDependencies.pendingCorrection.value = null
+                    SessionDependencies.triggerNextSuggestions?.invoke()
                 },
                 onSuggestionLongPress = { result ->
                     val wordToAdd = SessionDependencies.composingWord.value.ifBlank { result.word }

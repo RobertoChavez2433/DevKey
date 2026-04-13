@@ -91,6 +91,7 @@ internal class ImeCollaboratorWiring(
         )
 
         SessionDependencies.resetPredictionState = { state.resetPrediction() }
+        SessionDependencies.triggerNextSuggestions = { col.suggestionCoordinator.setNextSuggestions() }
 
         col.inputHandlers = inputHandlers
         col.inputDispatcher = inputDispatcher

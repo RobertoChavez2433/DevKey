@@ -69,6 +69,14 @@ object SessionDependencies {
     var resetPredictionState: (() -> Unit)? = null
 
     /**
+     * Triggers next-word (bigram) suggestions after a word is committed from the
+     * Compose suggestion bar. Wired from ImeCollaboratorWiring to
+     * SuggestionCoordinator.setNextSuggestions().
+     */
+    @Volatile
+    var triggerNextSuggestions: (() -> Unit)? = null
+
+    /**
      * Canonical word-commit handler. ALL call sites that commit a word to the
      * learning engine MUST go through this method — no direct calls to
      * LearningEngine.onWordCommitted() elsewhere.

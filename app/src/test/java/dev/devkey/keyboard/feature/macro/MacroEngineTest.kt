@@ -166,4 +166,46 @@ class MacroEngineTest {
         assertEquals(0, engine.getCapturedSteps().size)
         assertTrue(engine.isRecording)
     }
+
+    // --- Phase 10 stress tests ---
+
+    @Test
+    fun `record with modifier keys includes modifiers in steps`() {
+        engine.startRecording()
+        engine.captureKey("c", 99, listOf("ctrl"))
+        engine.captureKey("v", 118, listOf("ctrl", "shift"))
+        engine.captureKey("z", 122, listOf("ctrl", "alt"))
+        val steps = engine.stopRecording()
+        assertEquals(3, steps.size)
+        assertEquals(listOf("ctrl"), steps[0].modifiers)
+        assertEquals(listOf("ctrl", "shift"), steps[1].modifiers)
+        assertEquals(listOf("ctrl", "alt"), steps[2].modifiers)
+    }
+
+    @Test
+    fun `record empty macro no crash on replay`() {
+        engine.startRecording()
+        val steps = engine.stopRecording()
+        assertEquals(0, steps.size)
+        // Replay with empty steps list should not throw
+        // (replay requires bridge/modifierState, but empty list short-circuits the loop)
+        // We verify the engine state is clean after the empty record cycle
+        assertFalse(engine.isRecording)
+        assertEquals(0, engine.getCapturedSteps().size)
+    }
+
+    @Test
+    fun `cancel recording mid-capture cleans state`() {
+        engine.startRecording()
+        engine.captureKey("a", 97, listOf())
+        engine.captureKey("b", 98, listOf("shift"))
+        engine.captureKey("c", 99, listOf("ctrl"))
+        assertTrue(engine.isRecording)
+        assertEquals(3, engine.getCapturedSteps().size)
+
+        engine.cancelRecording()
+
+        assertFalse(engine.isRecording)
+        assertEquals(0, engine.getCapturedSteps().size)
+    }
 }

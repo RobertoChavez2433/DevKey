@@ -166,4 +166,46 @@ class CommandModeDetectorTest {
         detector.detectSync("com.termux")
         assertEquals(InputMode.COMMAND, detector.inputMode.value)
     }
+
+    // --- Phase 11 stress tests ---
+
+    @Test
+    fun `detectSync terminal package returns command mode`() {
+        detector.detectSync("org.connectbot")
+        assertEquals(InputMode.COMMAND, detector.inputMode.value)
+        assertTrue(detector.isCommandMode())
+    }
+
+    @Test
+    fun `detectSync non-terminal package returns normal mode`() {
+        detector.detectSync("com.example.calculator")
+        assertEquals(InputMode.NORMAL, detector.inputMode.value)
+        assertFalse(detector.isCommandMode())
+    }
+
+    @Test
+    fun `toggleManualOverride flips state`() {
+        assertFalse(detector.isCommandMode())
+        detector.toggleManualOverride()
+        assertTrue(detector.isCommandMode())
+        assertEquals(InputMode.COMMAND, detector.inputMode.value)
+        detector.toggleManualOverride()
+        assertFalse(detector.isCommandMode())
+        assertEquals(InputMode.NORMAL, detector.inputMode.value)
+    }
+
+    @Test
+    fun `isCommandMode respects manual override over auto-detect`() = runTest {
+        // Auto-detect sets NORMAL for a non-terminal package
+        detector.detect("com.example.notes")
+        assertFalse(detector.isCommandMode())
+
+        // Manual override forces COMMAND regardless of package
+        detector.toggleManualOverride()
+        assertTrue(detector.isCommandMode())
+
+        // Re-detect same package — manual override still active (same package, no app switch)
+        detector.detect("com.example.notes")
+        assertTrue(detector.isCommandMode())
+    }
 }

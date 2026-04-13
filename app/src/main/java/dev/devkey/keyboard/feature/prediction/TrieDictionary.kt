@@ -1,6 +1,7 @@
 package dev.devkey.keyboard.feature.prediction
 
 import android.content.Context
+import androidx.annotation.VisibleForTesting
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.util.zip.GZIPInputStream
@@ -158,7 +159,8 @@ class TrieDictionary {
         return matches.take(maxResults)
     }
 
-    private fun editDistance(a: String, b: String): Int {
+    @VisibleForTesting
+    internal fun editDistance(a: String, b: String): Int {
         val m = a.length
         val n = b.length
         // Use single-row optimization for memory

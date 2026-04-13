@@ -136,6 +136,8 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.json)
     testImplementation(libs.robolectric)
+    testImplementation(libs.mockito.kotlin)
+    testImplementation(libs.mockito.inline)
 
     // Testing — Compose UI instrumented tests
     androidTestImplementation(platform(libs.compose.bom))

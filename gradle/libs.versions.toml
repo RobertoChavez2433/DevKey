@@ -22,6 +22,8 @@ compose-ui-test = "1.6.8"
 androidx-test-ext = "1.3.0"
 espresso = "3.7.0"
 detekt-compose-rules = "0.4.27"
+mockito-kotlin = "5.2.1"
+mockito-inline = "5.2.0"
 
 [libraries]
 # AndroidX
@@ -64,6 +66,8 @@ compose-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-mani
 androidx-test-ext-junit = { group = "androidx.test.ext", name = "junit", version.ref = "androidx-test-ext" }
 espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espresso" }
 detekt-compose-rules = { module = "io.nlopez.compose.rules:detekt", version.ref = "detekt-compose-rules" }
+mockito-kotlin = { module = "org.mockito.kotlin:mockito-kotlin", version.ref = "mockito-kotlin" }
+mockito-inline = { module = "org.mockito:mockito-inline", version.ref = "mockito-inline" }
 
 # Serialization
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }

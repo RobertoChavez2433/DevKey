@@ -169,8 +169,8 @@ internal class InputHandlers(
                         DevKeyLogger.text("autocorrect_applied", mapOf("action" to "applied", "level" to acEngine.aggressiveness.name.lowercase()))
                         TextEntryState.acceptedDefault(typedWord, result.correction)
                     } else if (result is AutocorrectResult.Suggestion) {
-                        SessionDependencies.pendingCorrection.value = result
                         commitTyped(ic, true)
+                        SessionDependencies.pendingCorrection.value = result
                         TextEntryState.acceptedDefault(typedWord, typedWord)
                     } else {
                         commitTyped(ic, true)

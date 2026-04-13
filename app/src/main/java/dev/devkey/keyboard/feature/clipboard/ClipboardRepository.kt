@@ -74,9 +74,9 @@ class ClipboardRepository(private val dao: ClipboardHistoryDao) {
     }
 
     /**
-     * Clears all clipboard history (including pinned items).
+     * Clears unpinned clipboard history. Pinned entries survive.
      */
     suspend fun clearAll() {
-        dao.deleteAll()
+        dao.deleteUnpinned()
     }
 }

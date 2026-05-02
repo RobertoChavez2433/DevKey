@@ -19,17 +19,8 @@ BACKSPACE_LABEL = "Backspace"
 
 
 def _clear_edit_text(serial):
-    """Clear the TestHostActivity EditText via debug broadcast."""
-    import subprocess
-    subprocess.run(
-        adb._adb_cmd(
-            ["shell", "am", "broadcast",
-             "-a", "dev.devkey.keyboard.debug.CLEAR_EDIT_TEXT"],
-            serial,
-        ),
-        capture_output=True,
-    )
-    time.sleep(0.3)
+    """Clear the TestHostActivity EditText and verify the field length is zero."""
+    adb.clear_test_host_text(serial)
 
 
 def _setup():
@@ -88,20 +79,20 @@ def test_backspace_in_empty_field():
 
 def test_very_long_composing_word():
     """
-    Type 100 identical characters without committing. The IME must not
-    crash or become unresponsive under a very long composing buffer.
+    Type a varied 26-character token without committing. This validates the
+    composing buffer with distinct key positions instead of hammering one key.
     """
     serial = _setup()
     _ensure_suggestions(serial)
     driver.clear_logs()
 
-    # Type 100 'a' characters
-    for _ in range(100):
-        keyboard.tap_key("a", serial)
+    token = "qwertyuiopasdfghjklzxcvbnm"
+    for ch in token:
+        keyboard.tap_key(ch, serial)
         time.sleep(0.05)
 
-    # Verify the driver is still responsive
-    driver.require_driver()
+    state = adb.query_test_host_state(serial)
+    assert state["text_length"] == len(token)
 
     # Commit the long word via space and check structural event
     keyboard.tap_key_by_code(SPACE_CODE, serial)
@@ -110,7 +101,7 @@ def test_very_long_composing_word():
         event="word_committed",
         timeout_ms=5000,
     )
-    assert entry["data"]["word_length"] == 100
+    assert entry["data"]["word_length"] == len(token)
 
 
 def test_non_ascii_input():

@@ -27,17 +27,8 @@ BACKSPACE_LABEL = "Backspace"
 
 
 def _clear_edit_text(serial):
-    """Clear the TestHostActivity EditText via debug broadcast."""
-    import subprocess
-    subprocess.run(
-        adb._adb_cmd(
-            ["shell", "am", "broadcast",
-             "-a", "dev.devkey.keyboard.debug.CLEAR_EDIT_TEXT"],
-            serial,
-        ),
-        capture_output=True,
-    )
-    time.sleep(0.3)
+    """Clear the TestHostActivity EditText and verify the field length is zero."""
+    adb.clear_test_host_text(serial)
 
 
 def _setup():
@@ -115,8 +106,8 @@ def test_state_cycle_type_accept_punctuate():
     keyboard.tap_key_by_code(SPACE_CODE, serial)
     time.sleep(0.2)
 
-    # Pipeline must be healthy after full cycle
-    driver.require_driver()
+    state = adb.query_test_host_state(serial)
+    assert state["text_length"] >= 5
 
 
 def test_state_cycle_type_and_undo():
@@ -205,5 +196,5 @@ def test_state_cycle_full_sentence():
     )
     assert entry["data"]["word_length"] == 3
 
-    # Pipeline healthy after full sentence
-    driver.require_driver()
+    state = adb.query_test_host_state(serial)
+    assert state["text_length"] >= 10

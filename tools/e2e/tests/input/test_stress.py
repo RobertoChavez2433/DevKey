@@ -31,17 +31,8 @@ _WORDS = [
 
 
 def _clear_edit_text(serial):
-    """Clear the TestHostActivity EditText via debug broadcast."""
-    import subprocess
-    subprocess.run(
-        adb._adb_cmd(
-            ["shell", "am", "broadcast",
-             "-a", "dev.devkey.keyboard.debug.CLEAR_EDIT_TEXT"],
-            serial,
-        ),
-        capture_output=True,
-    )
-    time.sleep(0.3)
+    """Clear the TestHostActivity EditText and verify the field length is zero."""
+    adb.clear_test_host_text(serial)
 
 
 def _setup():
@@ -102,8 +93,13 @@ def test_50_word_paragraph():
         keyboard.tap_key_by_code(SPACE_CODE, serial)
         time.sleep(0.05)
 
-    # Driver health check — must still be responsive
-    driver.require_driver()
+    state = adb.query_test_host_state(serial)
+    assert state["text_length"] >= len(_WORDS) * 2
+    log = driver.logcat_dump(["DevKey/TXT"])
+    committed_count = log.count("word_committed")
+    assert committed_count >= 45, (
+        f"Expected at least 45 committed-word events, got {committed_count}"
+    )
 
 
 def test_rapid_backspace_delete_all():
@@ -122,8 +118,13 @@ def test_rapid_backspace_delete_all():
         keyboard.tap_key(BACKSPACE_LABEL, serial)
         time.sleep(0.05)
 
-    # Driver must still be responsive
-    driver.require_driver()
+    state = adb.query_test_host_state(serial)
+    assert state["text_length"] == 0
+    log = driver.logcat_dump(["DevKey/TXT"])
+    backspace_count = log.count("backspace_handled")
+    assert backspace_count >= 20, (
+        f"Expected at least 20 backspace events, got {backspace_count}"
+    )
 
 
 def test_backspace_during_composing_vs_after_commit():
@@ -204,5 +205,10 @@ def test_mixed_separators_and_letters():
         keyboard.tap_key_by_code(sep_code, serial)
         time.sleep(0.05)
 
-    # Driver must still be responsive
-    driver.require_driver()
+    state = adb.query_test_host_state(serial)
+    assert state["text_length"] >= len(letters)
+    log = driver.logcat_dump(["DevKey/TXT"])
+    key_event_count = log.count("key_event")
+    assert key_event_count >= len(letters), (
+        f"Expected at least {len(letters)} key events, got {key_event_count}"
+    )

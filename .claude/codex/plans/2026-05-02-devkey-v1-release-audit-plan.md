@@ -64,6 +64,11 @@ Created: 2026-05-02
   - screenshot: `.claude/test-results/visual-baseline-20260502T150040Z.png`
   - keyboard crop contrast: `228`
   - keyboard crop stddev: `50.301`
+- [x] S21 input feature rerun under verified-state harness:
+  - result: 16 passed, 0 failed, 0 errors, 0 skipped
+  - JSON: `.claude/test-results/e2e-results-20260502T150911Z.json`
+  - all passing tests had verification evidence
+  - repeated-`a` composing stress was replaced with varied-key state checks
 - [x] S21 `--dump-inventory`
 - [x] S21 focused smoke under verified-state harness:
   - `test_smoke.test_tap_letter_produces_logcat`

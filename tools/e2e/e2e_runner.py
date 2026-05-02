@@ -537,10 +537,12 @@ def run_tests(tests: List[Tuple[str, callable]], retry_status: str = "not_retrie
     # See lib/adb.py::reset_test_host_state.
     try:
         from lib import adb as _adb_for_focus  # type: ignore
+        from lib import driver as _driver_for_logs  # type: ignore
         from lib import verify as _verify  # type: ignore
         _focus_serial = _adb_for_focus.get_device_serial()
     except Exception:
         _adb_for_focus = None
+        _driver_for_logs = None
         _verify = None
         _focus_serial = None
 
@@ -551,30 +553,13 @@ def run_tests(tests: List[Tuple[str, callable]], retry_status: str = "not_retrie
         verification_state: Dict[str, Any] = {"actions": [], "evidence": []}
         try:
             if _adb_for_focus is not None:
-                try:
-                    _adb_for_focus.reset_test_host_state(_focus_serial)
-                except Exception:
-                    # Never fail a test because the reset helper raised —
-                    # tests that need a focused keyboard will still assert on it.
-                    pass
-                try:
-                    _adb_for_focus.clear_logcat(_focus_serial)
-                except Exception:
-                    pass
+                _adb_for_focus.reset_test_host_state(_focus_serial)
+                _adb_for_focus.clear_logcat(_focus_serial)
+            if _driver_for_logs is not None:
+                _driver_for_logs.clear_logs()
             if _verify is not None:
                 _verify.begin(name)
             func()
-            if _verify is not None and _adb_for_focus is not None:
-                unresolved = _verify.unresolved_actions()
-                if any(action["kind"] in {
-                    "adb.tap",
-                    "adb.swipe",
-                    "driver.tap",
-                    "driver.swipe",
-                    "keyboard.tap_key",
-                    "keyboard.tap_key_by_code",
-                } for action in unresolved):
-                    _adb_for_focus.capture_logcat("DevKeyPress", timeout=0.3, serial=_focus_serial)
             if _verify is not None:
                 verification_state = _verify.assert_verified()
             elapsed = time.time() - start

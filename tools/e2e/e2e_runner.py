@@ -20,13 +20,11 @@ import argparse
 import importlib
 import inspect
 import json
-import multiprocessing as mp
 import os
 import pathlib
 import subprocess
 import sys
 import time
-import traceback
 from datetime import datetime, timezone
 
 # WHY: Windows console default encoding is cp1252 which cannot encode Unicode
@@ -37,22 +35,9 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
-# WHY: pytest.skip() raises _pytest.outcomes.Skipped which subclasses
-#      BaseException (verified on pytest 9.0.2 during tailor 2026-04-09),
-#      NOT Exception. Without an explicit handler the whole runner loop
-#      crashes on the first test that hits a skip branch.
-# FROM SPEC: Phase 3 gate depends on graceful-skip handling in
-#            test_voice.py, test_visual_diff.py, test_long_press.py,
-#            test_clipboard.py, test_macros.py, test_command_mode.py,
-#            test_plugins.py, test_modifier_combos.py.
-# IMPORTANT: Import is lazy-guarded so the harness keeps running even on
-#            a host where pytest is missing — prints a deprecation warning
-#            instead of crashing.
-try:
-    from _pytest.outcomes import Skipped as _PytestSkipped
-except ImportError:  # pragma: no cover — exercised only when pytest is absent
-    _PytestSkipped = None
 from typing import Any, Dict, List, Optional, Tuple
+
+from lib.executor import run_test_with_timeout
 
 LOCKED_FULL_SUITE_COUNT = 178
 PROJECT_ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -338,210 +323,6 @@ def run_preflight(serial: Optional[str]) -> Dict[str, Any]:
     }
 
 
-def _failure_category(error_type: str, message: str) -> str:
-    text = f"{error_type} {message}".lower()
-    if "drivertimeout" in text or "timeout" in text:
-        return "timeout"
-    if "keyerror" in text or "key map" in text or "not found in key map" in text:
-        return "key_map"
-    if "driver" in text:
-        return "driver"
-    if error_type == "AssertionError":
-        return "assertion"
-    if error_type == "Skipped":
-        return "skipped"
-    return "exception"
-
-
-def _serialize_error(e: BaseException) -> Tuple[str, str, str]:
-    error_type = "Skipped" if (_PytestSkipped is not None and isinstance(e, _PytestSkipped)) else type(e).__name__
-    message = getattr(e, "msg", None) or (str(e) if str(e) else "")
-    return error_type, message, _failure_category(error_type, message)
-
-
-def _execute_test_inline(name: str, func: callable, retry_status: str) -> Dict[str, Any]:
-    """
-    Execute one test and return its result payload.
-
-    This runs inside the per-test child process. Keeping the reset, log clear,
-    verification begin/end, and exception serialization here lets the parent
-    enforce a hard timeout without losing normal failure details.
-    """
-    try:
-        from lib import adb as _adb_for_focus  # type: ignore
-        from lib import driver as _driver_for_logs  # type: ignore
-        from lib import verify as _verify  # type: ignore
-        _focus_serial = _adb_for_focus.get_device_serial()
-    except Exception:
-        _adb_for_focus = None
-        _driver_for_logs = None
-        _verify = None
-        _focus_serial = None
-
-    start = time.time()
-    verification_state: Dict[str, Any] = {"actions": [], "evidence": []}
-    try:
-        if _adb_for_focus is not None:
-            _adb_for_focus.reset_test_host_state(_focus_serial)
-            _adb_for_focus.clear_logcat(_focus_serial)
-        if _driver_for_logs is not None:
-            _driver_for_logs.clear_logs()
-        if _verify is not None:
-            _verify.begin(name)
-        func()
-        if _verify is not None:
-            verification_state = _verify.assert_verified()
-        elapsed = time.time() - start
-        result = {
-            "name": name,
-            "status": "PASS",
-            "duration_seconds": round(elapsed, 3),
-            "retry_status": retry_status,
-            "verification": _verify.summarize(verification_state) if _verify is not None else {},
-        }
-    except AssertionError as e:
-        elapsed = time.time() - start
-        if _verify is not None:
-            verification_state = _verify.end()
-        error_type, message, category = _serialize_error(e)
-        result = {
-            "name": name,
-            "status": "FAIL",
-            "duration_seconds": round(elapsed, 3),
-            "error_type": error_type,
-            "error": message,
-            "failure_category": category,
-            "retry_status": retry_status,
-            "verification": _verify.summarize(verification_state) if _verify is not None else {},
-        }
-    except BaseException as e:
-        if isinstance(e, (KeyboardInterrupt, SystemExit)):
-            raise
-        elapsed = time.time() - start
-        if _PytestSkipped is not None and isinstance(e, _PytestSkipped):
-            if _verify is not None:
-                verification_state = _verify.end()
-            reason = getattr(e, "msg", None) or (e.args[0] if e.args else "")
-            result = {
-                "name": name,
-                "status": "SKIP",
-                "duration_seconds": round(elapsed, 3),
-                "reason": reason,
-                "failure_category": "skipped",
-                "retry_status": retry_status,
-                "verification": _verify.summarize(verification_state) if _verify is not None else {},
-            }
-        else:
-            if os.environ.get("DEVKEY_E2E_VERBOSE"):
-                traceback.print_exc()
-            if _verify is not None:
-                verification_state = _verify.end()
-            error_type, message, category = _serialize_error(e)
-            result = {
-                "name": name,
-                "status": "ERROR",
-                "duration_seconds": round(elapsed, 3),
-                "error_type": error_type,
-                "error": message,
-                "failure_category": category,
-                "retry_status": retry_status,
-                "verification": _verify.summarize(verification_state) if _verify is not None else {},
-            }
-    else:
-        if _verify is not None:
-            _verify.end()
-    return result
-
-
-def _test_process_entry(
-    qualified_name: str,
-    module_name: str,
-    function_name: str,
-    retry_status: str,
-    queue: Any,
-) -> None:
-    module = importlib.import_module(module_name)
-    func = getattr(module, function_name)
-    queue.put(_execute_test_inline(qualified_name, func, retry_status))
-
-
-def _timeout_result(name: str, retry_status: str, timeout_seconds: float) -> Dict[str, Any]:
-    return {
-        "name": name,
-        "status": "ERROR",
-        "duration_seconds": round(timeout_seconds, 3),
-        "error_type": "TestTimeout",
-        "error": f"test exceeded hard timeout of {timeout_seconds:g}s",
-        "failure_category": "timeout",
-        "retry_status": retry_status,
-        "verification": {"verified": False, "evidence_count": 0, "action_count": 0, "evidence": []},
-    }
-
-
-def _child_exit_result(name: str, retry_status: str, exitcode: Optional[int], elapsed: float) -> Dict[str, Any]:
-    return {
-        "name": name,
-        "status": "ERROR",
-        "duration_seconds": round(elapsed, 3),
-        "error_type": "ChildProcessError",
-        "error": f"test child exited without a result; exitcode={exitcode}",
-        "failure_category": "exception",
-        "retry_status": retry_status,
-        "verification": {"verified": False, "evidence_count": 0, "action_count": 0, "evidence": []},
-    }
-
-
-def _recover_after_timeout() -> None:
-    try:
-        from lib import adb, driver  # type: ignore
-        serial = adb.get_device_serial()
-        try:
-            driver.clear_logs()
-        except Exception:
-            pass
-        try:
-            adb.reset_test_host_state(serial)
-        except Exception:
-            pass
-    except Exception:
-        pass
-
-
-def _run_test_with_timeout(
-    name: str,
-    func: callable,
-    retry_status: str,
-    timeout_seconds: float,
-) -> Dict[str, Any]:
-    if timeout_seconds <= 0:
-        return _execute_test_inline(name, func, retry_status)
-
-    ctx = mp.get_context("spawn")
-    queue = ctx.Queue(maxsize=1)
-    process = ctx.Process(
-        target=_test_process_entry,
-        args=(name, func.__module__, func.__name__, retry_status, queue),
-        daemon=True,
-    )
-    start = time.time()
-    process.start()
-    process.join(timeout_seconds)
-    if process.is_alive():
-        process.terminate()
-        process.join(5)
-        if process.is_alive():
-            process.kill()
-            process.join(5)
-        _recover_after_timeout()
-        return _timeout_result(name, retry_status, timeout_seconds)
-
-    elapsed = time.time() - start
-    try:
-        return queue.get_nowait()
-    except Exception:
-        return _child_exit_result(name, retry_status, process.exitcode, elapsed)
-
-
 def _load_failed_names(results_file: str) -> List[str]:
     with open(results_file, "r", encoding="utf-8") as fh:
         data = json.load(fh)
@@ -725,7 +506,7 @@ def run_tests(
 
     for i, (name, func) in enumerate(tests, 1):
         print(f"  [{i}/{total}] {name} ... ", end="", flush=True)
-        result = _run_test_with_timeout(
+        result = run_test_with_timeout(
             name,
             func,
             retry_status,

@@ -347,6 +347,43 @@ def _write_results(payload: Dict[str, Any], explicit_path: Optional[str] = None)
     return path
 
 
+def _write_inventory(payload: Dict[str, Any], explicit_path: Optional[str] = None) -> pathlib.Path:
+    if explicit_path:
+        path = pathlib.Path(explicit_path)
+    else:
+        DEFAULT_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        path = DEFAULT_RESULTS_DIR / f"key-inventory-{stamp}.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    return path
+
+
+def _enable_debug_forwarding(driver_module: Any) -> None:
+    _driver_url = os.environ.get("DEVKEY_DRIVER_URL", "http://127.0.0.1:3950")
+    _ime_url = _driver_url.replace("127.0.0.1", "10.0.2.2").replace("localhost", "10.0.2.2")
+    driver_module.broadcast(
+        "dev.devkey.keyboard.ENABLE_DEBUG_SERVER",
+        {"url": _ime_url},
+    )
+
+
+def generate_inventory_payload(serial: Optional[str], preflight: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    from lib import keyboard
+
+    started_at = datetime.now(timezone.utc)
+    inventory = keyboard.generate_canonical_inventory(serial)
+    ended_at = datetime.now(timezone.utc)
+    inventory.update({
+        "started_at": started_at.isoformat(),
+        "ended_at": ended_at.isoformat(),
+        "duration_seconds": round((ended_at - started_at).total_seconds(), 3),
+        "device": _device_metadata(serial),
+        "preflight": preflight,
+    })
+    return inventory
+
+
 def run_tests(tests: List[Tuple[str, callable]], retry_status: str = "not_retried") -> Tuple[int, int, int, int, List[Dict[str, Any]]]:
     """
     Run all discovered tests and print results.
@@ -515,6 +552,15 @@ def main():
         help="Path for JSON results output (default: .claude/test-results/e2e-results-<timestamp>.json)"
     )
     parser.add_argument(
+        "--dump-inventory",
+        action="store_true",
+        help="Generate canonical key/button inventory JSON for every layout and layer, then exit"
+    )
+    parser.add_argument(
+        "--inventory-file",
+        help="Path for inventory JSON output (default: .claude/test-results/key-inventory-<timestamp>.json)"
+    )
+    parser.add_argument(
         "--allow-count-drift",
         action="store_true",
         help=f"Allow --suite all discovery to differ from locked count {LOCKED_FULL_SUITE_COUNT}"
@@ -546,6 +592,23 @@ def main():
         preflight = run_preflight(serial)
         print(json.dumps(preflight, indent=2, sort_keys=True))
         sys.exit(0 if preflight.get("ok") else 1)
+
+    if args.dump_inventory:
+        from lib import driver
+
+        driver.require_driver()
+        _enable_debug_forwarding(driver)
+        preflight = None
+        if not args.no_preflight:
+            preflight = run_preflight(serial)
+            if not preflight.get("ok"):
+                print(json.dumps(preflight, indent=2, sort_keys=True))
+                print("Preflight failed; aborting inventory dump.")
+                sys.exit(1)
+        payload = generate_inventory_payload(serial, preflight)
+        inventory_path = _write_inventory(payload, args.inventory_file)
+        print(f"Inventory JSON: {inventory_path}")
+        sys.exit(0)
 
     # Discover tests
     tests = discover_tests(test_filter=args.test, feature=args.feature, suite=args.suite)
@@ -592,12 +655,7 @@ def main():
     # WHY: The host-side driver URL (e.g. http://127.0.0.1:3950) is NOT reachable
     #      from inside the emulator. Android emulator uses 10.0.2.2 to reach the
     #      host's loopback. Translate automatically so callers don't need two vars.
-    _driver_url = os.environ.get("DEVKEY_DRIVER_URL", "http://127.0.0.1:3950")
-    _ime_url = _driver_url.replace("127.0.0.1", "10.0.2.2").replace("localhost", "10.0.2.2")
-    driver.broadcast(
-        "dev.devkey.keyboard.ENABLE_DEBUG_SERVER",
-        {"url": _ime_url},
-    )
+    _enable_debug_forwarding(driver)
     # Warmup: wait for the debug_server_enabled event, then verify with a
     # round-trip pref broadcast. Retries absorb post-install connection lag.
     for attempt in range(5):
@@ -613,10 +671,7 @@ def main():
             if attempt < 4:
                 time.sleep(2.0)
                 # Re-send enable in case the first one was dropped
-                driver.broadcast(
-                    "dev.devkey.keyboard.ENABLE_DEBUG_SERVER",
-                    {"url": _ime_url},
-                )
+                _enable_debug_forwarding(driver)
     driver.clear_logs()
 
     preflight = None

@@ -39,6 +39,9 @@ python e2e_runner.py --preflight
 # Re-run failures from a prior JSON result
 python e2e_runner.py --rerun-failed .claude/test-results/e2e-results-YYYYMMDDTHHMMSSZ.json
 
+# Generate canonical key/button inventory JSON
+python e2e_runner.py --dump-inventory
+
 # Target a specific device
 python e2e_runner.py --device emulator-5554
 
@@ -58,6 +61,11 @@ python e2e_runner.py --verbose
    server, audio permission, key map, voice assets, and reset strategy before
    executing. Each run writes privacy-safe JSON results under
    `.claude/test-results/` unless `--results-file` is provided.
+
+5. **Key Inventory**: `--dump-inventory` writes a privacy-safe JSON artifact
+   with visible key labels, keycodes, coordinates, and counts for the full,
+   compact, compact_dev, and symbols-layer layouts. It records structure only,
+   not typed text, transcripts, or clipboard contents.
 
 The locked full-suite discovery count is 178 tests for `--suite all`.
 Use `--suite features` or `--suite legacy-flat` when you need one side of the

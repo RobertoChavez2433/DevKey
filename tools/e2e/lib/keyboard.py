@@ -8,7 +8,7 @@ key tap operations.
 import json
 import re
 import time
-from typing import Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from . import adb
 
@@ -21,6 +21,10 @@ _key_map: Dict[str, Tuple[int, int]] = {}
 # symbols mode (ABC return, 123 toggle) need ABC (-200) and other symbol-only
 # keys that don't exist in the normal QWERTY dump.
 _symbols_key_map: Dict[str, Tuple[int, int]] = {}
+
+# Canonical inventory from the last key-map dump. Unlike the lookup maps above,
+# this preserves every visible key record with layer, code, and coordinates.
+_key_inventory: List[Dict[str, Any]] = []
 
 # Y-offset calibration value
 _y_offset: int = 0
@@ -62,9 +66,10 @@ def load_key_map(serial: Optional[str] = None) -> Dict[str, Tuple[int, int]]:
 
     # Parse format: "KEY label=<label> code=<code> x=<x> y=<y>"
     #            or "SYM_KEY label=<label> code=<code> x=<x> y=<y>" for symbols layer
-    global _symbols_key_map
+    global _symbols_key_map, _key_inventory
     key_map: Dict[str, Tuple[int, int]] = {}
     symbols_map: Dict[str, Tuple[int, int]] = {}
+    inventory: List[Dict[str, Any]] = []
     pattern = re.compile(r"(SYM_KEY|KEY) label=(\S+) code=(-?\d+) x=(\d+) y=(\d+)")
     for line in lines:
         m = pattern.search(line)
@@ -77,10 +82,64 @@ def load_key_map(serial: Optional[str] = None) -> Dict[str, Tuple[int, int]]:
             target = symbols_map if kind == "SYM_KEY" else key_map
             target[label] = (x, y)
             target[f"code_{code}"] = (x, y)
+            inventory.append({
+                "layer": "symbols" if kind == "SYM_KEY" else "normal",
+                "label": label,
+                "code": code,
+                "x": x,
+                "y": y,
+                "lookup_keys": [label, f"code_{code}"],
+            })
 
     _key_map = key_map
     _symbols_key_map = symbols_map
+    _key_inventory = inventory
     return key_map
+
+
+def get_key_inventory() -> List[Dict[str, Any]]:
+    """Return visible key records from the most recent key-map dump."""
+    return list(_key_inventory)
+
+
+def generate_canonical_inventory(
+    serial: Optional[str] = None,
+    layout_modes: Tuple[str, ...] = ("full", "compact", "compact_dev"),
+) -> Dict[str, Any]:
+    """
+    Generate a structural inventory for every layout mode and key layer.
+
+    The inventory is privacy-safe: labels, keycodes, coordinates, and counts
+    only. It contains no typed output, clipboard data, or transcript content.
+    """
+    layouts = []
+    for mode in layout_modes:
+        set_layout_mode(mode, serial)
+        records = get_key_inventory()
+        normal = [record for record in records if record["layer"] == "normal"]
+        symbols = [record for record in records if record["layer"] == "symbols"]
+        layouts.append({
+            "layout": mode,
+            "counts": {
+                "normal": len(normal),
+                "symbols": len(symbols),
+                "total": len(records),
+            },
+            "layers": {
+                "normal": normal,
+                "symbols": symbols,
+            },
+        })
+
+    return {
+        "schema_version": 1,
+        "layouts": layouts,
+        "privacy": {
+            "typed_text_logged": False,
+            "transcripts_logged": False,
+            "clipboard_logged": False,
+        },
+    }
 
 
 def get_symbols_key_map() -> Dict[str, Tuple[int, int]]:
@@ -121,9 +180,10 @@ def clear_key_map_cache() -> None:
          a key map whose coordinates belong to the previous layout, causing
          taps to miss and tests to error with "key code not found".
     """
-    global _key_map, _symbols_key_map, _y_offset
+    global _key_map, _symbols_key_map, _key_inventory, _y_offset
     _key_map = {}
     _symbols_key_map = {}
+    _key_inventory = []
     _y_offset = 0
 
 

@@ -8,9 +8,8 @@ on emulator — tests skip gracefully when voice hardware is unavailable.
 import os
 import time
 
-import pytest
-
-from lib import adb, keyboard, driver, audio
+from lib import adb, keyboard, driver
+from tests.voice_common import process_voice_fixture
 
 
 def _setup_voice():
@@ -90,55 +89,20 @@ def test_file_based_back_to_back():
     Skips if the voice fixture is not available.
     """
     serial = _setup_voice()
-    fixture = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)),
-        "..", "..", "fixtures", "voice-complex.wav"
-    )
-    if not os.path.exists(fixture):
-        pytest.skip("voice-complex.wav fixture not found — skipping file-based stress test")
-
-    import subprocess
-    subprocess.run(
-        ["adb", "-s", serial, "push", fixture, "/data/local/tmp/voice-complex.wav"],
-        check=True, capture_output=True
-    )
-    subprocess.run(
-        ["adb", "-s", serial, "shell", "run-as", "dev.devkey.keyboard",
-         "cp", "/data/local/tmp/voice-complex.wav",
-         "/data/data/dev.devkey.keyboard/files/voice-complex.wav"],
-        check=True, capture_output=True
-    )
 
     for _ in range(2):
-        driver.clear_logs()
-        driver.broadcast(
-            "dev.devkey.keyboard.VOICE_PROCESS_FILE",
-            {"file_path": "/data/data/dev.devkey.keyboard/files/voice-complex.wav"},
-        )
-        driver.wait_for("DevKey/VOX", "state_transition",
-                        match={"state": "PROCESSING"}, timeout_ms=5000)
-        driver.wait_for("DevKey/VOX", "state_transition",
-                        match={"state": "IDLE"}, timeout_ms=60000)
+        process_voice_fixture(serial, "voice-complex.wav")
 
 
 def test_audio_inject_rapid_cycle():
     """
-    Inject audio sample 3 times rapidly with voice mode active.
-
-    Skips if audio injection is not available on the emulator.
+    Inject a device-local voice fixture 3 times with voice mode active.
     """
     serial = _setup_voice()
 
-    if not audio.is_emulator(serial):
-        pytest.skip("audio injection requires an emulator")
-    if not audio.inject_sample():
-        pytest.skip("audio sample not available or no host audio player found")
-
     for _ in range(3):
         _enter_voice_mode(serial)
-        # Wait briefly for audio to be captured
-        time.sleep(0.5)
-        _exit_voice_mode()
+        process_voice_fixture(serial, "voice-hello.wav", expect_commit=True)
 
 
 def test_start_stop_interleaved_with_typing():

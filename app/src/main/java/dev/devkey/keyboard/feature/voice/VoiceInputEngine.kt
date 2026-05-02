@@ -174,7 +174,17 @@ class VoiceInputEngine(private val context: Context) {
      * @return true when capture starts, false when permission or capture setup blocks it.
      */
     suspend fun startListening(): Boolean {
-        if (_state.value == VoiceState.LISTENING) return true
+        if (_state.value == VoiceState.LISTENING) {
+            DevKeyLogger.voice(
+                "state_transition",
+                mapOf(
+                    "state" to "LISTENING",
+                    "source" to "startListening",
+                    "reason" to "already_listening"
+                )
+            )
+            return true
+        }
 
         if (!captureManager.hasPermission()) {
             Log.w(TAG, "RECORD_AUDIO permission not granted")
@@ -308,6 +318,13 @@ class VoiceInputEngine(private val context: Context) {
     fun shouldCommitTranscription(text: String): Boolean =
         text.isNotBlank() && !text.startsWith("[")
 
+    fun commitTranscriptionForTest(text: String): Boolean {
+        if (!shouldCommitTranscription(text)) return false
+        val listener = transcriptionListener ?: return false
+        listener(text)
+        return true
+    }
+
     /**
      * Process a WAV file directly for testing — bypasses AudioRecord entirely.
      *
@@ -319,6 +336,13 @@ class VoiceInputEngine(private val context: Context) {
      */
     suspend fun processFileForTest(filePath: String): String {
         if (interpreter == null) initialize()
+        if (captureManager.isCapturing()) {
+            captureManager.cancel()
+            DevKeyLogger.voice(
+                "capture_released_for_file",
+                mapOf("source" to "processFileForTest")
+            )
+        }
         _state.value = VoiceState.PROCESSING
         DevKeyLogger.voice("state_transition", mapOf("state" to "PROCESSING", "source" to "processFileForTest"))
 

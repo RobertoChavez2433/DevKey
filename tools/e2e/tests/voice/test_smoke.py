@@ -12,11 +12,9 @@ Strategy:
   - Cancel via RESET_KEYBOARD_MODE.
 """
 import os
-import subprocess
 
-import pytest
-
-from lib import adb, keyboard, driver, audio
+from lib import adb, keyboard, driver
+from tests.voice_common import process_voice_fixture
 
 
 def _setup_voice():
@@ -66,29 +64,17 @@ def test_voice_cancel_returns_to_idle():
 
 def test_voice_round_trip_committed_text():
     """
-    Full round-trip: activate voice -> inject audio -> silence-detect -> processing -> commit.
-
-    SKIP if audio injection is unavailable or Whisper model is missing.
+    S21 round-trip: activate capture, inject fixture through Whisper, commit text.
     """
     serial = _setup_voice()
     _enter_voice_mode(serial)
 
-    if not audio.is_emulator(serial):
-        pytest.skip("audio injection requires an emulator")
-    if not audio.inject_sample():
-        pytest.skip("audio sample not available or no host audio player found")
-
-    driver.wait_for("DevKey/VOX", "state_transition",
-                    match={"state": "PROCESSING"}, timeout_ms=10000)
-
-    try:
-        driver.wait_for("DevKey/VOX", "state_transition",
-                        match={"state": "IDLE"},
-                        timeout_ms=20000)
-    except driver.DriverTimeout:
-        driver.broadcast("dev.devkey.keyboard.RESET_KEYBOARD_MODE", {})
-        driver.wait_for("DevKey/VOX", "state_transition",
-                        match={"state": "IDLE"}, timeout_ms=5000)
+    process_voice_fixture(
+        serial,
+        "voice-hello.wav",
+        expect_commit=True,
+        clear_logs=True,
+    )
 
 
 def test_voice_file_based_inference():
@@ -98,39 +84,4 @@ def test_voice_file_based_inference():
     """
     serial = _setup_voice()
 
-    fixture = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)),
-        "..", "..", "fixtures", "voice-complex.wav"
-    )
-    if not os.path.exists(fixture):
-        pytest.skip("voice-complex.wav fixture not found")
-
-    subprocess.run(
-        ["adb", "-s", serial, "push", fixture, "/data/local/tmp/voice-complex.wav"],
-        check=True, capture_output=True
-    )
-    subprocess.run(
-        ["adb", "-s", serial, "shell", "run-as", "dev.devkey.keyboard",
-         "cp", "/data/local/tmp/voice-complex.wav",
-         "/data/data/dev.devkey.keyboard/files/voice-complex.wav"],
-        check=True, capture_output=True
-    )
-
-    driver.clear_logs()
-    driver.broadcast(
-        "dev.devkey.keyboard.VOICE_PROCESS_FILE",
-        {"file_path": "/data/data/dev.devkey.keyboard/files/voice-complex.wav"},
-    )
-
-    driver.wait_for("DevKey/VOX", "state_transition",
-                    match={"state": "PROCESSING"}, timeout_ms=5000)
-
-    driver.wait_for("DevKey/VOX", "state_transition",
-                    match={"state": "IDLE"}, timeout_ms=60000)
-
-    result = driver.wait_for("DevKey/VOX", "process_file_result",
-                             timeout_ms=5000)
-    data = result.get("data", {})
-    assert data.get("length", 0) > 0, (
-        f"Expected non-empty transcription but got length={data.get('length')}"
-    )
+    process_voice_fixture(serial, "voice-complex.wav")

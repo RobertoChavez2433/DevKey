@@ -112,6 +112,7 @@ def discover_tests(
                 import_path = f"tests.{subdir}.{module_name}"
                 candidates.append((import_path, subdir, module_name, p))
 
+    import_errors: list[str] = []
     for import_path, prefix, module_name, _ in candidates:
         # --test filter: supports "test_smoke" (flat only), or
         # "prediction.test_smoke" (subdirectory), or
@@ -134,6 +135,7 @@ def discover_tests(
             module = importlib.import_module(import_path)
         except Exception as e:
             print(f"  ERROR importing {import_path}: {e}")
+            import_errors.append(f"{import_path}: {e}")
             continue
 
         for name, func in inspect.getmembers(module, inspect.isfunction):
@@ -157,6 +159,12 @@ def discover_tests(
             else:
                 qualified_name = f"{module_name}.{name}"
             tests.append((qualified_name, func))
+
+    if import_errors:
+        raise RuntimeError(
+            "E2E test discovery failed because one or more test modules did "
+            "not import: " + "; ".join(import_errors)
+        )
 
     return tests
 

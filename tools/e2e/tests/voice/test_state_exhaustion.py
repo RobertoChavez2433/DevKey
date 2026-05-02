@@ -15,18 +15,12 @@ Depends on:
   - HTTP forwarding enabled
 """
 import os
-import subprocess
 import time
 
-import pytest
-
-from lib import adb, keyboard, driver, audio
+from lib import adb, keyboard, driver
+from tests.voice_common import process_voice_fixture
 
 SPACE_CODE = 32
-FIXTURE_DIR = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)),
-    "..", "..", "fixtures"
-)
 
 
 def _setup_voice():
@@ -66,23 +60,6 @@ def _exit_voice_mode():
         "DevKey/VOX", "state_transition",
         match={"state": "IDLE"},
         timeout_ms=5000,
-    )
-
-
-def _push_fixture(serial, fixture_name):
-    """Push a voice fixture to the app's private storage."""
-    fixture = os.path.join(FIXTURE_DIR, fixture_name)
-    if not os.path.exists(fixture):
-        pytest.skip(f"{fixture_name} fixture not found")
-    subprocess.run(
-        ["adb", "-s", serial, "push", fixture, f"/data/local/tmp/{fixture_name}"],
-        check=True, capture_output=True
-    )
-    subprocess.run(
-        ["adb", "-s", serial, "shell", "run-as", "dev.devkey.keyboard",
-         "cp", f"/data/local/tmp/{fixture_name}",
-         f"/data/data/dev.devkey.keyboard/files/{fixture_name}"],
-        check=True, capture_output=True
     )
 
 
@@ -171,24 +148,11 @@ def test_file_inference_during_listening():
     or queue cleanly.
     """
     serial = _setup_voice()
-    _push_fixture(serial, "voice-complex.wav")
 
     _enter_voice_mode(serial)
 
-    # Trigger file-based inference while in LISTENING
-    driver.clear_logs()
-    driver.broadcast(
-        "dev.devkey.keyboard.VOICE_PROCESS_FILE",
-        {"file_path": "/data/data/dev.devkey.keyboard/files/voice-complex.wav"},
-    )
-
-    # Wait for processing to start
-    driver.wait_for("DevKey/VOX", "state_transition",
-                    match={"state": "PROCESSING"}, timeout_ms=10000)
-
-    # Wait for inference to complete
-    driver.wait_for("DevKey/VOX", "state_transition",
-                    match={"state": "IDLE"}, timeout_ms=60000)
+    # Trigger file-based inference while in LISTENING.
+    process_voice_fixture(serial, "voice-complex.wav")
 
     # Pipeline must be healthy
     driver.require_driver()
@@ -203,23 +167,9 @@ def test_file_inference_three_fixtures():
     serial = _setup_voice()
     fixtures = ["voice-hello.wav", "voice-complex.wav", "voice-extended.wav"]
 
-    for fixture_name in fixtures:
-        fixture_path = os.path.join(FIXTURE_DIR, fixture_name)
-        if not os.path.exists(fixture_path):
-            pytest.skip(f"{fixture_name} fixture not found")
-        _push_fixture(serial, fixture_name)
-
     result_count = 0
     for fixture_name in fixtures:
-        driver.clear_logs()
-        driver.broadcast(
-            "dev.devkey.keyboard.VOICE_PROCESS_FILE",
-            {"file_path": f"/data/data/dev.devkey.keyboard/files/{fixture_name}"},
-        )
-        driver.wait_for("DevKey/VOX", "state_transition",
-                        match={"state": "PROCESSING"}, timeout_ms=10000)
-        driver.wait_for("DevKey/VOX", "state_transition",
-                        match={"state": "IDLE"}, timeout_ms=60000)
+        process_voice_fixture(serial, fixture_name)
         result_count += 1
 
     assert result_count == 3, (

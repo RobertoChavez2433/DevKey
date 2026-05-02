@@ -14,7 +14,8 @@ Depends on:
   - ENABLE_DEBUG_SERVER broadcast (Phase 2 sub-phase 1.1)
   - driver server running on $DEVKEY_DRIVER_URL
 """
-from lib import adb, keyboard, driver, audio
+from lib import adb, keyboard, driver
+from tests.voice_common import process_voice_fixture
 
 
 def _setup_voice():
@@ -71,39 +72,17 @@ def test_voice_cancel_returns_to_idle():
 
 def test_voice_round_trip_committed_text():
     """
-    Full round-trip: activate voice → inject audio → silence-detect → processing → commit.
-
-    SKIP if audio injection is unavailable or Whisper model is missing.
+    S21 round-trip: activate capture, inject fixture through Whisper, commit text.
     """
-    import pytest
     serial = _setup_voice()
     _enter_voice_mode(serial)
 
-    # Inject audio — on physical devices this is a no-op.
-    if not audio.is_emulator(serial):
-        pytest.skip("audio injection requires an emulator")
-    if not audio.inject_sample():
-        pytest.skip("audio sample not available or no host audio player found")
-
-    # Wait for silence-detection → PROCESSING.
-    driver.wait_for("DevKey/VOX", "state_transition",
-                    match={"state": "PROCESSING"}, timeout_ms=10000)
-
-    # Wait for inference result. Without a Whisper model file, the engine
-    # returns an empty result (result_length=0) which is valid for the
-    # smoke test — it proves the full state machine round-trips.
-    # Wait for the engine to complete processing and return to IDLE.
-    # Without a Whisper model, the engine skips inference and returns
-    # to IDLE with empty result — this is valid for the smoke test.
-    try:
-        driver.wait_for("DevKey/VOX", "state_transition",
-                        match={"state": "IDLE"},
-                        timeout_ms=20000)
-    except driver.DriverTimeout:
-        # Engine stuck in PROCESSING — force reset and verify recovery.
-        driver.broadcast("dev.devkey.keyboard.RESET_KEYBOARD_MODE", {})
-        driver.wait_for("DevKey/VOX", "state_transition",
-                        match={"state": "IDLE"}, timeout_ms=5000)
+    process_voice_fixture(
+        serial,
+        "voice-hello.wav",
+        expect_commit=True,
+        clear_logs=True,
+    )
 
 
 def test_voice_file_based_inference():
@@ -114,48 +93,6 @@ def test_voice_file_based_inference():
     Uses the debug-only VOICE_PROCESS_FILE broadcast to bypass AudioRecord
     entirely — deterministic and emulator-friendly.
     """
-    import os
-    import subprocess
     serial = _setup_voice()
 
-    # Push the complex voice fixture to app private storage
-    fixture = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)),
-        "..", "fixtures", "voice-complex.wav"
-    )
-    if not os.path.exists(fixture):
-        import pytest
-        pytest.skip("voice-complex.wav fixture not found")
-
-    subprocess.run(
-        ["adb", "-s", serial, "push", fixture, "/data/local/tmp/voice-complex.wav"],
-        check=True, capture_output=True
-    )
-    subprocess.run(
-        ["adb", "-s", serial, "shell", "run-as", "dev.devkey.keyboard",
-         "cp", "/data/local/tmp/voice-complex.wav",
-         "/data/data/dev.devkey.keyboard/files/voice-complex.wav"],
-        check=True, capture_output=True
-    )
-
-    driver.clear_logs()
-    driver.broadcast(
-        "dev.devkey.keyboard.VOICE_PROCESS_FILE",
-        {"file_path": "/data/data/dev.devkey.keyboard/files/voice-complex.wav"},
-    )
-
-    # Wait for processing to start
-    driver.wait_for("DevKey/VOX", "state_transition",
-                    match={"state": "PROCESSING"}, timeout_ms=5000)
-
-    # Wait for inference to complete — may take 10-30s on emulator
-    entry = driver.wait_for("DevKey/VOX", "state_transition",
-                            match={"state": "IDLE"}, timeout_ms=60000)
-
-    # Verify we got a process_file_result with non-empty transcription
-    result = driver.wait_for("DevKey/VOX", "process_file_result",
-                             timeout_ms=5000)
-    data = result.get("data", {})
-    assert data.get("length", 0) > 0, (
-        f"Expected non-empty transcription but got length={data.get('length')}"
-    )
+    process_voice_fixture(serial, "voice-complex.wav")

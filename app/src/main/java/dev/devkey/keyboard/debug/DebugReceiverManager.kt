@@ -120,10 +120,14 @@ internal class DebugReceiverManager(
                     DevKeyLogger.voice("process_file_start")
                     scope.launch(Dispatchers.Main) {
                         val result = engine.processFileForTest(filePath)
-                        DevKeyLogger.voice("process_file_result", mapOf("length" to result.length))
-                        if (engine.shouldCommitTranscription(result)) {
-                            dev.devkey.keyboard.LatinIME.sInstance?.onText(result)
-                        }
+                        val committed = engine.commitTranscriptionForTest(result)
+                        DevKeyLogger.voice(
+                            "process_file_result",
+                            mapOf(
+                                "length" to result.length,
+                                "committed" to committed
+                            )
+                        )
                     }
                 }
             }

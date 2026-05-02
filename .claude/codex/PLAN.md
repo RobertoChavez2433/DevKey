@@ -2,7 +2,9 @@
 
 ## Active Codex Plans In `.codex/plans/`
 
-No Codex-specific plans are active yet.
+- `2026-05-02-devkey-v1-release-audit-plan.md`: current v1.0 release audit
+  status, completed commits, remaining implementation work, and validation
+  blockers.
 
 Save new Codex-authored plans here using:
 

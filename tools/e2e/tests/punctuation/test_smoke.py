@@ -53,7 +53,9 @@ def _setup():
     serial = adb.get_device_serial()
     driver.require_driver()
     adb.ensure_keyboard_visible(serial)
+    keyboard.set_layout_mode("compact", serial)
     if not keyboard.get_key_map() or len(keyboard.get_key_map()) < 10:
+        time.sleep(1.0)
         keyboard.load_key_map(serial)
     _wait_for_dictionary(serial)
     _clear_edit_text(serial)
@@ -90,12 +92,10 @@ def _setup():
         except Exception:
             time.sleep(2.0)
     time.sleep(0.3)
-    driver.broadcast("dev.devkey.keyboard.RESET_KEYBOARD_MODE", {})
-    time.sleep(0.3)
     # Warmup: type a space and delete it to settle the Compose layout
     keyboard.tap_key_by_code(SPACE_CODE, serial)
     time.sleep(0.3)
-    keyboard.tap_key_by_code(-301, serial)  # backspace
+    keyboard.tap_key("Backspace", serial)
     time.sleep(0.3)
     _clear_edit_text(serial)
     return serial

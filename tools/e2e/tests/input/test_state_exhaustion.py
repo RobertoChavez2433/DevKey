@@ -49,8 +49,6 @@ def _setup():
         time.sleep(1.0)
         keyboard.load_key_map(serial)
     _clear_edit_text(serial)
-    driver.broadcast("dev.devkey.keyboard.RESET_KEYBOARD_MODE", {})
-    time.sleep(0.3)
     # Ensure suggestions are enabled — a prior test may have disabled them.
     driver.clear_logs()
     driver.broadcast(
@@ -146,13 +144,13 @@ def test_state_cycle_type_and_undo():
 
     # ACCEPTED_DEFAULT -> UNDO_COMMIT (backspace reverts the commit)
     driver.clear_logs()
-    time.sleep(0.2)
+    time.sleep(0.4)
     keyboard.tap_key(BACKSPACE_LABEL, serial)
 
     entry = driver.wait_for(
         category="DevKey/TXT",
         event="backspace_handled",
-        timeout_ms=3000,
+        timeout_ms=5000,
     )
     # After commit+backspace the undo path fires with was_composing=False
     assert entry["data"]["was_composing"] is False

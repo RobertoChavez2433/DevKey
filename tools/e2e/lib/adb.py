@@ -145,6 +145,16 @@ def ensure_keyboard_visible(serial: Optional[str] = None) -> None:
     Idempotent — cheap to call before every test. The underlying `am start`
     is a no-op if the activity is already top.
     """
+    # Grant RECORD_AUDIO permission — required for voice tests. This is
+    # idempotent and cheap; avoids requiring manual setup on fresh emulators.
+    subprocess.run(
+        _adb_cmd(
+            ["shell", "pm", "grant", "dev.devkey.keyboard",
+             "android.permission.RECORD_AUDIO"],
+            serial,
+        ),
+        capture_output=True,
+    )
     # Always bring the test host to the front. It is cheap when it's already
     # top and guaranteed to re-request IME visibility via SOFT_INPUT_STATE_VISIBLE.
     subprocess.run(

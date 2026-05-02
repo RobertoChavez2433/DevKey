@@ -92,12 +92,10 @@ def _setup():
         except Exception:
             time.sleep(2.0)
     time.sleep(0.3)
-    driver.broadcast("dev.devkey.keyboard.RESET_KEYBOARD_MODE", {})
-    time.sleep(0.3)
     # Warmup: type a space and delete it to settle the Compose layout
     keyboard.tap_key_by_code(SPACE_CODE, serial)
     time.sleep(0.3)
-    keyboard.tap_key_by_code(-301, serial)  # backspace
+    keyboard.tap_key("Backspace", serial)
     time.sleep(0.3)
     _clear_edit_text(serial)
     return serial

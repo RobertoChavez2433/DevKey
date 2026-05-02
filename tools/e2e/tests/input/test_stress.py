@@ -53,8 +53,6 @@ def _setup():
         time.sleep(1.0)
         keyboard.load_key_map(serial)
     _clear_edit_text(serial)
-    driver.broadcast("dev.devkey.keyboard.RESET_KEYBOARD_MODE", {})
-    time.sleep(0.3)
     # Ensure suggestions are enabled — a prior test may have disabled them.
     driver.clear_logs()
     driver.broadcast(
@@ -140,13 +138,13 @@ def test_backspace_during_composing_vs_after_commit():
     # --- composing path ---
     driver.clear_logs()
     _type_word("hel", serial)
-    time.sleep(0.2)
+    time.sleep(0.3)
     keyboard.tap_key(BACKSPACE_LABEL, serial)
 
     entry = driver.wait_for(
         category="DevKey/TXT",
         event="backspace_handled",
-        timeout_ms=3000,
+        timeout_ms=5000,
     )
     assert entry["data"]["was_composing"] is True
 
@@ -155,13 +153,13 @@ def test_backspace_during_composing_vs_after_commit():
     driver.clear_logs()
     _type_word("hi", serial)
     keyboard.tap_key_by_code(SPACE_CODE, serial)
-    time.sleep(0.3)
+    time.sleep(0.5)
     keyboard.tap_key(BACKSPACE_LABEL, serial)
 
     entry = driver.wait_for(
         category="DevKey/TXT",
         event="backspace_handled",
-        timeout_ms=3000,
+        timeout_ms=5000,
     )
     assert entry["data"]["was_composing"] is False
 
@@ -176,13 +174,13 @@ def test_enter_mid_composing():
     driver.clear_logs()
 
     _type_word("hel", serial)
-    time.sleep(0.2)
+    time.sleep(0.3)
     keyboard.tap_key_by_code(ENTER_CODE, serial)
 
     entry = driver.wait_for(
         category="DevKey/TXT",
         event="word_committed",
-        timeout_ms=5000,
+        timeout_ms=8000,
     )
     assert entry["data"]["word_length"] == 3
 

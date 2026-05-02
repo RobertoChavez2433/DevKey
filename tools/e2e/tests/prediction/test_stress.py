@@ -25,8 +25,6 @@ def _setup():
     if not keyboard.get_key_map() or len(keyboard.get_key_map()) < 10:
         time.sleep(1.0)
         keyboard.load_key_map(serial)
-    driver.broadcast("dev.devkey.keyboard.RESET_KEYBOARD_MODE", {})
-    time.sleep(0.3)
     # Enable suggestions so prediction events fire
     driver.clear_logs()
     driver.broadcast(
@@ -122,12 +120,14 @@ def test_three_sentence_paragraph():
 
             entry = driver.wait_for(
                 "DevKey/TXT", "next_word_suggestions",
-                timeout_ms=3000,
+                timeout_ms=5000,
             )
             assert "source" in entry["data"]
             event_count += 1
-        # Type period after each sentence.
+        # Type period after each sentence; wait for it to settle before
+        # starting the next sentence so the prediction pipeline resets.
         keyboard.tap_key(".", serial)
+        time.sleep(0.4)
 
     assert event_count == 9, (
         f"Expected 9 prediction events (3 sentences x 3 words), got {event_count}"

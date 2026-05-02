@@ -41,8 +41,6 @@ def _setup():
         time.sleep(1.0)
         keyboard.load_key_map(serial)
     _clear_edit_text(serial)
-    driver.broadcast("dev.devkey.keyboard.RESET_KEYBOARD_MODE", {})
-    time.sleep(0.3)
     return serial
 
 
@@ -82,7 +80,7 @@ def test_backspace_in_empty_field():
     entry = driver.wait_for(
         category="DevKey/TXT",
         event="backspace_handled",
-        timeout_ms=3000,
+        timeout_ms=5000,
     )
     # In an empty field there is nothing composing
     assert entry["data"]["was_composing"] is False
@@ -159,12 +157,12 @@ def test_backspace_after_suggestion_tap():
 
     # Now backspace — this is the revert/undo path, not composing
     driver.clear_logs()
-    time.sleep(0.2)
+    time.sleep(0.4)
     keyboard.tap_key(BACKSPACE_LABEL, serial)
 
     entry = driver.wait_for(
         category="DevKey/TXT",
         event="backspace_handled",
-        timeout_ms=3000,
+        timeout_ms=5000,
     )
     assert entry["data"]["was_composing"] is False

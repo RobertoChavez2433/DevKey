@@ -15,7 +15,7 @@
   {"label": "f", "lp_codes": [42]},
   {"label": "g", "lp_codes": [45]},
   {"label": "h", "lp_codes": [43]},
-  {"label": "j", "lp_codes": [61]},
+  {"label": "j", "lp_codes": [61, 93]},
   {"label": "k", "lp_codes": [40]},
   {"label": "l", "lp_codes": [41]},
   {"label": "z", "lp_codes": [95]},

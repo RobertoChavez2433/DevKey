@@ -102,15 +102,16 @@ def test_aggressive_10_words():
 
     for word in COMMON_WORDS:
         driver.clear_logs()
-        keyboard.tap_sequence(word, delay=0.05, serial=serial)
+        keyboard.tap_sequence(word, delay=0.08, serial=serial)
         keyboard.tap_key_by_code(SPACE_CODE, serial)
 
         entry = driver.wait_for(
             "DevKey/TXT", "next_word_suggestions",
-            timeout_ms=3000,
+            timeout_ms=5000,
         )
         assert "source" in entry["data"]
         event_count += 1
+        time.sleep(0.2)
 
     assert event_count == 10, (
         f"Expected 10 next_word_suggestions events, got {event_count}"

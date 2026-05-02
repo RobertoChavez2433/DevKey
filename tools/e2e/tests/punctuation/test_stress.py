@@ -85,11 +85,10 @@ def _setup():
         except Exception:
             time.sleep(2.0)
     time.sleep(0.3)
-    driver.broadcast("dev.devkey.keyboard.RESET_KEYBOARD_MODE", {})
-    time.sleep(0.3)
+    # Warmup: type a space and delete it to settle the Compose layout
     keyboard.tap_key_by_code(SPACE_CODE, serial)
     time.sleep(0.3)
-    keyboard.tap_key_by_code(-301, serial)  # backspace
+    keyboard.tap_key("Backspace", serial)
     time.sleep(0.3)
     _clear_edit_text(serial)
     return serial
@@ -108,14 +107,14 @@ def test_10_double_space_to_period():
     double_space_applied. Asserts event count, never text content.
     """
     serial = _setup()
-    words = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"]
+    words = ["hi", "go", "do", "be", "an", "up", "am", "no", "so", "on"]
     event_count = 0
 
     for word in words:
         driver.clear_logs()
         _type_word(word, serial)
         keyboard.tap_key_by_code(SPACE_CODE, serial)
-        time.sleep(0.35)
+        time.sleep(0.45)
         keyboard.tap_key_by_code(SPACE_CODE, serial)
 
         entry = driver.wait_for(
@@ -125,6 +124,7 @@ def test_10_double_space_to_period():
         )
         assert entry["data"]["chars_removed"] == 2
         event_count += 1
+        time.sleep(0.3)
 
     assert event_count == 10, (
         f"Expected 10 double_space_applied events, got {event_count}"

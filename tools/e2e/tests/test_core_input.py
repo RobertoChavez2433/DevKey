@@ -44,8 +44,6 @@ def _setup():
         time.sleep(1.0)
         keyboard.load_key_map(serial)
     _clear_edit_text(serial)
-    driver.broadcast("dev.devkey.keyboard.RESET_KEYBOARD_MODE", {})
-    time.sleep(0.3)
     return serial
 
 

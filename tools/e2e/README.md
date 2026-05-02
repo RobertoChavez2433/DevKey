@@ -66,7 +66,9 @@ python e2e_runner.py --verbose
    with visible key labels, keycodes, coordinates, and counts for the full,
    compact, compact_dev, and symbols-layer layouts. It records structure only,
    not typed text, transcripts, or clipboard contents. The command fails if any
-   visible key record is missing required coverage metadata.
+   visible key record is missing required coverage metadata, or if a configured
+   long-press action points at a key that is not visible in the matching
+   layout/layer inventory.
 
 The locked full-suite discovery count is 178 tests for `--suite all`.
 Use `--suite features` or `--suite legacy-flat` when you need one side of the

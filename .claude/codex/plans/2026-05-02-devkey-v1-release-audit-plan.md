@@ -27,6 +27,9 @@ Created: 2026-05-02
   symbols layers.
 - [x] Inventory coverage validation added so `--dump-inventory` fails on
   incomplete visible-key metadata.
+- [x] Long-press action inventory added from the configured expectation files;
+  `--dump-inventory` now fails if a configured long-press action is not tied to
+  a visible key in the matching layout/layer.
 
 ## Verified Locally
 
@@ -37,8 +40,8 @@ Created: 2026-05-02
 
 ## Remaining Implementation Work
 
-- [ ] Add action inventory for configured long-press actions and toolbar/dynamic
-  buttons, then tie it to release validation.
+- [ ] Add toolbar/dynamic button action inventory, then tie it to release
+  validation.
 - [ ] Validate toolbar buttons, dynamic panels, mode switches, modifiers, and
   settings workflows against the generated inventory.
 - [ ] Complete AnySoftKeyboard dictionary spike:

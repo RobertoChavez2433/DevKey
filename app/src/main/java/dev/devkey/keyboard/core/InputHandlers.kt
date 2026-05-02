@@ -4,16 +4,12 @@ import android.view.KeyEvent
 import android.view.inputmethod.InputConnection
 import dev.devkey.keyboard.ASCII_ENTER
 import dev.devkey.keyboard.dictionary.user.AutoDictionary
-import dev.devkey.keyboard.ASCII_PERIOD
-import dev.devkey.keyboard.ASCII_SPACE
 import dev.devkey.keyboard.DELETE_ACCELERATE_AT
 import dev.devkey.keyboard.keyboard.model.Keyboard
 import dev.devkey.keyboard.suggestion.engine.Suggest
 import dev.devkey.keyboard.core.input.TextEntryState
 import dev.devkey.keyboard.core.text.EditingUtil
 import dev.devkey.keyboard.debug.DevKeyLogger
-import dev.devkey.keyboard.feature.prediction.AutocorrectEngine
-import dev.devkey.keyboard.feature.prediction.AutocorrectResult
 import dev.devkey.keyboard.ui.keyboard.SessionDependencies
 
 /**
@@ -29,6 +25,16 @@ internal class InputHandlers(
     private val keyEventSender: KeyEventSender,
     private val puncHeuristics: PunctuationHeuristics
 ) {
+    private val separatorHandler = SeparatorHandler(
+        state = state,
+        icProvider = icProvider,
+        suggestionCoordinator = suggestionCoordinator,
+        suggestionPicker = suggestionPicker,
+        modifierHandler = modifierHandler,
+        keyEventSender = keyEventSender,
+        puncHeuristics = puncHeuristics,
+        commitTyped = ::commitTyped
+    )
 
     fun handleDefault(primaryCode: Int, keyCodes: IntArray?) {
         if (!state.mComposeMode && state.mDeadKeysActive
@@ -132,80 +138,7 @@ internal class InputHandlers(
     }
 
     fun handleSeparator(primaryCode: Int) {
-        if (state.mCandidateView != null && state.mCandidateView!!.dismissAddToDictionaryHint()) {
-            suggestionCoordinator.postUpdateSuggestions()
-        }
-        var pickedDefault = false
-        val ic = icProvider.inputConnection
-        ic?.beginBatchEdit()
-        suggestionCoordinator.abortCorrection(false)
-        if (state.mPredicting) {
-            if (state.mAutoCorrectOn && primaryCode != '\''.code
-                && (state.mJustRevertedSeparator == null || state.mJustRevertedSeparator!!.isEmpty()
-                    || state.mJustRevertedSeparator!![0].code != primaryCode)
-            ) {
-                pickedDefault = suggestionPicker.pickDefaultSuggestion()
-                if (primaryCode == ASCII_SPACE) {
-                    if (state.mAutoCorrectEnabled) state.mJustAddedAutoSpace = true
-                    else TextEntryState.manualTyped("")
-                }
-            } else {
-                val acEngine = SessionDependencies.autocorrectEngine
-                val learnEngine = SessionDependencies.learningEngine
-                val typedWord = state.mComposing.toString()
-                if (acEngine != null && learnEngine != null
-                    && acEngine.aggressiveness != AutocorrectEngine.Aggressiveness.OFF
-                    && state.mComposing.isNotEmpty()
-                ) {
-                    val result = acEngine.getCorrection(typedWord, learnEngine.getCustomWords())
-                    if (result is AutocorrectResult.Suggestion && result.autoApply) {
-                        ic?.finishComposingText()
-                        ic?.deleteSurroundingText(state.mComposing.length, 0)
-                        ic?.commitText(result.correction, 1)
-                        state.mPredicting = false
-                        state.mCommittedLength = result.correction.length
-                        SessionDependencies.composingWord.value = ""
-                        SessionDependencies.pendingCorrection.value = null
-                        DevKeyLogger.text("autocorrect_applied", mapOf("action" to "applied", "level" to acEngine.aggressiveness.name.lowercase()))
-                        TextEntryState.acceptedDefault(typedWord, result.correction)
-                    } else if (result is AutocorrectResult.Suggestion) {
-                        commitTyped(ic, true)
-                        SessionDependencies.pendingCorrection.value = result
-                        TextEntryState.acceptedDefault(typedWord, typedWord)
-                    } else {
-                        commitTyped(ic, true)
-                        TextEntryState.acceptedDefault(typedWord, typedWord)
-                    }
-                } else {
-                    commitTyped(ic, true)
-                    TextEntryState.acceptedDefault(typedWord, typedWord)
-                }
-                pickedDefault = true
-                state.mJustAccepted = true
-                if (primaryCode == ASCII_SPACE) state.mJustAddedAutoSpace = true
-            }
-        }
-        if (state.mJustAddedAutoSpace && primaryCode == ASCII_ENTER) {
-            puncHeuristics.removeTrailingSpace(); state.mJustAddedAutoSpace = false
-        }
-        keyEventSender.sendModifiableKeyChar(primaryCode.toChar())
-        if (TextEntryState.getState() == TextEntryState.State.PUNCTUATION_AFTER_ACCEPTED && primaryCode == ASCII_PERIOD) {
-            puncHeuristics.reswapPeriodAndSpace()
-        }
-        TextEntryState.typedCharacter(primaryCode.toChar(), true)
-        if (TextEntryState.getState() == TextEntryState.State.PUNCTUATION_AFTER_ACCEPTED && primaryCode != ASCII_ENTER) {
-            puncHeuristics.swapPunctuationAndSpace()
-        } else if (state.isPredictionOn(suggestionCoordinator.isPredictionWanted()) && primaryCode == ASCII_SPACE) {
-            puncHeuristics.doubleSpace()
-        }
-        if (pickedDefault) TextEntryState.backToAcceptedDefault(state.mWord.getTypedWord())
-        modifierHandler.updateShiftKeyState(icProvider.editorInfo)
-        if (!state.mPredicting && primaryCode == ASCII_SPACE
-            && state.isPredictionOn(suggestionCoordinator.isPredictionWanted())
-        ) {
-            suggestionCoordinator.setNextSuggestions()
-        }
-        ic?.endBatchEdit()
+        separatorHandler.handle(primaryCode)
     }
 
     fun commitTyped(inputConnection: InputConnection?, manual: Boolean) {

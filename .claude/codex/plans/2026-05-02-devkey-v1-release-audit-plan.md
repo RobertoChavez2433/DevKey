@@ -285,6 +285,21 @@ Created: 2026-05-02
     `./gradlew testDebugUnitTest --tests dev.devkey.keyboard.ui.keyboard.KeyViewStateTest assembleDebug`
   - S21 validation after installing the refactored APK:
     preflight clean, visual diff 3/3 clean, long-press 4/4 clean
+- [x] Toolbar and dynamic-action inventory added:
+  - debug-only Compose bounds now report structural toolbar controls:
+    chevron, clipboard, voice, symbols, macros, and overflow
+  - inventory payload now includes toolbar controls and dynamic-panel action
+    expectations alongside long-press actions
+  - locked full-suite discovery count is now 179 after adding the toolbar
+    inventory test
+  - S21 `--dump-inventory` passed:
+    `.claude/test-results/key-inventory-20260502T193347Z.json`
+  - S21 toolbar inventory test passed:
+    `.claude/test-results/e2e-results-20260502T193602Z.json`
+  - S21 UI preference scope passed after fixing a tail-action cleanup gap:
+    `.claude/test-results/e2e-results-20260502T193539Z.json`
+  - S21 command-mode smoke still passed:
+    `.claude/test-results/e2e-results-20260502T193420Z.json`
 
 ## Remaining Implementation Work
 
@@ -298,13 +313,9 @@ Created: 2026-05-02
   - `SuggestionCoordinator.onSelectionChanged`
   - `DevKeyKeyboard`
   - `InputViewSetup.onStartInputView`
-- [ ] Add toolbar/dynamic button action inventory, then tie it to release
-  validation.
 - [ ] Rerun the full S21 suite under the hardened child-process timeout.
   Feature-scope evidence is useful, but the release still needs one complete
   strict run after the voice fix and timeout guard.
-- [ ] Validate toolbar buttons, dynamic panels, mode switches, modifiers, and
-  settings workflows against the generated inventory.
 - [ ] Resolve plugin loading security for v1.0:
   - either gate plugin loading behind debug-only behavior
   - or add signature/provenance verification before release
@@ -396,3 +407,5 @@ Created: 2026-05-02
 - `cd7a397 test(e2e): require committable voice inference`
 - `2e1f7e9 docs(e2e): record voice validation results`
 - `18be3e1 refactor(ui): extract key view state`
+- `5f526da docs(e2e): record key view validation`
+- `afd52c8 test(e2e): verify toolbar actions from inventory`

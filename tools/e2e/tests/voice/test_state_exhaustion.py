@@ -38,7 +38,7 @@ def _setup_voice():
         time.sleep(1.0)
         keyboard.load_key_map(serial)
     host_url = os.environ.get("DEVKEY_DRIVER_URL", "http://127.0.0.1:3950")
-    ime_url = host_url.replace("127.0.0.1", "10.0.2.2").replace("localhost", "10.0.2.2")
+    ime_url = adb.configure_debug_server_forwarding(serial, host_url)
     driver.broadcast("dev.devkey.keyboard.ENABLE_DEBUG_SERVER", {"url": ime_url})
     return serial
 

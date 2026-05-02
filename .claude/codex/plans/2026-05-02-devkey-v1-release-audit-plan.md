@@ -274,6 +274,17 @@ Created: 2026-05-02
     and requires committed output for speech
   - voice tail-action tests now require final host-state or driver evidence
     after their last action
+- [x] Keyboard UI hotspot split:
+  - moved modifier visual state, modifier-like key detection, Ctrl shortcut
+    lookup, multi-popup eligibility, and preview-label selection out of
+    `KeyView`
+  - moved transient popup/press-preview rendering behind `KeyTransientOverlay`
+  - `KeyView` jCodeMunch complexity dropped from cyclomatic 38 to 4 and from
+    170 lines to 117 lines
+  - focused unit validation passed:
+    `./gradlew testDebugUnitTest --tests dev.devkey.keyboard.ui.keyboard.KeyViewStateTest assembleDebug`
+  - S21 validation after installing the refactored APK:
+    preflight clean, visual diff 3/3 clean, long-press 4/4 clean
 
 ## Remaining Implementation Work
 
@@ -285,7 +296,6 @@ Created: 2026-05-02
   - `InputHandlers.handleCharacter`
   - `SuggestionPipeline.getSuggestions`
   - `SuggestionCoordinator.onSelectionChanged`
-  - `KeyView`
   - `DevKeyKeyboard`
   - `InputViewSetup.onStartInputView`
 - [ ] Add toolbar/dynamic button action inventory, then tie it to release
@@ -384,3 +394,5 @@ Created: 2026-05-02
 - `442bd0b docs(e2e): record separator validation results`
 - `6b43d68 fix(voice): decode Whisper assets for round trip`
 - `cd7a397 test(e2e): require committable voice inference`
+- `2e1f7e9 docs(e2e): record voice validation results`
+- `18be3e1 refactor(ui): extract key view state`

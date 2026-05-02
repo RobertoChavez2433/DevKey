@@ -37,9 +37,16 @@ def test_number_row_toggle():
     serial = _setup()
 
     # Enable number row, then set compact mode (triggers recomposition with number row)
+    driver.clear_logs()
     driver.broadcast(
         "dev.devkey.keyboard.SET_BOOL_PREF",
         {"key": "devkey_show_number_row", "value": True},
+    )
+    driver.wait_for(
+        "DevKey/IME",
+        "bool_pref_set",
+        match={"key": "devkey_show_number_row", "value": True},
+        timeout_ms=3000,
     )
     time.sleep(0.3)
     keyboard.set_layout_mode("compact", serial)
@@ -48,9 +55,16 @@ def test_number_row_toggle():
     count_with = len(km_with)
 
     # Disable number row, then re-set compact mode to force rebuild
+    driver.clear_logs()
     driver.broadcast(
         "dev.devkey.keyboard.SET_BOOL_PREF",
         {"key": "devkey_show_number_row", "value": False},
+    )
+    driver.wait_for(
+        "DevKey/IME",
+        "bool_pref_set",
+        match={"key": "devkey_show_number_row", "value": False},
+        timeout_ms=3000,
     )
     time.sleep(0.3)
     keyboard.set_layout_mode("compact", serial)
@@ -64,9 +78,16 @@ def test_number_row_toggle():
     )
 
     # Restore default
+    driver.clear_logs()
     driver.broadcast(
         "dev.devkey.keyboard.SET_BOOL_PREF",
         {"key": "devkey_show_number_row", "value": True},
+    )
+    driver.wait_for(
+        "DevKey/IME",
+        "bool_pref_set",
+        match={"key": "devkey_show_number_row", "value": True},
+        timeout_ms=3000,
     )
 
 

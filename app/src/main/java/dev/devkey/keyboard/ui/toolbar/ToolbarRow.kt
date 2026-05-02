@@ -62,35 +62,55 @@ fun ToolbarRow(
             verticalAlignment = Alignment.CenterVertically
         ) {
             ToolbarButton(
+                id = "clipboard",
                 label = "\uD83D\uDCCB", // clipboard emoji
+                action = "toggle_clipboard",
                 isActive = activeMode is KeyboardMode.Clipboard,
-                onClick = { onClipboard() }
+                onClick = onClipboard
             )
             if (onVoice != null) {
                 ToolbarButton(
+                    id = "voice",
                     label = "\uD83C\uDFA4", // microphone emoji
+                    action = "toggle_voice",
                     isActive = activeMode is KeyboardMode.Voice,
                     onClick = onVoice
                 )
             }
             ToolbarButton(
+                id = "symbols",
                 label = "123",
+                action = "toggle_symbols",
                 isActive = activeMode is KeyboardMode.Symbols,
-                onClick = { onSymbols() }
+                onClick = onSymbols
             )
             // Macros button with long-press support
+            val macroActive = activeMode is KeyboardMode.MacroChips ||
+                    activeMode is KeyboardMode.MacroGrid ||
+                    activeMode is KeyboardMode.MacroRecording
             Box(
                 modifier = Modifier
                     .fillMaxHeight()
+                    .then(
+                        toolbarInventoryModifier(
+                            id = "macros",
+                            action = "toggle_macro_chips",
+                            longAction = "toggle_macro_grid",
+                            isActive = macroActive
+                        )
+                    )
                     .combinedClickable(
-                        onClick = { onMacros() },
-                        onLongClick = { onMacrosLongPress() }
+                        onClick = {
+                            logToolbarAction("macros", "toggle_macro_chips")
+                            onMacros()
+                        },
+                        onLongClick = {
+                            logToolbarAction("macros", "toggle_macro_grid")
+                            onMacrosLongPress()
+                        }
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                val macroActive = activeMode is KeyboardMode.MacroChips ||
-                        activeMode is KeyboardMode.MacroGrid ||
-                        activeMode is KeyboardMode.MacroRecording
                 Text(
                     text = "\u26A1", // lightning bolt
                     color = if (macroActive) DevKeyThemeColors.keyText else DevKeyThemeColors.iconColor,
@@ -101,7 +121,15 @@ fun ToolbarRow(
             Box(
                 modifier = Modifier
                     .fillMaxHeight()
+                    .then(
+                        toolbarInventoryModifier(
+                            id = "overflow",
+                            action = "toggle_command_mode",
+                            isActive = isCommandMode
+                        )
+                    )
                     .clickable {
+                        logToolbarAction("overflow", "toggle_command_mode")
                         onCommandModeToggle()
                         onOverflow()
                     },
@@ -149,14 +177,20 @@ fun ToolbarRow(
 
 @Composable
 private fun ToolbarButton(
+    id: String,
     label: String,
+    action: String,
     isActive: Boolean = false,
     onClick: () -> Unit
 ) {
     Box(
         modifier = Modifier
             .fillMaxHeight()
-            .clickable { onClick() },
+            .then(toolbarInventoryModifier(id = id, action = action, isActive = isActive))
+            .clickable {
+                logToolbarAction(id, action)
+                onClick()
+            },
         contentAlignment = Alignment.Center
     ) {
         Text(

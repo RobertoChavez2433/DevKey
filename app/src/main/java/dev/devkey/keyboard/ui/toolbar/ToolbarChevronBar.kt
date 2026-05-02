@@ -39,7 +39,17 @@ fun ToolbarChevronBar(
             .fillMaxWidth()
             .height(DevKeyThemeDimensions.chevronRowHeight)
             .background(DevKeyThemeColors.kbBg)
-            .clickable { onToggle() }
+            .then(
+                toolbarInventoryModifier(
+                    id = "toolbar_chevron",
+                    action = "toggle_toolbar",
+                    isActive = expanded
+                )
+            )
+            .clickable {
+                logToolbarAction("toolbar_chevron", "toggle_toolbar")
+                onToggle()
+            }
             .padding(horizontal = DevKeyThemeDimensions.chevronRowIconPad),
         contentAlignment = Alignment.CenterStart
     ) {

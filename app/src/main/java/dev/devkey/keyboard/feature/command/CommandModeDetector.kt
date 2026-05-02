@@ -118,6 +118,11 @@ class CommandModeDetector(private val repository: CommandModeRepository) {
                 "command_mode_manual_enabled",
                 mapOf("trigger" to "user_toggle")
             )
+        } else {
+            DevKeyLogger.ime(
+                "command_mode_manual_disabled",
+                mapOf("trigger" to "user_toggle")
+            )
         }
     }
 

@@ -5,6 +5,7 @@ from typing import Any, Dict, Optional, Set
 
 from .paths import LONG_PRESS_EXPECTATIONS_DIR, PROJECT_ROOT
 from .preflight import device_metadata
+from .toolbar_inventory import collect_toolbar_inventory, generate_dynamic_panel_inventory
 
 
 def generate_inventory_payload(serial: Optional[str], preflight: Optional[Dict[str, Any]]) -> Dict[str, Any]:
@@ -12,7 +13,9 @@ def generate_inventory_payload(serial: Optional[str], preflight: Optional[Dict[s
 
     started_at = datetime.now(timezone.utc)
     inventory = keyboard.generate_canonical_inventory(serial)
-    action_inventory = generate_action_inventory(inventory)
+    toolbar_inventory = collect_toolbar_inventory(serial)
+    dynamic_panel_inventory = generate_dynamic_panel_inventory()
+    action_inventory = generate_action_inventory(inventory, toolbar_inventory, dynamic_panel_inventory)
     ended_at = datetime.now(timezone.utc)
     inventory.update({
         "started_at": started_at.isoformat(),
@@ -21,11 +24,19 @@ def generate_inventory_payload(serial: Optional[str], preflight: Optional[Dict[s
         "device": device_metadata(serial),
         "preflight": preflight,
         "action_inventory": action_inventory,
+        "ui_inventory": {
+            "toolbar": toolbar_inventory,
+            "dynamic_panels": dynamic_panel_inventory,
+        },
     })
     return inventory
 
 
-def generate_action_inventory(inventory: Dict[str, Any]) -> Dict[str, Any]:
+def generate_action_inventory(
+    inventory: Dict[str, Any],
+    toolbar_inventory: Optional[Dict[str, Any]] = None,
+    dynamic_panel_inventory: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
     expected_modes = ("full", "compact", "compact_dev", "symbols")
     modes: Dict[str, Any] = {}
     failures = []
@@ -82,18 +93,30 @@ def generate_action_inventory(inventory: Dict[str, Any]) -> Dict[str, Any]:
             "actions": actions,
         }
 
+    toolbar_coverage = (toolbar_inventory or {}).get("coverage", {})
+    dynamic_coverage = (dynamic_panel_inventory or {}).get("coverage", {})
+    action_failures = (
+        failures +
+        toolbar_coverage.get("failures", []) +
+        dynamic_coverage.get("failures", [])
+    )
+
     return {
         "schema_version": 1,
         "coverage": {
-            "ok": not failures,
+            "ok": not action_failures,
             "tested_modes": len(expected_modes),
             "keys_with_actions": total_keys,
             "configured_actions": total_actions,
-            "failures": failures,
+            "toolbar_controls": toolbar_coverage.get("visible_controls", 0),
+            "dynamic_panels": dynamic_coverage.get("expected_panels", 0),
+            "failures": action_failures,
         },
         "long_press": {
             "modes": modes,
         },
+        "toolbar": toolbar_inventory or {},
+        "dynamic_panels": dynamic_panel_inventory or {},
     }
 
 

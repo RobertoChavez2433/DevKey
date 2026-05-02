@@ -99,4 +99,33 @@ class KeyViewStateTest {
         assertEquals("E", resolvePreviewLabel(key, displayLabel = "E", longPressFired = false))
         assertEquals("é", resolvePreviewLabel(key, displayLabel = "E", longPressFired = true))
     }
+
+    @Test
+    fun `letter display label follows shift state`() {
+        val key = KeyData("a", 'a'.code)
+
+        assertEquals("a", resolveDisplayLabel(key, ModifierKeyState.OFF))
+        assertEquals("A", resolveDisplayLabel(key, ModifierKeyState.ONE_SHOT))
+        assertEquals("A", resolveDisplayLabel(key, ModifierKeyState.HELD))
+        assertEquals("A", resolveDisplayLabel(key, ModifierKeyState.CHORDING))
+        assertEquals("A", resolveDisplayLabel(key, ModifierKeyState.LOCKED))
+    }
+
+    @Test
+    fun `non letter display labels ignore shift state`() {
+        assertEquals(
+            "",
+            resolveDisplayLabel(
+                KeyData("space", KeyCodes.ASCII_SPACE, type = KeyType.SPACEBAR),
+                ModifierKeyState.LOCKED
+            )
+        )
+        assertEquals(
+            "1",
+            resolveDisplayLabel(
+                KeyData("1", '1'.code, type = KeyType.NUMBER),
+                ModifierKeyState.LOCKED
+            )
+        )
+    }
 }

@@ -3,6 +3,7 @@ package dev.devkey.keyboard.ui.keyboard
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -20,6 +21,8 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.IntSize
 import dev.devkey.keyboard.core.ModifierStateManager
+import dev.devkey.keyboard.debug.DevKeyLogger
+import dev.devkey.keyboard.debug.KeyMapGenerator
 import dev.devkey.keyboard.ui.theme.DevKeyThemeDimensions
 
 /**
@@ -53,6 +56,9 @@ fun KeyView(
     val view = LocalView.current
     val coroutineScope = rememberCoroutineScope()
     val density = LocalDensity.current
+    val shouldLogDisplayLabels = remember(view.context) {
+        KeyMapGenerator.isDebugBuild(view.context)
+    }
 
     // Shared MutableState objects — read here for animation, mutated by the gesture handler.
     val isPressedState = remember { mutableStateOf(false) }
@@ -88,10 +94,23 @@ fun KeyView(
     )
     val scale = animateKeyScale(isPressed)
 
-    val displayLabel = resolveDisplayLabel(key)
+    val displayLabel = resolveDisplayLabel(key, shiftState)
     val textSize = resolveTextSize(key)
     val ctrlTextColor = resolveCtrlTextColor(ctrlHeld, key, interaction.ctrlShortcut)
     val effectiveTextColor = ctrlTextColor ?: normalText
+
+    LaunchedEffect(shouldLogDisplayLabels, key.primaryCode, displayLabel, shiftState) {
+        if (shouldLogDisplayLabels && key.type == KeyType.LETTER) {
+            DevKeyLogger.ui(
+                "key_display_label",
+                mapOf(
+                    "code" to key.primaryCode,
+                    "label" to displayLabel,
+                    "shift_state" to shiftState.name
+                )
+            )
+        }
+    }
 
     Box(
         modifier = modifier

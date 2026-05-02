@@ -12,6 +12,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import dev.devkey.keyboard.core.ModifierKeyState
 import dev.devkey.keyboard.ui.theme.DevKeyThemeColors
 import dev.devkey.keyboard.ui.theme.DevKeyThemeDimensions
 import dev.devkey.keyboard.ui.theme.DevKeyThemeTypography
@@ -110,10 +111,14 @@ internal fun KeyLockDot(
 }
 
 /**
- * Derive the display text for a key. Letter keys always show uppercase;
- * spacebars show nothing; all others show their raw primaryLabel.
+ * Derive the display text for a key. Letter keys mirror the active Shift
+ * visual state; spacebars show nothing; all others show their raw primaryLabel.
  */
-internal fun resolveDisplayLabel(key: KeyData): String = when {
+internal fun resolveDisplayLabel(
+    key: KeyData,
+    shiftState: ModifierKeyState
+): String = when {
+    key.type == KeyType.LETTER && shiftState == ModifierKeyState.OFF -> key.primaryLabel.lowercase()
     key.type == KeyType.LETTER -> key.primaryLabel.uppercase()
     key.type == KeyType.SPACEBAR -> ""
     else -> key.primaryLabel

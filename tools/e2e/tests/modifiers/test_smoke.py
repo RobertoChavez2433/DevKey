@@ -73,6 +73,34 @@ def test_shift_one_shot():
     )
 
 
+def test_shift_updates_visible_letter_labels():
+    """Shift must visibly change letter labels before and after one-shot use."""
+    serial = _setup()
+    driver.clear_logs()
+
+    keyboard.tap_key_by_code(KEYCODE_SHIFT, serial)
+    shifted = driver.wait_for(
+        "DevKey/UI",
+        "key_display_label",
+        match={"code": 97, "label": "A", "shift_state": "ONE_SHOT"},
+        timeout_ms=5000,
+    )
+    assert shifted.get("data", {}).get("label") == "A", (
+        f"Expected visible A after Shift, got {shifted.get('data', {})}"
+    )
+
+    keyboard.tap_key("a", serial)
+    unshifted = driver.wait_for(
+        "DevKey/UI",
+        "key_display_label",
+        match={"code": 97, "label": "a", "shift_state": "OFF"},
+        timeout_ms=5000,
+    )
+    assert unshifted.get("data", {}).get("label") == "a", (
+        f"Expected visible a after one-shot consumption, got {unshifted.get('data', {})}"
+    )
+
+
 def test_shift_double_tap_locks():
     """Double-tap Shift quickly. Expect LOCKED transition."""
     serial = _setup()

@@ -2,7 +2,6 @@ package dev.devkey.keyboard.core
 
 import android.content.Context
 import android.util.Log
-import androidx.preference.PreferenceManager
 import dev.devkey.keyboard.dictionary.user.AutoDictionary
 import dev.devkey.keyboard.PREF_QUICK_FIXES
 import dev.devkey.keyboard.R
@@ -10,6 +9,7 @@ import dev.devkey.keyboard.suggestion.engine.Suggest
 import dev.devkey.keyboard.dictionary.bigram.UserBigramDictionary
 import dev.devkey.keyboard.dictionary.user.UserDictionary
 import dev.devkey.keyboard.data.db.DevKeyDatabase
+import dev.devkey.keyboard.data.repository.SettingsRepository
 import dev.devkey.keyboard.feature.prediction.AutocorrectEngine
 import dev.devkey.keyboard.feature.prediction.DictionaryProvider
 import dev.devkey.keyboard.feature.prediction.LearningEngine
@@ -37,6 +37,7 @@ internal class DictionaryManager(
     private val reloadKeyboards: () -> Unit,
     private val updateShiftKeyState: (android.view.inputmethod.EditorInfo?) -> Unit,
     private val isPredictionOn: () -> Boolean,
+    private val settingsRepository: SettingsRepository,
 ) {
 
     fun initSuggest(locale: String) {
@@ -50,8 +51,7 @@ internal class DictionaryManager(
         val localizedResources = localizedContext.resources
         state.mSuggest?.close()
 
-        val sp = PreferenceManager.getDefaultSharedPreferences(context)
-        state.mQuickFixes = sp.getBoolean(
+        state.mQuickFixes = settingsRepository.getBoolean(
             PREF_QUICK_FIXES,
             context.resources.getBoolean(R.bool.default_quick_fixes)
         )

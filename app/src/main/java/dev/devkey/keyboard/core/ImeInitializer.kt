@@ -54,7 +54,7 @@ internal class ImeInitializer(
         // Language + keyboard switcher
         val conf = res.configuration
         state.mOrientation = conf.orientation
-        val languageSwitcher = LanguageSwitcher(ime).also { it.loadLocales(prefs) }
+        val languageSwitcher = LanguageSwitcher(ime).also { it.loadLocales(settingsRepository) }
         state.mLanguageSwitcher = languageSwitcher
         state.mKeyboardSwitcher = KeyboardSwitcher.getInstance().also { it.setLanguageSwitcher(languageSwitcher) }
         val systemLocale = conf.locales[0]

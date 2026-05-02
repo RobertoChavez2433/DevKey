@@ -75,7 +75,8 @@ internal class ImeCollaboratorWiring(
             state, ime, ime, ime, col.preferenceObserver, col.puncHeuristics, ime,
             reloadKeyboards = { state.reloadKeyboards(settingsRepository) },
             updateShiftKeyState = { attr -> col.modifierHandler.updateShiftKeyState(attr) },
-            isPredictionOn = { state.isPredictionOn(col.suggestionCoordinator.isPredictionWanted()) }
+            isPredictionOn = { state.isPredictionOn(col.suggestionCoordinator.isPredictionWanted()) },
+            settingsRepository = settingsRepository
         )
 
         // Compose sequence buffers

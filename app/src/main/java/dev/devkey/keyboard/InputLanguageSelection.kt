@@ -29,7 +29,7 @@ import android.os.Bundle
 import android.preference.CheckBoxPreference
 import android.preference.PreferenceActivity
 import android.util.Log
-import androidx.preference.PreferenceManager
+import dev.devkey.keyboard.data.repository.SettingsRepository
 import java.util.Locale
 
 @Suppress("DEPRECATION")
@@ -41,8 +41,8 @@ class InputLanguageSelection : PreferenceActivity() {
         super.onCreate(icicle)
         addPreferencesFromResource(R.xml.language_prefs)
         // Get the settings preferences
-        val sp = PreferenceManager.getDefaultSharedPreferences(this)
-        val selectedLanguagePref = sp.getString(LatinIME.PREF_SELECTED_LANGUAGES, "") ?: ""
+        val settings = SettingsRepository.from(this)
+        val selectedLanguagePref = settings.getString(LatinIME.PREF_SELECTED_LANGUAGES, "")
         Log.i(TAG, "selected languages: $selectedLanguagePref")
         val languageList = selectedLanguagePref.split(",")
 
@@ -149,10 +149,7 @@ class InputLanguageSelection : PreferenceActivity() {
             .filter { (pref, _) -> pref.isChecked }
             .map { (_, locale) -> get5Code(locale) }
         val result: String? = if (checkedCodes.isEmpty()) null else checkedCodes.joinToString(",")
-        val sp = PreferenceManager.getDefaultSharedPreferences(this)
-        val editor = sp.edit()
-        editor.putString(LatinIME.PREF_SELECTED_LANGUAGES, result)
-        editor.apply()
+        SettingsRepository.from(this).setString(LatinIME.PREF_SELECTED_LANGUAGES, result ?: "")
     }
 
     companion object {

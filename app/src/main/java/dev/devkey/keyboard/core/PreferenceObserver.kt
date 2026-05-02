@@ -1,10 +1,8 @@
 package dev.devkey.keyboard.core
 
 import android.content.Context
-import android.content.SharedPreferences
 import android.util.Log
 import android.widget.Toast
-import androidx.preference.PreferenceManager
 import dev.devkey.keyboard.*
 import dev.devkey.keyboard.core.prefs.ImePrefsUtil
 import dev.devkey.keyboard.suggestion.engine.Suggest
@@ -29,12 +27,15 @@ internal class PreferenceObserver(
     private val isPredictionOn: () -> Boolean,
 ) {
 
-    fun onPreferenceChanged(sharedPreferences: SharedPreferences, key: String?) {
+    fun onPreferenceChanged(changedSettings: Any, key: String?) {
         Log.i(TAG, "onSharedPreferenceChanged()")
+        @Suppress("UNUSED_VARIABLE")
+        val ignoredChangeSource = changedSettings
         var needReload = false
         val res = context.resources
         val settings = this.settings
-        settings.handlePreferenceChanged(sharedPreferences, key)
+        val legacyPrefs = settings.legacyPrefs()
+        settings.handlePreferenceChanged(legacyPrefs, key)
         if (settings.consumeFlag(SettingsRepository.FLAG_PREF_NEED_RELOAD)) needReload = true
         if (settings.consumeFlag(SettingsRepository.FLAG_PREF_NEW_PUNC_LIST)) initSuggestPuncList()
         if (settings.consumeFlag(SettingsRepository.FLAG_PREF_RESET_MODE_OVERRIDE)) {
@@ -51,11 +52,11 @@ internal class PreferenceObserver(
 
         when (key) {
             PREF_SELECTED_LANGUAGES -> {
-                state.mLanguageSwitcher!!.loadLocales(sharedPreferences)
+                state.mLanguageSwitcher!!.loadLocales(settings)
                 state.mRefreshKeyboardRequired = true
             }
             PREF_RECORRECTION_ENABLED -> {
-                state.mReCorrectionEnabled = sharedPreferences.getBoolean(
+                state.mReCorrectionEnabled = settings.getBoolean(
                     PREF_RECORRECTION_ENABLED, res.getBoolean(R.bool.default_recorrection_enabled)
                 )
                 if (state.mReCorrectionEnabled) {
@@ -64,21 +65,21 @@ internal class PreferenceObserver(
                 }
             }
             PREF_FULLSCREEN_OVERRIDE -> {
-                state.mFullscreenOverride = sharedPreferences.getBoolean(PREF_FULLSCREEN_OVERRIDE, res.getBoolean(R.bool.default_fullscreen_override))
+                state.mFullscreenOverride = settings.getBoolean(PREF_FULLSCREEN_OVERRIDE, res.getBoolean(R.bool.default_fullscreen_override))
                 needReload = true
             }
             PREF_FORCE_KEYBOARD_ON -> {
-                state.mForceKeyboardOn = sharedPreferences.getBoolean(PREF_FORCE_KEYBOARD_ON, res.getBoolean(R.bool.default_force_keyboard_on))
+                state.mForceKeyboardOn = settings.getBoolean(PREF_FORCE_KEYBOARD_ON, res.getBoolean(R.bool.default_force_keyboard_on))
                 needReload = true
             }
             PREF_KEYBOARD_NOTIFICATION -> {
-                state.mKeyboardNotification = sharedPreferences.getBoolean(
+                state.mKeyboardNotification = settings.getBoolean(
                     PREF_KEYBOARD_NOTIFICATION, res.getBoolean(R.bool.default_keyboard_notification)
                 )
                 notificationController.setNotification(state.mKeyboardNotification)
             }
             PREF_SUGGESTIONS_IN_LANDSCAPE -> {
-                state.mSuggestionsInLandscape = sharedPreferences.getBoolean(
+                state.mSuggestionsInLandscape = settings.getBoolean(
                     PREF_SUGGESTIONS_IN_LANDSCAPE,
                     res.getBoolean(R.bool.default_suggestions_in_landscape)
                 )
@@ -86,50 +87,50 @@ internal class PreferenceObserver(
                 candidateViewHost.setCandidatesViewShown(isPredictionOn())
             }
             PREF_SHOW_SUGGESTIONS -> {
-                state.mShowSuggestions = sharedPreferences.getBoolean(PREF_SHOW_SUGGESTIONS, res.getBoolean(R.bool.default_suggestions))
+                state.mShowSuggestions = settings.getBoolean(PREF_SHOW_SUGGESTIONS, res.getBoolean(R.bool.default_suggestions))
                 state.mSuggestionForceOff = false; state.mSuggestionForceOn = false
                 needReload = true
             }
             PREF_HEIGHT_PORTRAIT -> {
                 state.mHeightPortrait = ImePrefsUtil.getHeight(
-                    sharedPreferences, PREF_HEIGHT_PORTRAIT,
+                    legacyPrefs, PREF_HEIGHT_PORTRAIT,
                     res.getString(R.string.default_height_portrait)
                 )
                 needReload = true
             }
             PREF_HEIGHT_LANDSCAPE -> {
                 state.mHeightLandscape = ImePrefsUtil.getHeight(
-                    sharedPreferences, PREF_HEIGHT_LANDSCAPE,
+                    legacyPrefs, PREF_HEIGHT_LANDSCAPE,
                     res.getString(R.string.default_height_landscape)
                 )
                 needReload = true
             }
             PREF_HINT_MODE -> {
-                settings.hintMode = sharedPreferences.getString(PREF_HINT_MODE, res.getString(R.string.default_hint_mode))!!.toInt()
+                settings.hintMode = settings.getString(PREF_HINT_MODE, res.getString(R.string.default_hint_mode)).toInt()
                 needReload = true
             }
             PREF_LONGPRESS_TIMEOUT -> settings.longpressTimeout = ImePrefsUtil.getPrefInt(
-                sharedPreferences, PREF_LONGPRESS_TIMEOUT,
+                legacyPrefs, PREF_LONGPRESS_TIMEOUT,
                 res.getString(R.string.default_long_press_duration)
             )
             PREF_RENDER_MODE -> {
-                settings.renderMode = ImePrefsUtil.getPrefInt(sharedPreferences, PREF_RENDER_MODE, res.getString(R.string.default_render_mode))
+                settings.renderMode = ImePrefsUtil.getPrefInt(legacyPrefs, PREF_RENDER_MODE, res.getString(R.string.default_render_mode))
                 needReload = true
             }
-            PREF_SWIPE_UP -> swipeHandler.swipeUpAction = sharedPreferences.getString(PREF_SWIPE_UP, res.getString(R.string.default_swipe_up))
-            PREF_SWIPE_DOWN -> swipeHandler.swipeDownAction = sharedPreferences.getString(PREF_SWIPE_DOWN, res.getString(R.string.default_swipe_down))
-            PREF_SWIPE_LEFT -> swipeHandler.swipeLeftAction = sharedPreferences.getString(PREF_SWIPE_LEFT, res.getString(R.string.default_swipe_left))
-            PREF_SWIPE_RIGHT -> swipeHandler.swipeRightAction = sharedPreferences.getString(
+            PREF_SWIPE_UP -> swipeHandler.swipeUpAction = settings.getString(PREF_SWIPE_UP, res.getString(R.string.default_swipe_up))
+            PREF_SWIPE_DOWN -> swipeHandler.swipeDownAction = settings.getString(PREF_SWIPE_DOWN, res.getString(R.string.default_swipe_down))
+            PREF_SWIPE_LEFT -> swipeHandler.swipeLeftAction = settings.getString(PREF_SWIPE_LEFT, res.getString(R.string.default_swipe_left))
+            PREF_SWIPE_RIGHT -> swipeHandler.swipeRightAction = settings.getString(
                 PREF_SWIPE_RIGHT, res.getString(R.string.default_swipe_right)
             )
-            PREF_VOL_UP -> swipeHandler.volUpAction = sharedPreferences.getString(PREF_VOL_UP, res.getString(R.string.default_vol_up))
-            PREF_VOL_DOWN -> swipeHandler.volDownAction = sharedPreferences.getString(PREF_VOL_DOWN, res.getString(R.string.default_vol_down))
+            PREF_VOL_UP -> swipeHandler.volUpAction = settings.getString(PREF_VOL_UP, res.getString(R.string.default_vol_up))
+            PREF_VOL_DOWN -> swipeHandler.volDownAction = settings.getString(PREF_VOL_DOWN, res.getString(R.string.default_vol_down))
             PREF_VIBRATE_LEN -> {
                 feedbackManager.vibrateLen = ImePrefsUtil.getPrefInt(
-                    sharedPreferences, PREF_VIBRATE_LEN, context.resources.getString(R.string.vibrate_duration_ms))
+                    legacyPrefs, PREF_VIBRATE_LEN, context.resources.getString(R.string.vibrate_duration_ms))
             }
             SettingsRepository.KEY_AUTOCORRECT_LEVEL -> {
-                val level = sharedPreferences.getString(SettingsRepository.KEY_AUTOCORRECT_LEVEL, "mild") ?: "mild"
+                val level = settings.getString(SettingsRepository.KEY_AUTOCORRECT_LEVEL, "mild")
                 SessionDependencies.autocorrectEngine?.aggressiveness = when (level) {
                     "aggressive" -> AutocorrectEngine.Aggressiveness.AGGRESSIVE
                     "off" -> AutocorrectEngine.Aggressiveness.OFF
@@ -137,7 +138,7 @@ internal class PreferenceObserver(
                 }
             }
             PREF_AUTO_CAP -> {
-                state.mAutoCapPref = sharedPreferences.getBoolean(
+                state.mAutoCapPref = settings.getBoolean(
                     PREF_AUTO_CAP, res.getBoolean(R.bool.default_auto_cap)
                 )
                 state.mAutoCapActive = state.mAutoCapPref && state.mLanguageSwitcher!!.allowAutoCap()
@@ -149,17 +150,17 @@ internal class PreferenceObserver(
     }
 
     fun loadSettings() {
-        val sp = PreferenceManager.getDefaultSharedPreferences(context)
+        val legacyPrefs = settings.legacyPrefs()
         val res = context.resources
-        feedbackManager.vibrateOn = sp.getBoolean(PREF_VIBRATE_ON, false)
-        feedbackManager.vibrateLen = ImePrefsUtil.getPrefInt(sp, PREF_VIBRATE_LEN, res.getString(R.string.vibrate_duration_ms))
-        feedbackManager.soundOn = sp.getBoolean(PREF_SOUND_ON, false)
-        state.mPopupOn = sp.getBoolean(PREF_POPUP_ON, res.getBoolean(R.bool.default_popup_preview))
-        state.mAutoCapPref = sp.getBoolean(PREF_AUTO_CAP, res.getBoolean(R.bool.default_auto_cap))
-        state.mQuickFixes = sp.getBoolean(PREF_QUICK_FIXES, true)
-        state.mShowSuggestions = sp.getBoolean(PREF_SHOW_SUGGESTIONS, res.getBoolean(R.bool.default_suggestions))
+        feedbackManager.vibrateOn = settings.getBoolean(PREF_VIBRATE_ON, false)
+        feedbackManager.vibrateLen = ImePrefsUtil.getPrefInt(legacyPrefs, PREF_VIBRATE_LEN, res.getString(R.string.vibrate_duration_ms))
+        feedbackManager.soundOn = settings.getBoolean(PREF_SOUND_ON, false)
+        state.mPopupOn = settings.getBoolean(PREF_POPUP_ON, res.getBoolean(R.bool.default_popup_preview))
+        state.mAutoCapPref = settings.getBoolean(PREF_AUTO_CAP, res.getBoolean(R.bool.default_auto_cap))
+        state.mQuickFixes = settings.getBoolean(PREF_QUICK_FIXES, true)
+        state.mShowSuggestions = settings.getBoolean(PREF_SHOW_SUGGESTIONS, res.getBoolean(R.bool.default_suggestions))
 
-        val voiceMode = sp.getString(PREF_VOICE_MODE, context.getString(R.string.voice_mode_main))
+        val voiceMode = settings.getString(PREF_VOICE_MODE, context.getString(R.string.voice_mode_main))
         val enableVoice = voiceMode != context.getString(R.string.voice_mode_off) && state.mEnableVoiceButton
         val voiceOnPrimary = voiceMode == context.getString(R.string.voice_mode_main)
         if (state.mKeyboardSwitcher != null
@@ -170,19 +171,19 @@ internal class PreferenceObserver(
         state.mEnableVoice = enableVoice
         state.mVoiceOnPrimary = voiceOnPrimary
 
-        state.mAutoCorrectEnabled = sp.getBoolean(
+        state.mAutoCorrectEnabled = settings.getBoolean(
             PREF_AUTO_COMPLETE, res.getBoolean(R.bool.enable_autocorrect)
         ) && state.mShowSuggestions
         updateCorrectionMode()
 
-        val autocorrectLevel = sp.getString(SettingsRepository.KEY_AUTOCORRECT_LEVEL, "mild") ?: "mild"
+        val autocorrectLevel = settings.getString(SettingsRepository.KEY_AUTOCORRECT_LEVEL, "mild")
         SessionDependencies.autocorrectEngine?.aggressiveness = when (autocorrectLevel) {
             "aggressive" -> AutocorrectEngine.Aggressiveness.AGGRESSIVE
             "off" -> AutocorrectEngine.Aggressiveness.OFF
             else -> AutocorrectEngine.Aggressiveness.MILD
         }
         updateAutoTextEnabled(res.configuration.locales[0])
-        state.mLanguageSwitcher!!.loadLocales(sp)
+        state.mLanguageSwitcher!!.loadLocales(settings)
         state.mAutoCapActive = state.mAutoCapPref && state.mLanguageSwitcher!!.allowAutoCap()
         state.mDeadKeysActive = state.mLanguageSwitcher!!.allowDeadKeys()
     }

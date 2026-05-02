@@ -1,7 +1,9 @@
 package dev.devkey.keyboard.data.repository
 
+import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
+import androidx.preference.PreferenceManager
 import dev.devkey.keyboard.ui.keyboard.LayoutMode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -128,6 +130,9 @@ class SettingsRepository(
     companion object {
         @Suppress("unused")
         private const val TAG = "DevKey/Settings"
+
+        fun from(context: Context): SettingsRepository =
+            SettingsRepository(PreferenceManager.getDefaultSharedPreferences(context))
 
         // Preference change flags
         const val FLAG_PREF_NONE                = SettingsKeys.FLAG_PREF_NONE

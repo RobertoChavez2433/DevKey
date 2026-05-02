@@ -1,10 +1,9 @@
 // Copyright (C) 2010 Google Inc. Licensed under the Apache License, Version 2.0.
 package dev.devkey.keyboard.language
 
-import android.content.SharedPreferences
-import androidx.preference.PreferenceManager
 import dev.devkey.keyboard.InputLanguageSelection
 import dev.devkey.keyboard.LatinIME
+import dev.devkey.keyboard.data.repository.SettingsRepository
 import java.util.Locale
 
 /**
@@ -29,9 +28,9 @@ class LanguageSwitcher(private val mIme: LatinIME) {
      * Loads the currently selected input languages from shared preferences.
      * @return whether there was any change
      */
-    fun loadLocales(sp: SharedPreferences): Boolean {
-        val selectedLanguages = sp.getString(LatinIME.PREF_SELECTED_LANGUAGES, null)
-        val currentLanguage = sp.getString(LatinIME.PREF_INPUT_LANGUAGE, null)
+    fun loadLocales(settings: SettingsRepository = LatinIME.sKeyboardSettings): Boolean {
+        val selectedLanguages = settings.getString(LatinIME.PREF_SELECTED_LANGUAGES, "")
+        val currentLanguage = settings.getString(LatinIME.PREF_INPUT_LANGUAGE, "")
         if (selectedLanguages.isNullOrEmpty()) {
             loadDefaults()
             if (mLocales.isEmpty()) {
@@ -47,7 +46,7 @@ class LanguageSwitcher(private val mIme: LatinIME) {
         mSelectedLanguages = selectedLanguages // Cache it for comparison later
         constructLocales()
         mCurrentIndex = 0
-        if (currentLanguage != null) {
+        if (currentLanguage.isNotBlank()) {
             // Find the index
             mCurrentIndex = 0
             for (i in mLocales.indices) {
@@ -158,7 +157,7 @@ class LanguageSwitcher(private val mIme: LatinIME) {
     fun reset() {
         mCurrentIndex = 0
         mSelectedLanguages = ""
-        loadLocales(PreferenceManager.getDefaultSharedPreferences(mIme))
+        loadLocales()
     }
 
     fun next() {
@@ -172,10 +171,7 @@ class LanguageSwitcher(private val mIme: LatinIME) {
     }
 
     fun persist() {
-        val sp = PreferenceManager.getDefaultSharedPreferences(mIme)
-        val editor = sp.edit()
-        editor.putString(LatinIME.PREF_INPUT_LANGUAGE, getInputLanguage())
-        editor.apply()
+        LatinIME.sKeyboardSettings.setString(LatinIME.PREF_INPUT_LANGUAGE, getInputLanguage())
     }
 
     companion object {

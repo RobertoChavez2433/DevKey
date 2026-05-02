@@ -6,7 +6,6 @@ import android.util.PrintWriterPrinter
 import android.view.KeyEvent
 import android.view.View
 import android.view.inputmethod.CompletionInfo
-import androidx.preference.PreferenceManager
 import dev.devkey.keyboard.LatinIME
 import dev.devkey.keyboard.core.input.TextEntryState
 import dev.devkey.keyboard.ui.keyboard.ComposeKeyboardViewFactory
@@ -61,9 +60,7 @@ internal class ImeLifecycleDelegate(
         if (sysLoc != ime.mSystemLocale) {
             ime.mSystemLocale = sysLoc
             if (state.mLanguageSwitcher != null) {
-                state.mLanguageSwitcher!!.loadLocales(
-                    PreferenceManager.getDefaultSharedPreferences(ime)
-                )
+                state.mLanguageSwitcher!!.loadLocales(LatinIME.sKeyboardSettings)
                 state.mLanguageSwitcher!!.setSystemLocale(conf.locales[0])
                 col.dictionaryManager.toggleLanguage(reset = true, next = true)
             } else {

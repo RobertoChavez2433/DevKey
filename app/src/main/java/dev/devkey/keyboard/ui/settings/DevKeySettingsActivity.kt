@@ -17,7 +17,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.lifecycleScope
-import androidx.preference.PreferenceManager
 import dev.devkey.keyboard.data.db.DevKeyDatabase
 import dev.devkey.keyboard.data.export.DevKeyBackup
 import dev.devkey.keyboard.data.export.ExportManager
@@ -59,8 +58,7 @@ class DevKeySettingsActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val prefs = PreferenceManager.getDefaultSharedPreferences(this)
-        settingsRepository = SettingsRepository(prefs)
+        settingsRepository = SettingsRepository.from(this)
 
         database = DevKeyDatabase.getInstance(this)
         exportManager = ExportManager(database)

@@ -145,6 +145,10 @@ def test_three_sentence_paragraph():
         keyboard.tap_key(".", serial)
         time.sleep(0.4)
 
+    state = adb.query_test_host_state(serial, timeout_ms=2000)
+    assert state["text_length"] >= 9, (
+        f"Paragraph input did not leave committed text; length={state['text_length']}"
+    )
     assert event_count == 9, (
         f"Expected 9 prediction events (3 sentences x 3 words), got {event_count}"
     )

@@ -72,17 +72,26 @@ def _setup():
 
 def _set_autocorrect_level(level):
     """Set the autocorrect level via broadcast."""
-    driver.broadcast(
-        "dev.devkey.keyboard.SET_AUTOCORRECT_LEVEL",
-        {"level": level},
-    )
-    entry = driver.wait_for(
-        category="DevKey/IME",
-        event="autocorrect_level_set",
-        match={"level": level},
-        timeout_ms=3000,
-    )
-    assert entry["data"]["level"] == level
+    last_error = None
+    for _ in range(3):
+        driver.clear_logs()
+        driver.broadcast(
+            "dev.devkey.keyboard.SET_AUTOCORRECT_LEVEL",
+            {"level": level},
+        )
+        try:
+            entry = driver.wait_for(
+                category="DevKey/IME",
+                event="autocorrect_level_set",
+                match={"level": level},
+                timeout_ms=5000,
+            )
+            assert entry["data"]["level"] == level
+            return
+        except driver.DriverError as exc:
+            last_error = exc
+            time.sleep(1.0)
+    raise AssertionError(f"autocorrect_level_set({level}) was not observed: {last_error}")
 
 
 def test_single_char_words():

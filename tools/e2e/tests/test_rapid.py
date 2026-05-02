@@ -50,35 +50,27 @@ def test_rapid_mode_toggles():
 
     driver.clear_logs()
 
-    try:
-        for _ in range(5):
-            # Enter symbols via 123 key
-            keyboard.tap_key_by_code(-2, serial)
-            time.sleep(0.2)
-            # Return to normal via broadcast (more reliable than ABC tap
-            # which depends on SYM_KEY coordinates)
-            driver.broadcast("dev.devkey.keyboard.RESET_KEYBOARD_MODE", {})
-            time.sleep(0.2)
-
-        time.sleep(0.5)
-
-        # Verify driver has mode transitions (no crashes)
-        import json
-        from urllib import request
-        url = f"{driver.DRIVER_URL}/logs"
-        with request.urlopen(url, timeout=5) as resp:
-            raw = resp.read().decode("utf-8")
-        # Count keyboard_mode_changed events
-        mode_changes = raw.count("keyboard_mode_changed")
-        assert mode_changes >= 5, (
-            f"Expected at least 5 mode transitions, got {mode_changes}"
+    transitions = 0
+    for _ in range(5):
+        # Enter symbols via 123 key.
+        keyboard.tap_key_by_code(-2, serial)
+        entry = driver.wait_for(
+            "DevKey/IME",
+            "keyboard_mode_changed",
+            match={"action": "toggle"},
+            timeout_ms=3000,
         )
-    finally:
-        # Ensure we end in Normal mode regardless of where the loop stopped.
-        try:
-            keyboard.tap_symbols_key_by_code(-200, serial)
-        except Exception:
-            pass
+        if "Symbols" in entry.get("data", {}).get("to", ""):
+            transitions += 1
+
+        # Return to normal via broadcast; this is deterministic and has an
+        # explicit reset acknowledgement for the verifier.
+        driver.broadcast("dev.devkey.keyboard.RESET_KEYBOARD_MODE", {})
+        driver.wait_for("DevKey/IME", "keyboard_mode_reset", timeout_ms=3000)
+
+    assert transitions >= 5, (
+        f"Expected 5 symbols transitions, got {transitions}"
+    )
 
 
 def test_rapid_shift_taps():
@@ -99,6 +91,12 @@ def test_rapid_shift_taps():
         time.sleep(0.15)
 
     time.sleep(0.5)
+    driver.wait_for(
+        "DevKey/MOD",
+        "modifier_transition",
+        match={"type": "SHIFT"},
+        timeout_ms=3000,
+    )
 
     # Verify modifier transitions via driver — more reliable than logcat on
     # physical devices where rapid log writes can be dropped.

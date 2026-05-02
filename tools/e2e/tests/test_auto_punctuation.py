@@ -158,6 +158,11 @@ def test_double_space_guard_at_start():
     except Exception:
         pass  # Expected: no event
 
+    state = adb.query_test_host_state(serial, timeout_ms=2000)
+    assert state["text_length"] <= 2, (
+        f"Double-space guard at field start left unexpected text length: {state['text_length']}"
+    )
+
 
 def test_punctuation_space_swap():
     """

@@ -84,13 +84,20 @@ def test_voice_during_composing():
     driver.wait_for("DevKey/VOX", "state_transition",
                     match={"state": "IDLE"},
                     timeout_ms=3000)
+    driver.wait_for("DevKey/IME", "keyboard_mode_reset", timeout_ms=3000)
+
+    compose_state = adb.query_test_host_state(serial, timeout_ms=2000)
+    assert compose_state["text_length"] >= 3, (
+        f"Voice cancel lost composing text; length={compose_state['text_length']}"
+    )
+    adb.clear_test_host_text(serial)
 
     # Verify typing still works after voice cancel
     driver.clear_logs()
     keyboard.tap_key("a", serial)
     keyboard.tap_key_by_code(SPACE_CODE, serial)
     state = adb.query_test_host_state(serial, timeout_ms=2000)
-    assert state["text_length"] >= 4, (
+    assert state["text_length"] >= 1, (
         f"Typing after voice cancel did not commit expected text; length={state['text_length']}"
     )
 

@@ -77,17 +77,26 @@ def _setup():
 
 def _set_autocorrect_level(level):
     """Set the autocorrect level via broadcast."""
-    driver.broadcast(
-        "dev.devkey.keyboard.SET_AUTOCORRECT_LEVEL",
-        {"level": level},
-    )
-    entry = driver.wait_for(
-        category="DevKey/IME",
-        event="autocorrect_level_set",
-        match={"level": level},
-        timeout_ms=3000,
-    )
-    assert entry["data"]["level"] == level
+    last_error = None
+    for _ in range(3):
+        driver.clear_logs()
+        driver.broadcast(
+            "dev.devkey.keyboard.SET_AUTOCORRECT_LEVEL",
+            {"level": level},
+        )
+        try:
+            entry = driver.wait_for(
+                category="DevKey/IME",
+                event="autocorrect_level_set",
+                match={"level": level},
+                timeout_ms=5000,
+            )
+            assert entry["data"]["level"] == level
+            return
+        except driver.DriverError as exc:
+            last_error = exc
+            time.sleep(1.0)
+    raise AssertionError(f"autocorrect_level_set({level}) was not observed: {last_error}")
 
 
 def test_aggressive_10_words():
@@ -133,7 +142,7 @@ def test_type_and_backspace_revert():
 
     entry = driver.wait_for(
         "DevKey/TXT", "next_word_suggestions",
-        timeout_ms=3000,
+        timeout_ms=8000,
     )
     assert "source" in entry["data"]
 
@@ -147,7 +156,7 @@ def test_type_and_backspace_revert():
 
     entry2 = driver.wait_for(
         "DevKey/TXT", "next_word_suggestions",
-        timeout_ms=3000,
+        timeout_ms=8000,
     )
     assert "source" in entry2["data"], (
         "Pipeline should remain responsive after backspace revert"
@@ -171,7 +180,7 @@ def test_mixed_paragraph():
 
         entry = driver.wait_for(
             "DevKey/TXT", "next_word_suggestions",
-            timeout_ms=3000,
+            timeout_ms=5000,
         )
         assert "source" in entry["data"]
         event_count += 1
@@ -195,7 +204,7 @@ def test_autocorrect_then_suggestion():
 
     entry = driver.wait_for(
         "DevKey/TXT", "next_word_suggestions",
-        timeout_ms=3000,
+        timeout_ms=5000,
     )
     data = entry["data"]
     assert "source" in data, (

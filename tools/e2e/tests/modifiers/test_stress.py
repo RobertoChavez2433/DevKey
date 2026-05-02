@@ -58,8 +58,13 @@ def test_ctrl_a_through_z():
     serial = _setup()
 
     for i, letter in enumerate("abcdefghijklmnopqrstuvwxyz"):
+        # Each Ctrl shortcut must be independent. Some host-side shortcuts can
+        # affect focus or selection state, so reset the controlled host before
+        # driving the next combo.
+        adb.reset_test_host_state(serial)
         driver.clear_logs()
         keyboard.tap_key_by_code(KEYCODE_CTRL_LEFT, serial)
+        time.sleep(0.15)
         keyboard.tap_key(letter, serial)
 
         expected_code = ord(letter)

@@ -123,6 +123,9 @@ class ClipboardRepositoryTest {
 
         override fun getAllEntries(): Flow<List<ClipboardHistoryEntity>> = flow
 
+        override suspend fun getAllEntriesList(): List<ClipboardHistoryEntity> =
+            entries.sortedByDescending { it.timestamp }
+
         override fun getPinnedEntries(): Flow<List<ClipboardHistoryEntity>> =
             flow.map { list -> list.filter { it.isPinned } }
 

@@ -19,8 +19,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.IntSize
-import dev.devkey.keyboard.keyboard.model.Keyboard
-import dev.devkey.keyboard.core.ModifierKeyState
 import dev.devkey.keyboard.core.ModifierStateManager
 import dev.devkey.keyboard.ui.theme.DevKeyThemeDimensions
 
@@ -76,66 +74,24 @@ fun KeyView(
     val (normalBg, normalText) = getKeyColors(key)
     val activeColor = getActiveKeyColor(key)
 
-    // Determine if this modifier key is active
-    val isModifierActive = when {
-        key.type == KeyType.MODIFIER && key.primaryCode == Keyboard.KEYCODE_SHIFT ->
-            shiftState != ModifierKeyState.OFF
-        key.type == KeyType.MODIFIER && key.primaryCode == KeyCodes.CTRL_LEFT ->
-            ctrlState != ModifierKeyState.OFF
-        key.type == KeyType.MODIFIER && key.primaryCode == KeyCodes.ALT_LEFT ->
-            altState != ModifierKeyState.OFF
-        // UTILITY type Ctrl/Alt also need active state
-        key.type == KeyType.UTILITY && key.primaryCode == KeyCodes.CTRL_LEFT ->
-            ctrlState != ModifierKeyState.OFF
-        key.type == KeyType.UTILITY && key.primaryCode == KeyCodes.ALT_LEFT ->
-            altState != ModifierKeyState.OFF
-        else -> false
-    }
-
-    val isModifierLocked = when {
-        key.type == KeyType.MODIFIER && key.primaryCode == Keyboard.KEYCODE_SHIFT ->
-            shiftState == ModifierKeyState.LOCKED
-        key.type == KeyType.MODIFIER && key.primaryCode == KeyCodes.CTRL_LEFT ->
-            ctrlState == ModifierKeyState.LOCKED
-        key.type == KeyType.MODIFIER && key.primaryCode == KeyCodes.ALT_LEFT ->
-            altState == ModifierKeyState.LOCKED
-        key.type == KeyType.UTILITY && key.primaryCode == KeyCodes.CTRL_LEFT ->
-            ctrlState == ModifierKeyState.LOCKED
-        key.type == KeyType.UTILITY && key.primaryCode == KeyCodes.ALT_LEFT ->
-            altState == ModifierKeyState.LOCKED
-        else -> false
-    }
-
-    // Ctrl Mode shortcut lookup for letter keys
-    val ctrlShortcut = if (ctrlHeld && key.type == KeyType.LETTER) {
-        CtrlShortcutMap.getShortcut(key.primaryLabel.lowercase())
-    } else null
+    val modifierVisual = resolveModifierVisualState(key, shiftState, ctrlState, altState)
+    val interaction = resolveKeyInteractionState(key, ctrlHeld)
 
     val backgroundColor = animateKeyBackgroundColor(
         isPressed = isPressed,
-        isModifierActive = isModifierActive,
+        isModifierActive = modifierVisual.isActive,
         activeColor = activeColor,
         normalBg = normalBg,
         ctrlHeld = ctrlHeld,
         key = key,
-        ctrlShortcut = ctrlShortcut
+        ctrlShortcut = interaction.ctrlShortcut
     )
     val scale = animateKeyScale(isPressed)
 
     val displayLabel = resolveDisplayLabel(key)
     val textSize = resolveTextSize(key)
-    val ctrlTextColor = resolveCtrlTextColor(ctrlHeld, key, ctrlShortcut)
+    val ctrlTextColor = resolveCtrlTextColor(ctrlHeld, key, interaction.ctrlShortcut)
     val effectiveTextColor = ctrlTextColor ?: normalText
-
-    // Determine if this key is a modifier-like key (needs tap-only handling)
-    val isModifierKey = key.type == KeyType.MODIFIER ||
-            (key.type == KeyType.UTILITY &&
-                    (key.primaryCode == KeyCodes.CTRL_LEFT || key.primaryCode == KeyCodes.ALT_LEFT))
-
-    // Whether this key uses the multi-char popup on long-press
-    val hasMultiPopup = !isModifierKey &&
-            key.longPressCodes != null &&
-            key.longPressCodes.size >= 2
 
     Box(
         modifier = modifier
@@ -149,8 +105,8 @@ fun KeyView(
             .keyGestureHandler(
                 key = key,
                 modifierState = modifierState,
-                isModifierKey = isModifierKey,
-                hasMultiPopup = hasMultiPopup,
+                isModifierKey = interaction.isModifierKey,
+                hasMultiPopup = interaction.hasMultiPopup,
                 isPressed = isPressedState,
                 popupCodes = popupCodesState,
                 popupActiveIndex = popupActiveIndexState,
@@ -171,7 +127,7 @@ fun KeyView(
             textColor = effectiveTextColor,
             ctrlHeld = ctrlHeld,
             key = key,
-            ctrlShortcut = ctrlShortcut
+            ctrlShortcut = interaction.ctrlShortcut
         )
 
         KeyHintLabel(
@@ -183,30 +139,19 @@ fun KeyView(
         )
 
         KeyLockDot(
-            isModifierLocked = isModifierLocked,
+            isModifierLocked = modifierVisual.isLocked,
             boxScope = this
         )
 
-        val currentPopupCodes = popupCodes
-        if (currentPopupCodes != null) {
-            LongPressPopup(
-                codes = currentPopupCodes,
-                activeIndex = popupActiveIndex,
-                keySize = keySizeState.value,
-                density = density
-            )
-        } else if (isPressed && key.type == KeyType.LETTER && displayLabel.length <= 2) {
-            // Show long-press character when long press has fired, otherwise base character
-            val previewLabel = if (longPressFired && key.longPressCode != null) {
-                key.longPressLabel ?: key.longPressCode.toChar().toString()
-            } else {
-                displayLabel
-            }
-            KeyPressPreview(
-                label = previewLabel,
-                keySize = keySizeState.value,
-                density = density
-            )
-        }
+        KeyTransientOverlay(
+            popupCodes = popupCodes,
+            popupActiveIndex = popupActiveIndex,
+            keySize = keySizeState.value,
+            density = density,
+            isPressed = isPressed,
+            key = key,
+            displayLabel = displayLabel,
+            longPressFired = longPressFired
+        )
     }
 }

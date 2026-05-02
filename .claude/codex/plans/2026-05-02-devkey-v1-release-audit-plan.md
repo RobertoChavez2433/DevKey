@@ -206,6 +206,15 @@ Created: 2026-05-02
   - `execute_test_inline` dropped to cyclomatic 7
   - current jCodeMunch hotspot report no longer includes `tools/e2e`
     runner/discovery/executor functions in the top 12
+- [x] E2E ADB helper split:
+  - kept `tools/e2e/lib/adb.py` as a compatibility facade for existing tests
+  - moved low-level device commands into `adb_device.py`
+  - moved logcat helpers into `adb_logcat.py`
+  - moved controlled TestHostActivity state/reset/visibility helpers into
+    `adb_test_host.py`
+  - moved screenshot and visual-baseline helpers into `adb_visual.py`
+  - `tools/e2e/lib/adb.py` is no longer a structure-audit line violation
+  - `ensure_keyboard_visible` dropped to cyclomatic 7 in its new module
 
 ## Remaining Implementation Work
 
@@ -214,8 +223,6 @@ Created: 2026-05-02
   - capture jCodeMunch hotspot/complexity report with the release checklist
   - attach explicit deferral rationale for each remaining structure violation
 - [ ] Split E2E helper god modules:
-  - `tools/e2e/lib/adb.py` into device, logcat, test-host state, visual, and
-    permission helpers
   - `tools/e2e/lib/keyboard.py` into key-map loading, inventory generation,
     coordinate tapping, and layout-mode controls
 - [ ] Split debug/test action receivers out of
@@ -292,9 +299,10 @@ Created: 2026-05-02
   voice is fixed or when deliberately collecting the remaining failures.
 - AnySoftKeyboard dictionary spike is still research work; do not integrate new
   dictionary sources before provenance and behavior are proven.
-- DevKey’s test harness still has god helper modules after the runner
-  extraction: `adb.py` and `keyboard.py` still mix unrelated responsibilities.
-- The current structure audit still reports 8 files above 400 lines and 1 file
+- DevKey’s test harness still has a god helper module after the runner and ADB
+  extractions: `keyboard.py` still mixes key-map loading, inventory generation,
+  coordinate tapping, and layout-mode controls.
+- The current structure audit still reports 7 files above 400 lines and 1 file
   above 35 imports. These are now visible release-gate findings, not hidden
   cleanup debt.
 

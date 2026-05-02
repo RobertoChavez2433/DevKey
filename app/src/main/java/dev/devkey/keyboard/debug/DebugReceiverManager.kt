@@ -5,11 +5,17 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import androidx.core.content.ContextCompat
-import androidx.preference.PreferenceManager
+import dev.devkey.keyboard.BuildConfig
 import dev.devkey.keyboard.data.repository.SettingsRepository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-internal class DebugReceiverManager(private val context: Context) {
+internal class DebugReceiverManager(
+    private val context: Context,
+    private val scope: CoroutineScope,
+    private val settingsRepository: SettingsRepository
+) {
     private var enableDebugServerReceiver: BroadcastReceiver? = null
     private var setLayoutModeReceiver: BroadcastReceiver? = null
     private var setBoolPrefReceiver: BroadcastReceiver? = null
@@ -48,8 +54,7 @@ internal class DebugReceiverManager(private val context: Context) {
                     DevKeyLogger.error("set_layout_mode_rejected", mapOf("mode" to mode))
                     return
                 }
-                PreferenceManager.getDefaultSharedPreferences(context)
-                    .edit().putString(SettingsRepository.KEY_LAYOUT_MODE, mode).apply()
+                settingsRepository.setString(SettingsRepository.KEY_LAYOUT_MODE, mode)
                 DevKeyLogger.ime("layout_mode_set", mapOf("mode" to mode))
             }
         }
@@ -74,8 +79,7 @@ internal class DebugReceiverManager(private val context: Context) {
                     return
                 }
                 val value = intent.getBooleanExtra("value", false)
-                val prefs = PreferenceManager.getDefaultSharedPreferences(context)
-                prefs.edit().putBoolean(key, value).apply()
+                settingsRepository.setBoolean(key, value)
                 DevKeyLogger.ime("bool_pref_set", mapOf("key" to key, "value" to value))
             }
         }
@@ -93,8 +97,7 @@ internal class DebugReceiverManager(private val context: Context) {
                     DevKeyLogger.error("set_autocorrect_level_rejected", mapOf("level" to level))
                     return
                 }
-                PreferenceManager.getDefaultSharedPreferences(context)
-                    .edit().putString(SettingsRepository.KEY_AUTOCORRECT_LEVEL, level).apply()
+                settingsRepository.setString(SettingsRepository.KEY_AUTOCORRECT_LEVEL, level)
                 DevKeyLogger.ime("autocorrect_level_set", mapOf("level" to level))
             }
         }
@@ -105,29 +108,32 @@ internal class DebugReceiverManager(private val context: Context) {
             ContextCompat.RECEIVER_EXPORTED
         )
 
-        voiceProcessFileReceiver = object : BroadcastReceiver() {
-            override fun onReceive(context: Context, intent: Intent) {
-                val filePath = intent.getStringExtra("file_path") ?: return
-                val engine = dev.devkey.keyboard.ui.keyboard.SessionDependencies.voiceInputEngine
-                if (engine == null) {
-                    DevKeyLogger.error("voice_process_file_rejected", mapOf("reason" to "engine_null"))
-                    return
-                }
-                DevKeyLogger.voice("process_file_start", mapOf("path" to filePath))
-                kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.Main) {
-                    val result = engine.processFileForTest(filePath)
-                    DevKeyLogger.voice("process_file_result", mapOf("length" to result.length, "preview" to result.take(100)))
-                    // Commit the transcription to the current input field
-                    dev.devkey.keyboard.LatinIME.sInstance?.currentInputConnection?.commitText(result, 1)
+        if (BuildConfig.DEBUG) {
+            voiceProcessFileReceiver = object : BroadcastReceiver() {
+                override fun onReceive(context: Context, intent: Intent) {
+                    val filePath = intent.getStringExtra("file_path") ?: return
+                    val engine = dev.devkey.keyboard.ui.keyboard.SessionDependencies.voiceInputEngine
+                    if (engine == null) {
+                        DevKeyLogger.error("voice_process_file_rejected", mapOf("reason" to "engine_null"))
+                        return
+                    }
+                    DevKeyLogger.voice("process_file_start")
+                    scope.launch(Dispatchers.Main) {
+                        val result = engine.processFileForTest(filePath)
+                        DevKeyLogger.voice("process_file_result", mapOf("length" to result.length))
+                        if (engine.shouldCommitTranscription(result)) {
+                            dev.devkey.keyboard.LatinIME.sInstance?.onText(result)
+                        }
+                    }
                 }
             }
+            ContextCompat.registerReceiver(
+                context,
+                voiceProcessFileReceiver,
+                IntentFilter("dev.devkey.keyboard.VOICE_PROCESS_FILE"),
+                ContextCompat.RECEIVER_EXPORTED
+            )
         }
-        ContextCompat.registerReceiver(
-            context,
-            voiceProcessFileReceiver,
-            IntentFilter("dev.devkey.keyboard.VOICE_PROCESS_FILE"),
-            ContextCompat.RECEIVER_EXPORTED
-        )
 
         resetCircuitBreakerReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
@@ -148,7 +154,7 @@ internal class DebugReceiverManager(private val context: Context) {
                     DevKeyLogger.error("clear_learned_words_rejected", mapOf("reason" to "engine_null"))
                     return
                 }
-                kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                scope.launch(Dispatchers.IO) {
                     engine.clearAll()
                     DevKeyLogger.ime("learned_words_cleared")
                 }

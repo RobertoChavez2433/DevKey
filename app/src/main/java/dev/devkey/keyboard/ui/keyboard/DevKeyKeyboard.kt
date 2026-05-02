@@ -3,6 +3,7 @@ package dev.devkey.keyboard.ui.keyboard
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -54,6 +55,7 @@ fun DevKeyKeyboard(
     val inputMode by deps.commandModeDetector.inputMode.collectAsState()
     val voiceState by deps.voiceInputEngine.state.collectAsState()
     val voiceAmplitude by deps.voiceInputEngine.amplitude.collectAsState()
+    val voiceInputAllowed by SessionDependencies.voiceInputAllowed.collectAsState()
 
     var suggestionBarCollapsed by remember { mutableStateOf(false) }
     var macroNameDialogVisible by remember { mutableStateOf(false) }
@@ -71,6 +73,47 @@ fun DevKeyKeyboard(
         }
     }
 
+    LaunchedEffect(prefs.voiceAutoStopTimeoutSeconds.value) {
+        deps.voiceInputEngine.setAutoStopTimeoutSeconds(prefs.voiceAutoStopTimeoutSeconds.value)
+    }
+
+    LaunchedEffect(voiceInputAllowed, keyboardMode) {
+        if (!voiceInputAllowed && keyboardMode == KeyboardMode.Voice) {
+            deps.voiceInputEngine.cancelListening()
+            deps.modeManager.setMode(KeyboardMode.Normal)
+        }
+    }
+
+    DisposableEffect(deps.voiceInputEngine, deps.bridge, deps.modeManager) {
+        deps.voiceInputEngine.setTranscriptionListener { transcription ->
+            deps.bridge.onText(transcription)
+            deps.modeManager.setMode(KeyboardMode.Normal)
+        }
+        onDispose { deps.voiceInputEngine.setTranscriptionListener(null) }
+    }
+
+    fun startVoiceInput() {
+        if (!voiceInputAllowed) {
+            DevKeyLogger.voice("start_blocked", mapOf("reason" to "sensitive_input"))
+            return
+        }
+        fun startAfterPermission() {
+            deps.modeManager.setMode(KeyboardMode.Voice)
+            coroutineScope.launch { deps.voiceInputEngine.startListening() }
+        }
+        if (deps.voiceInputEngine.hasPermission()) {
+            startAfterPermission()
+        } else {
+            deps.voiceInputEngine.requestPermission { granted ->
+                if (granted) {
+                    startAfterPermission()
+                } else {
+                    deps.modeManager.setMode(KeyboardMode.Normal)
+                }
+            }
+        }
+    }
+
     Column(modifier = Modifier.fillMaxWidth()) {
         // 0. Toolbar chevron — slim clickable bar that toggles devkey_show_toolbar.
         //    Hidden during macro recording so the recording bar stays dominant.
@@ -80,9 +123,10 @@ fun DevKeyKeyboard(
             ToolbarChevronBar(
                 expanded = prefs.showToolbar.value,
                 onToggle = {
-                    prefs.prefs.edit()
-                        .putBoolean(SettingsRepository.KEY_SHOW_TOOLBAR, !prefs.showToolbar.value)
-                        .apply()
+                    prefs.settings.setBoolean(
+                        SettingsRepository.KEY_SHOW_TOOLBAR,
+                        !prefs.showToolbar.value
+                    )
                 }
             )
         }
@@ -91,19 +135,22 @@ fun DevKeyKeyboard(
         if (prefs.showToolbar.value && keyboardMode !is KeyboardMode.MacroRecording) {
             ToolbarRow(
                 onClipboard = { deps.modeManager.toggleMode(KeyboardMode.Clipboard) },
-                onVoice = {
-                    if (keyboardMode == KeyboardMode.Voice) {
-                        deps.voiceInputEngine.cancelListening()
-                        deps.modeManager.setMode(KeyboardMode.Normal)
-                    } else {
-                        deps.modeManager.setMode(KeyboardMode.Voice)
-                        coroutineScope.launch { deps.voiceInputEngine.startListening() }
-                    }
-                },
                 onSymbols = { deps.modeManager.toggleMode(KeyboardMode.Symbols) },
                 onMacros = { deps.modeManager.toggleMode(KeyboardMode.MacroChips) },
-                onMacrosLongPress = { deps.modeManager.toggleMode(KeyboardMode.MacroGrid) },
                 onOverflow = { /* Session 5 */ },
+                onVoice = if (voiceInputAllowed) {
+                    {
+                        if (keyboardMode == KeyboardMode.Voice) {
+                            deps.voiceInputEngine.cancelListening()
+                            deps.modeManager.setMode(KeyboardMode.Normal)
+                        } else {
+                            startVoiceInput()
+                        }
+                    }
+                } else {
+                    null
+                },
+                onMacrosLongPress = { deps.modeManager.toggleMode(KeyboardMode.MacroGrid) },
                 activeMode = keyboardMode,
                 isCommandMode = inputMode == InputMode.COMMAND,
                 onCommandModeToggle = { deps.commandModeDetector.toggleManualOverride() }
@@ -155,8 +202,7 @@ fun DevKeyKeyboard(
             bridge = deps.bridge,
             currentInputConnection = currentInputConnection,
             onVoiceKey = {
-                deps.modeManager.setMode(KeyboardMode.Voice)
-                coroutineScope.launch { deps.voiceInputEngine.startListening() }
+                startVoiceInput()
             }
         )
     }

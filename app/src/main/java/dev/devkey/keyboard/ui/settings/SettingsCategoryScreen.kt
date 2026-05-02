@@ -41,7 +41,7 @@ fun SettingsCategoryScreen(
         CategoryItem("Feedback", "Haptics, sound, key popup", SettingsNav.FEEDBACK),
         CategoryItem("Prediction & Autocorrect", "Suggestion engine, quick fixes", SettingsNav.PREDICTION),
         CategoryItem("Macros", "Display mode, macro manager", SettingsNav.MACROS),
-        CategoryItem("Voice Input", "Model selection, auto-stop timeout", SettingsNav.VOICE_INPUT),
+        CategoryItem("Voice Input", "Auto-stop timeout", SettingsNav.VOICE_INPUT),
         CategoryItem("Command Mode", "Terminal detection, pinned apps", SettingsNav.COMMAND_MODE),
         CategoryItem("Backup", "Export and import data", SettingsNav.BACKUP),
         CategoryItem("About", "Version info", SettingsNav.ABOUT)

@@ -60,6 +60,9 @@ object SessionDependencies {
     @Volatile
     var voiceInputEngine: VoiceInputEngine? = null
 
+    /** False for password and credential-adjacent input fields. */
+    val voiceInputAllowed = MutableStateFlow(true)
+
     /**
      * Resets the legacy ImeState prediction fields (mPredicting, mComposing, etc.).
      * Set from ImeCollaboratorWiring so the Compose suggestion bar can cleanly

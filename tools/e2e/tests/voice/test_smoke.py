@@ -132,6 +132,5 @@ def test_voice_file_based_inference():
                              timeout_ms=5000)
     data = result.get("data", {})
     assert data.get("length", 0) > 0, (
-        f"Expected non-empty transcription but got length={data.get('length')}, "
-        f"preview={data.get('preview')}"
+        f"Expected non-empty transcription but got length={data.get('length')}"
     )

@@ -6,8 +6,8 @@ import android.media.AudioManager
 import android.os.Vibrator
 import android.view.inputmethod.InputMethodManager
 import androidx.core.content.ContextCompat
-import androidx.preference.PreferenceManager
 import dev.devkey.keyboard.*
+import dev.devkey.keyboard.BuildConfig
 import dev.devkey.keyboard.keyboard.switcher.KeyboardSwitcher
 import dev.devkey.keyboard.dictionary.loader.PluginManager
 import dev.devkey.keyboard.language.LanguageSwitcher
@@ -34,7 +34,7 @@ internal class ImeInitializer(
 
     fun initialize(): String {
         val context: Context = ime
-        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
+        val prefs = settingsRepository.legacyPrefs()
         val res = context.resources
 
         val feedbackManager = FeedbackManager(
@@ -101,8 +101,12 @@ internal class ImeInitializer(
         })
         col.notificationController.setNotification(state.mKeyboardNotification)
 
-        if (KeyMapGenerator.isDebugBuild(context)) {
-            ime.mDebugReceivers = dev.devkey.keyboard.debug.DebugReceiverManager(context)
+        if (BuildConfig.DEBUG && KeyMapGenerator.isDebugBuild(context)) {
+            ime.mDebugReceivers = dev.devkey.keyboard.debug.DebugReceiverManager(
+                context,
+                state.serviceScope,
+                settingsRepository
+            )
                 .also { it.registerAll() }
         }
 

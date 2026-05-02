@@ -52,18 +52,19 @@ class VoiceInputEngineTest {
     }
 
     // ------------------------------------------------------------------
-    // startListening without permission -> ERROR
+    // startListening without permission -> IDLE + false
     // ------------------------------------------------------------------
 
     @Test
-    fun `startListening without RECORD_AUDIO permission sets ERROR state`() = runBlocking {
+    fun `startListening without RECORD_AUDIO permission stays IDLE`() = runBlocking {
         // Robolectric defaults to permission denied
         shadowApp.denyPermissions(Manifest.permission.RECORD_AUDIO)
 
         val engine = VoiceInputEngine(context)
-        engine.startListening()
+        val started = engine.startListening()
 
-        assertEquals(VoiceInputEngine.VoiceState.ERROR, engine.state.value)
+        assertEquals(false, started)
+        assertEquals(VoiceInputEngine.VoiceState.IDLE, engine.state.value)
     }
 
     // ------------------------------------------------------------------

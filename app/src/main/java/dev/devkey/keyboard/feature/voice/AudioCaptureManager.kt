@@ -9,9 +9,9 @@ import android.media.MediaRecorder
 import android.util.Log
 import androidx.core.content.ContextCompat
 import dev.devkey.keyboard.debug.DevKeyLogger
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -46,6 +46,8 @@ internal class AudioCaptureManager(
     private var audioRecord: AudioRecord? = null
     private val audioBuffer = mutableListOf<Short>()
     private var recordingJob: Job? = null
+    @Volatile
+    private var silenceTriggered = false
 
     private val _amplitude = MutableStateFlow(0f)
 
@@ -59,84 +61,159 @@ internal class AudioCaptureManager(
         ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
                 PackageManager.PERMISSION_GRANTED
 
+    fun isCapturing(): Boolean = audioRecord != null
+
     /**
      * Create and start an [AudioRecord] instance, then run the capture loop
      * until cancelled or silence is detected.
      *
      * @return false if permission is denied or AudioRecord fails to initialize.
      */
-    suspend fun startCapture(): Boolean {
+    fun startCapture(scope: CoroutineScope): Boolean {
         if (!hasPermission()) {
-            Log.w(TAG, "RECORD_AUDIO permission not granted")
-            DevKeyLogger.voice(
-                "error",
-                mapOf("kind" to "permission_denied", "source" to "startCapture")
+            return failStart(
+                kind = "permission_denied",
+                message = "RECORD_AUDIO permission not granted"
             )
-            return false
         }
 
         val minBufferSize = AudioRecord.getMinBufferSize(SAMPLE_RATE, CHANNEL_CONFIG, AUDIO_FORMAT)
         val bufferSize = maxOf(minBufferSize, CHUNK_SIZE * 2)
+        val record = createAudioRecord(bufferSize) ?: return false
+        audioRecord = record
 
+        if (!startAudioRecord(record)) {
+            return false
+        }
+
+        resetCaptureState()
+        recordingJob = scope.launch(Dispatchers.IO) {
+            val chunk = ShortArray(CHUNK_SIZE)
+            var keepReading = true
+            while (isActive && keepReading) {
+                val record = audioRecord
+                val read = try {
+                    record?.read(chunk, 0, CHUNK_SIZE) ?: -1
+                } catch (e: IllegalStateException) {
+                    Log.w(TAG, "AudioRecord read failed", e)
+                    DevKeyLogger.voice(
+                        "error",
+                        mapOf("kind" to "audiorecord_read_failed", "source" to "recordingLoop")
+                    )
+                    keepReading = false
+                    -1
+                }
+                if (read > 0) {
+                    synchronized(audioBuffer) {
+                        for (i in 0 until read) audioBuffer.add(chunk[i])
+                    }
+
+                    var sumOfSquares = 0.0
+                    for (i in 0 until read) {
+                        val sample = chunk[i].toDouble()
+                        sumOfSquares += sample * sample
+                    }
+                    val rms = sqrt(sumOfSquares / read)
+                    _amplitude.value = (rms / Short.MAX_VALUE).toFloat().coerceIn(0f, 1f)
+
+                    if (!silenceTriggered && silenceDetector.isSilent(chunk, read)) {
+                        silenceTriggered = true
+                        Log.i(TAG, "Silence detected — auto-stopping")
+                        onSilenceDetected()
+                    }
+                }
+                if (read < 0) keepReading = false
+            }
+        }
+
+        return true
+    }
+
+    private fun createAudioRecord(bufferSize: Int): AudioRecord? =
         try {
-            audioRecord = AudioRecord(
+            AudioRecord(
                 MediaRecorder.AudioSource.MIC,
                 SAMPLE_RATE,
                 CHANNEL_CONFIG,
                 AUDIO_FORMAT,
                 bufferSize
+            ).also { record ->
+                if (record.state != AudioRecord.STATE_INITIALIZED) {
+                    failStart(
+                        kind = "audiorecord_init_failed",
+                        message = "AudioRecord failed to initialize"
+                    )
+                    record.release()
+                    audioRecord = null
+                }
+            }.takeIf { it.state == AudioRecord.STATE_INITIALIZED }
+        } catch (e: IllegalArgumentException) {
+            failStart(
+                kind = "audiorecord_exception",
+                message = "Failed to create AudioRecord",
+                error = e
             )
-            if (audioRecord?.state != AudioRecord.STATE_INITIALIZED) {
-                Log.e(TAG, "AudioRecord failed to initialize")
-                DevKeyLogger.voice(
-                    "error",
-                    mapOf("kind" to "audiorecord_init_failed", "source" to "startCapture")
-                )
-                return false
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to create AudioRecord", e)
-            DevKeyLogger.voice(
-                "error",
-                mapOf("kind" to "audiorecord_exception", "source" to "startCapture")
+            null
+        } catch (e: SecurityException) {
+            failStart(
+                kind = "audiorecord_security_exception",
+                message = "AudioRecord permission check failed",
+                error = e
             )
-            return false
+            null
         }
 
+    private fun startAudioRecord(record: AudioRecord): Boolean =
+        try {
+            record.startRecording()
+            true
+        } catch (e: IllegalStateException) {
+            releaseAfterStartFailure(
+                kind = "audiorecord_start_failed",
+                message = "Failed to start AudioRecord",
+                error = e
+            )
+        } catch (e: SecurityException) {
+            releaseAfterStartFailure(
+                kind = "audiorecord_start_security_exception",
+                message = "AudioRecord start permission check failed",
+                error = e
+            )
+        }
+
+    private fun releaseAfterStartFailure(
+        kind: String,
+        message: String,
+        error: Throwable
+    ): Boolean {
+        failStart(kind = kind, message = message, error = error)
+        audioRecord?.release()
+        audioRecord = null
+        return false
+    }
+
+    private fun resetCaptureState() {
         audioBuffer.clear()
         silenceDetector.reset()
+        silenceTriggered = false
         _amplitude.value = 0f
+    }
 
-        audioRecord?.startRecording()
-
-        coroutineScope {
-            recordingJob = launch(Dispatchers.IO) {
-                val chunk = ShortArray(CHUNK_SIZE)
-                while (isActive) {
-                    val read = audioRecord?.read(chunk, 0, CHUNK_SIZE) ?: -1
-                    if (read > 0) {
-                        synchronized(audioBuffer) {
-                            for (i in 0 until read) audioBuffer.add(chunk[i])
-                        }
-
-                        var sumOfSquares = 0.0
-                        for (i in 0 until read) {
-                            val sample = chunk[i].toDouble()
-                            sumOfSquares += sample * sample
-                        }
-                        val rms = sqrt(sumOfSquares / read)
-                        _amplitude.value = (rms / Short.MAX_VALUE).toFloat().coerceIn(0f, 1f)
-
-                        if (silenceDetector.isSilent(chunk, read)) {
-                            Log.i(TAG, "Silence detected — auto-stopping")
-                            onSilenceDetected()
-                        }
-                    }
-                }
-            }
+    private fun failStart(
+        kind: String,
+        message: String,
+        error: Throwable? = null
+    ): Boolean {
+        if (error == null) {
+            Log.w(TAG, message)
+        } else {
+            Log.e(TAG, message, error)
         }
-
-        return true
+        DevKeyLogger.voice(
+            "error",
+            mapOf("kind" to kind, "source" to "startCapture")
+        )
+        return false
     }
 
     /**
@@ -148,7 +225,7 @@ internal class AudioCaptureManager(
         try {
             audioRecord?.stop()
             audioRecord?.release()
-        } catch (e: Exception) {
+        } catch (e: IllegalStateException) {
             Log.w(TAG, "Error stopping AudioRecord", e)
             DevKeyLogger.voice(
                 "error",
@@ -158,6 +235,8 @@ internal class AudioCaptureManager(
         audioRecord = null
         recordingJob?.cancel()
         recordingJob = null
+        silenceTriggered = false
+        _amplitude.value = 0f
 
         return synchronized(audioBuffer) {
             val data = audioBuffer.toShortArray()
@@ -173,13 +252,14 @@ internal class AudioCaptureManager(
         try {
             audioRecord?.stop()
             audioRecord?.release()
-        } catch (e: Exception) {
+        } catch (e: IllegalStateException) {
             Log.w(TAG, "Error cancelling AudioRecord", e)
         }
         audioRecord = null
         recordingJob?.cancel()
         recordingJob = null
         audioBuffer.clear()
+        silenceTriggered = false
         _amplitude.value = 0f
     }
 

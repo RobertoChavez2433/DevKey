@@ -134,7 +134,9 @@ fun KeyboardDynamicPanel(
             onStop = {
                 coroutineScope.launch {
                     val transcription = voiceInputEngine.stopListening()
-                    if (transcription.isNotEmpty()) bridge.onText(transcription)
+                    if (voiceInputEngine.shouldCommitTranscription(transcription)) {
+                        bridge.onText(transcription)
+                    }
                     modeManager.setMode(KeyboardMode.Normal)
                 }
             },

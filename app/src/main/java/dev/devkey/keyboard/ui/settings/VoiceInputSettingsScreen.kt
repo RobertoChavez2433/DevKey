@@ -10,13 +10,6 @@ fun VoiceInputSettingsScreen(
     settingsRepository: SettingsRepository,
     onBack: () -> Unit
 ) {
-    val voiceModel by settingsRepository
-        .observeString(SettingsRepository.KEY_VOICE_MODEL, "tiny")
-        .collectAsState(
-            initial = settingsRepository.getString(
-                SettingsRepository.KEY_VOICE_MODEL, "tiny"
-            )
-        )
     val voiceAutoStopTimeout by settingsRepository
         .observeInt(
             SettingsRepository.KEY_VOICE_AUTO_STOP_TIMEOUT, 3
@@ -27,23 +20,7 @@ fun VoiceInputSettingsScreen(
             )
         )
 
-    val voiceModelOptions = listOf(
-        "tiny" to "Tiny (fast, less accurate)",
-        "base" to "Base (slower, more accurate)"
-    )
-
     SettingsSubScreen(title = "Voice Input", onBack = onBack) {
-        item(key = "voice_model") {
-            DropdownSetting(
-                "Voice Model",
-                voiceModel,
-                voiceModelOptions
-            ) {
-                settingsRepository.setString(
-                    SettingsRepository.KEY_VOICE_MODEL, it
-                )
-            }
-        }
         item(key = "voice_auto_stop_timeout") {
             SliderSetting(
                 "Auto-Stop Timeout",

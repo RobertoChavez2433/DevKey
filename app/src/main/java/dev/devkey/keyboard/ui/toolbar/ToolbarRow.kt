@@ -30,11 +30,11 @@ import dev.devkey.keyboard.ui.theme.DevKeyThemeTypography
  * When command mode is active, a "CMD" badge is shown.
  *
  * @param onClipboard Callback for clipboard button.
- * @param onVoice Callback for voice button.
  * @param onSymbols Callback for symbols button.
  * @param onMacros Callback for macros button (tap).
- * @param onMacrosLongPress Callback for macros button (long-press).
  * @param onOverflow Callback for overflow button.
+ * @param onVoice Optional callback for voice button. Voice is hidden when null.
+ * @param onMacrosLongPress Callback for macros button (long-press).
  * @param activeMode The current keyboard mode for visual active state.
  * @param isCommandMode Whether command mode is currently active.
  * @param onCommandModeToggle Callback to toggle command mode manually.
@@ -43,11 +43,11 @@ import dev.devkey.keyboard.ui.theme.DevKeyThemeTypography
 @Composable
 fun ToolbarRow(
     onClipboard: () -> Unit,
-    onVoice: () -> Unit,
     onSymbols: () -> Unit,
     onMacros: () -> Unit,
-    onMacrosLongPress: () -> Unit = {},
     onOverflow: () -> Unit,
+    onVoice: (() -> Unit)? = null,
+    onMacrosLongPress: () -> Unit = {},
     activeMode: KeyboardMode = KeyboardMode.Normal,
     isCommandMode: Boolean = false,
     onCommandModeToggle: () -> Unit = {}
@@ -66,11 +66,13 @@ fun ToolbarRow(
                 isActive = activeMode is KeyboardMode.Clipboard,
                 onClick = { onClipboard() }
             )
-            ToolbarButton(
-                label = "\uD83C\uDFA4", // microphone emoji
-                isActive = activeMode is KeyboardMode.Voice,
-                onClick = { onVoice() }
-            )
+            if (onVoice != null) {
+                ToolbarButton(
+                    label = "\uD83C\uDFA4", // microphone emoji
+                    isActive = activeMode is KeyboardMode.Voice,
+                    onClick = onVoice
+                )
+            }
             ToolbarButton(
                 label = "123",
                 isActive = activeMode is KeyboardMode.Symbols,

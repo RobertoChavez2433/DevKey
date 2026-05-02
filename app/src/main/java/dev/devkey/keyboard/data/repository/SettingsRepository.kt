@@ -58,6 +58,8 @@ class SettingsRepository(
     fun getFloat(key: String, default: Float): Float = prefs.getFloat(key, default)
     fun getString(key: String, default: String): String = prefs.getString(key, default) ?: default
 
+    fun legacyPrefs(): SharedPreferences = prefs
+
     // =========================================================================
     // Typed setters
     // =========================================================================

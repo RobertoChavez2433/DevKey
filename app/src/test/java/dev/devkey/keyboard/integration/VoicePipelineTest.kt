@@ -39,16 +39,18 @@ class VoicePipelineTest {
     }
 
     // ------------------------------------------------------------------
-    // Test 1: start -> stop flow without permission -> ERROR -> stop -> IDLE
+    // Test 1: start -> stop flow without permission -> IDLE -> stop -> IDLE
     // ------------------------------------------------------------------
 
     @Test
-    fun `start without permission then stop returns to IDLE`() = runBlocking {
+    fun `start without permission stays IDLE then stop returns to IDLE`() = runBlocking {
         shadowApp.denyPermissions(Manifest.permission.RECORD_AUDIO)
 
-        // startListening should detect missing permission and set ERROR
-        engine.startListening()
-        assertEquals(VoiceState.ERROR, engine.state.value)
+        // Permission prompting is owned by the UI entry points. The engine
+        // should not enter ERROR just because runtime permission is absent.
+        val started = engine.startListening()
+        assertEquals(false, started)
+        assertEquals(VoiceState.IDLE, engine.state.value)
 
         // stopListening should still work and return to IDLE
         val result = engine.stopListening()
@@ -76,7 +78,7 @@ class VoicePipelineTest {
     }
 
     // ------------------------------------------------------------------
-    // Test 3: state machine round-trip IDLE -> ERROR -> IDLE -> IDLE
+    // Test 3: state machine round-trip IDLE -> IDLE -> IDLE
     // ------------------------------------------------------------------
 
     @Test
@@ -86,9 +88,10 @@ class VoicePipelineTest {
         // 1. Start from IDLE
         assertEquals(VoiceState.IDLE, engine.state.value)
 
-        // 2. startListening without permission -> ERROR
-        engine.startListening()
-        assertEquals(VoiceState.ERROR, engine.state.value)
+        // 2. startListening without permission -> IDLE
+        val started = engine.startListening()
+        assertEquals(false, started)
+        assertEquals(VoiceState.IDLE, engine.state.value)
 
         // 3. cancelListening -> IDLE
         engine.cancelListening()

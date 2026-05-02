@@ -60,7 +60,9 @@ internal class InputViewSetup(
             }
         }
 
-        state.mEnableVoiceButton = true // shouldShowVoiceButton always returns true
+        val voiceAllowed = !isVoiceSensitiveInput(attribute)
+        SessionDependencies.voiceInputAllowed.value = voiceAllowed
+        state.mEnableVoiceButton = voiceAllowed
         val enableVoiceButton = state.mEnableVoiceButton && state.mEnableVoice
 
         // Detect command mode for the current app
@@ -201,6 +203,20 @@ internal class InputViewSetup(
                 suggestionCoordinator.postUpdateOldSuggestions()
             }
         }
+    }
+
+    private fun isVoiceSensitiveInput(attribute: EditorInfo): Boolean {
+        val inputType = attribute.inputType
+        val inputClass = inputType and EditorInfo.TYPE_MASK_CLASS
+        if (inputClass != EditorInfo.TYPE_CLASS_TEXT) return false
+
+        val variation = inputType and EditorInfo.TYPE_MASK_VARIATION
+        return variation == EditorInfo.TYPE_TEXT_VARIATION_PASSWORD
+            || variation == EditorInfo.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
+            || variation == 0xe0 /* EditorInfo.TYPE_TEXT_VARIATION_WEB_PASSWORD */
+            || variation == EditorInfo.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
+            || variation == EditorInfo.TYPE_TEXT_VARIATION_URI
+            || (inputType and EditorInfo.TYPE_TEXT_FLAG_NO_SUGGESTIONS) != 0
     }
 
     companion object {

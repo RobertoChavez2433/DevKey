@@ -50,8 +50,11 @@ Created: 2026-05-02
 
 - [x] `python -m py_compile tools/e2e/e2e_runner.py tools/e2e/lib/adb.py tools/e2e/lib/keyboard.py tools/e2e/lib/verify.py`
 - [x] `python tools/e2e/e2e_runner.py --list`
-  - locked full-suite count: 178
+  - locked full-suite count: 179
 - [x] `./gradlew test assembleDebug lint detekt`
+- [x] `./gradlew assembleDebug lint detekt` after toolbar inventory lint cleanup
+- [x] `./gradlew assembleRelease`
+- [x] `python tools/audit_structure.py`
 - [x] `./gradlew assembleDebug` after debug `TestHostActivity` state logging
 - [x] Installed debug APK on S21: `adb -s RFCNC0Y975L install -r ...`
 - [x] S21 `--preflight`
@@ -328,22 +331,50 @@ Created: 2026-05-02
     `.claude/test-results/e2e-results-20260502T194116Z.json`
   - S21 autocorrect scope passed 11/11:
     `.claude/test-results/e2e-results-20260502T194550Z.json`
+- [x] Final strict S21 release gate passed:
+  - full suite: 179 passed, 0 failed, 0 errors, 0 skipped
+  - JSON: `.claude/test-results/e2e-results-20260502T222753Z.json`
+  - device: S21 `RFCNC0Y975L`, `SM-G996U`, Android 15 / SDK 35
+  - every passing test contains verification evidence
+  - result privacy flags report no typed text, transcripts, or clipboard logs
+- [x] Post-lint toolbar inventory verification passed on S21:
+  - the first run after reinstall failed preflight because keyboard visibility
+    was false, proving the gate fails loudly instead of producing a pass
+  - rerun after install settled: 1 passed, 0 failed, 0 errors, 0 skipped
+  - JSON: `.claude/test-results/e2e-results-20260502T223140Z.json`
+  - inventory regenerated:
+    `.claude/test-results/key-inventory-20260502T223215Z.json`
+- [x] Final jCodeMunch audit refreshed:
+  - indexed current DevKey tree at 4,116 symbols and 622 files
+  - dependency cycles: 0
+  - current highest production hotspots remain
+    `SuggestionPipeline.getSuggestions`, `InputViewSetup.onStartInputView`,
+    `DevKeyKeyboard`, `SuggestionCoordinator.onSelectionChanged`, and
+    `InputHandlers.handleCharacter`
 
 ## Remaining Implementation Work
 
-- [ ] Integrate DevKey architecture guardrails into final release gates:
-  - run `python tools/audit_structure.py`
-  - capture jCodeMunch hotspot/complexity report with the release checklist
-  - attach explicit deferral rationale for each remaining structure violation
-- [ ] Refactor production hotspots before release where they affect validation:
+- [x] Integrate DevKey architecture guardrails into final release gates:
+  - `python tools/audit_structure.py` scans 369 maintained files
+  - current violations: 5 line-count, 1 import-count
+  - jCodeMunch hotspot/complexity report is captured above
+  - remaining structure violations are visible release findings, not hidden
+    cleanup debt
+- [ ] Track remaining production hotspots as follow-up refactors unless a
+  validation failure lands in those paths:
   - `InputHandlers.handleCharacter`
   - `SuggestionPipeline.getSuggestions`
   - `SuggestionCoordinator.onSelectionChanged`
   - `DevKeyKeyboard`
   - `InputViewSetup.onStartInputView`
-- [ ] Rerun the full S21 suite under the hardened child-process timeout.
-  Feature-scope evidence is useful, but the release still needs one complete
-  strict run after the voice fix and timeout guard.
+- [ ] Split or exempt remaining structure-audit findings with explicit
+  rationale:
+  - `app/src/main/cpp/char_utils.cpp` at 899 lines
+  - `app/src/main/cpp/dictionary.cpp` at 608 lines
+  - `ModifierStateManagerTest.kt` at 552 lines
+  - `KeyEventSenderTest.kt` at 527 lines
+  - `InputHandlersTest.kt` at 410 lines
+  - `AutocorrectPipelineTest.kt` at 43 imports
 
 ## Remaining Validation Gates
 
@@ -362,16 +393,20 @@ Created: 2026-05-02
   - synthetic prefixes and misspellings produce expected suggestions/corrections
   - next-word/bigram path works through the legacy dictionary stack
   - learned/custom words suppress unwanted autocorrect where intended
-- [ ] Run `--rerun-failed` once after fixes.
-- [ ] Run full E2E suite on the primary S21 release target.
-- [ ] Reproduce final failures or final full suite on `Pixel_7_API_36` only if
+- [x] Run `--rerun-failed` once after fixes:
+  - `.claude/test-results/e2e-results-20260502T214846Z.json` passed 1/1
+  - `.claude/test-results/e2e-results-20260502T210837Z.json` passed 2/2
+  - `.claude/test-results/e2e-results-20260502T202749Z.json` passed 5/5
+- [x] Run full E2E suite on the primary S21 release target:
+  - `.claude/test-results/e2e-results-20260502T222753Z.json` passed 179/179
+- [x] Reproduce final failures or final full suite on `Pixel_7_API_36` only if
   the S21 release gate needs a reproducibility fallback. Current validation
-  direction is S21-only.
-- [ ] Confirm logs/artifacts contain no typed text, transcripts, clipboard
+  direction is S21-only, and no final S21 failure needs emulator fallback.
+- [x] Confirm logs/artifacts contain no typed text, transcripts, clipboard
   contents, or credential-adjacent input.
-- [ ] Confirm generated result JSON contains verification evidence for every
+- [x] Confirm generated result JSON contains verification evidence for every
   passing test.
-- [ ] Confirm architecture audit output is attached to the release gate:
+- [x] Confirm architecture audit output is attached to the release gate:
   - current top hotspots
   - god files/classes/functions above thresholds
   - `tools/audit_structure.py` output
@@ -379,11 +414,12 @@ Created: 2026-05-02
 
 ## Current Blockers
 
-- Full-suite S21 validation still needs one complete strict run after the voice
-  round-trip fix and child-process timeout guard.
-- The current structure audit still reports 5 files above 400 lines and 1 file
-  above 35 imports. These are now visible release-gate findings, not hidden
-  cleanup debt.
+- No open S21 validation blocker remains in this iteration.
+- Residual audit debt is still visible:
+  - 5 files above the 400-line threshold
+  - 1 test file above the 35-import threshold
+  - 5 high-complexity production hotspots tracked above
+  These are documented release findings and follow-up refactor targets.
 
 ## Commit Trail
 
@@ -419,3 +455,8 @@ Created: 2026-05-02
 - `18be3e1 refactor(ui): extract key view state`
 - `5f526da docs(e2e): record key view validation`
 - `afd52c8 test(e2e): verify toolbar actions from inventory`
+- `6ec351d docs(e2e): record toolbar inventory validation`
+- `1c945f6 docs(e2e): record plugin release gate`
+- `15e7a3f docs(e2e): close dictionary release gate`
+- `252a6ff test(e2e): harden full-suite state evidence`
+- `fa5d959 refactor(ui): make toolbar inventory modifier fluent`

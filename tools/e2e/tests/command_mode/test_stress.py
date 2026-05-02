@@ -18,6 +18,19 @@ import time
 from lib import adb, driver, keyboard
 
 
+TERMINAL_PACKAGES = {
+    "com.termux",
+    "org.connectbot",
+    "com.sonelli.juicessh",
+    "com.server.auditor",
+    "com.offsec.nethunter",
+    "jackpal.androidterm",
+    "yarolegovich.materialterminal",
+    "com.termoneplus",
+    "com.googlecode.android_scripting",
+}
+
+
 def _setup():
     serial = adb.get_device_serial()
     driver.require_driver()
@@ -27,6 +40,29 @@ def _setup():
     driver.broadcast("dev.devkey.keyboard.RESET_KEYBOARD_MODE", {})
     time.sleep(0.3)
     return serial
+
+
+def _wait_focus_processed(package_name, expected_mode=None, timeout_ms=3000):
+    if expected_mode is None:
+        expected_mode = "command" if package_name in TERMINAL_PACKAGES else "normal"
+    return driver.wait_for(
+        category="DevKey/IME",
+        event="command_mode_focus_processed",
+        match={
+            "mode": expected_mode,
+            "terminal_detected": package_name in TERMINAL_PACKAGES,
+        },
+        timeout_ms=timeout_ms,
+    )
+
+
+def _wait_toggle(expected_mode, timeout_ms=3000):
+    return driver.wait_for(
+        category="DevKey/IME",
+        event="command_mode_toggle_processed",
+        match={"mode": expected_mode, "trigger": "user_toggle"},
+        timeout_ms=timeout_ms,
+    )
 
 
 def test_rapid_focus_changes():
@@ -50,7 +86,7 @@ def test_rapid_focus_changes():
             "dev.devkey.keyboard.SIMULATE_FOCUS_CHANGE",
             {"package": pkg},
         )
-        time.sleep(0.15)
+        _wait_focus_processed(pkg)
 
     # Verify the IME is still alive
     driver.require_driver()
@@ -69,7 +105,7 @@ def test_manual_override_persists():
         "dev.devkey.keyboard.SIMULATE_FOCUS_CHANGE",
         {"package": "com.example.notes"},
     )
-    time.sleep(0.2)
+    _wait_focus_processed("com.example.notes", expected_mode="normal")
 
     # Toggle command mode manually
     driver.broadcast("dev.devkey.keyboard.TOGGLE_COMMAND_MODE", {})
@@ -85,13 +121,14 @@ def test_manual_override_persists():
         "dev.devkey.keyboard.SIMULATE_FOCUS_CHANGE",
         {"package": "com.example.notes"},
     )
-    time.sleep(0.3)
+    _wait_focus_processed("com.example.notes", expected_mode="command")
 
     # Verify IME is still responsive
     driver.require_driver()
 
     # Clean up — toggle off
     driver.broadcast("dev.devkey.keyboard.TOGGLE_COMMAND_MODE", {})
+    _wait_toggle("normal")
 
 
 def test_5_app_switches():
@@ -115,7 +152,7 @@ def test_5_app_switches():
             "dev.devkey.keyboard.SIMULATE_FOCUS_CHANGE",
             {"package": pkg},
         )
-        time.sleep(0.3)
+        _wait_focus_processed(pkg)
 
     # Verify IME survived all switches
     driver.require_driver()

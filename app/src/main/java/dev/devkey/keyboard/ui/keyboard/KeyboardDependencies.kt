@@ -132,12 +132,45 @@ fun rememberKeyboardDependencies(
 
             // TOGGLE_COMMAND_MODE — e2e harness triggers command mode without a terminal app
             val cmdR = object : android.content.BroadcastReceiver() {
-                override fun onReceive(c: android.content.Context, i: android.content.Intent) =
-                    commandModeDetector.toggleManualOverride()
+                override fun onReceive(c: android.content.Context, i: android.content.Intent) {
+                    coroutineScope.launch {
+                        when (i.action) {
+                            "dev.devkey.keyboard.TOGGLE_COMMAND_MODE" -> {
+                                commandModeDetector.toggleManualOverride()
+                                DevKeyLogger.ime(
+                                    "command_mode_toggle_processed",
+                                    mapOf(
+                                        "trigger" to "user_toggle",
+                                        "mode" to commandModeDetector.inputMode.value.name.lowercase()
+                                    )
+                                )
+                            }
+                            "dev.devkey.keyboard.SIMULATE_FOCUS_CHANGE" -> {
+                                val packageName = i.getStringExtra("package")
+                                commandModeDetector.detect(packageName)
+                                DevKeyLogger.ime(
+                                    "command_mode_focus_processed",
+                                    mapOf(
+                                        "trigger" to "focus_change",
+                                        "mode" to commandModeDetector.inputMode.value.name.lowercase(),
+                                        "terminal_detected" to (
+                                            packageName != null &&
+                                                packageName in CommandModeDetector.TERMINAL_PACKAGES
+                                            )
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
             }
             androidx.core.content.ContextCompat.registerReceiver(
-                context, cmdR,
-                android.content.IntentFilter("dev.devkey.keyboard.TOGGLE_COMMAND_MODE"),
+                context,
+                cmdR,
+                android.content.IntentFilter().apply {
+                    addAction("dev.devkey.keyboard.TOGGLE_COMMAND_MODE")
+                    addAction("dev.devkey.keyboard.SIMULATE_FOCUS_CHANGE")
+                },
                 androidx.core.content.ContextCompat.RECEIVER_EXPORTED
             )
 

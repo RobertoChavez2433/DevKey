@@ -56,6 +56,12 @@ def test_command_mode_auto_enabled_on_terminal_focus():
 
     # Toggle off to clean up.
     driver.broadcast("dev.devkey.keyboard.TOGGLE_COMMAND_MODE", {})
+    driver.wait_for(
+        category="DevKey/IME",
+        event="command_mode_toggle_processed",
+        match={"mode": "normal", "trigger": "user_toggle"},
+        timeout_ms=3000,
+    )
 
     # Verify the IME did not crash.
     pidof = ["adb"]

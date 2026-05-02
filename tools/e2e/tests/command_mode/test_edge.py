@@ -27,6 +27,15 @@ def _setup():
     return serial
 
 
+def _wait_command(event, match=None, timeout_ms=3000):
+    return driver.wait_for(
+        category="DevKey/IME",
+        event=event,
+        match=match or {},
+        timeout_ms=timeout_ms,
+    )
+
+
 def test_unknown_package():
     """
     Simulate focus to a completely unknown package name. The detector must
@@ -39,7 +48,10 @@ def test_unknown_package():
         "dev.devkey.keyboard.SIMULATE_FOCUS_CHANGE",
         {"package": "com.unknown.nonexistent.app.xyz"},
     )
-    time.sleep(0.5)
+    _wait_command(
+        "command_mode_focus_processed",
+        {"mode": "normal", "terminal_detected": False},
+    )
 
     # Verify IME did not crash
     pidof = ["adb"]
@@ -57,9 +69,15 @@ def test_toggle_rapid():
     """
     serial = _setup()
 
-    for _ in range(20):
+    driver.clear_logs()
+    for i in range(20):
         driver.broadcast("dev.devkey.keyboard.TOGGLE_COMMAND_MODE", {})
-        time.sleep(0.05)
+        expected_mode = "command" if i % 2 == 0 else "normal"
+        _wait_command(
+            "command_mode_toggle_processed",
+            {"mode": expected_mode, "trigger": "user_toggle"},
+            timeout_ms=3000,
+        )
 
     # Final toggle off to leave clean state (even number of toggles = back to start)
     time.sleep(0.3)

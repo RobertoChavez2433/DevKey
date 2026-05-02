@@ -2,12 +2,41 @@
 import importlib
 import inspect
 import json
-from typing import Any, Callable, List, Optional, Tuple
+from typing import Any, Callable, Iterable, List, Optional, Tuple
 
 from .paths import TESTS_DIR
 
 LOCKED_FULL_SUITE_COUNT = 178
 DiscoveredTest = Tuple[str, Callable[..., Any]]
+Candidate = Tuple[str, str, str]
+
+
+class DiscoveryError(RuntimeError):
+    pass
+
+
+def select_tests(
+    *,
+    test_filter: Optional[str],
+    feature: Optional[str],
+    suite: str,
+    rerun_failed: Optional[str],
+    allow_count_drift: bool,
+) -> List[DiscoveredTest]:
+    tests = discover_tests(test_filter=test_filter, feature=feature, suite=suite)
+    if rerun_failed:
+        tests = _filter_failed_tests(tests, rerun_failed)
+
+    if not tests:
+        raise DiscoveryError(_no_tests_message(test_filter, feature, rerun_failed))
+
+    if _has_locked_count_drift(test_filter, feature, suite, rerun_failed, allow_count_drift, tests):
+        raise DiscoveryError(
+            f"Discovered {len(tests)} tests, expected locked full-suite count "
+            f"{LOCKED_FULL_SUITE_COUNT}. Use --allow-count-drift if this change is intentional."
+        )
+
+    return tests
 
 
 def discover_tests(
@@ -22,46 +51,14 @@ def discover_tests(
     Discovers flat files (tests/test_*.py) first, then one-level subdirectories
     (tests/*/test_*.py).
     """
+    import_errors: List[str] = []
     tests: List[DiscoveredTest] = []
 
-    # Ordered tuples: import path, optional feature prefix, module name.
-    candidates: List[Tuple[str, str, str]] = []
-
-    if feature:
-        for path in sorted(TESTS_DIR.glob(f"{feature}/test_*.py")):
-            subdir = path.parent.name
-            module_name = path.stem
-            candidates.append((f"tests.{subdir}.{module_name}", subdir, module_name))
-    else:
-        if suite in ("all", "legacy-flat"):
-            for path in sorted(TESTS_DIR.glob("test_*.py")):
-                module_name = path.stem
-                candidates.append((f"tests.{module_name}", "", module_name))
-
-        if suite in ("all", "features"):
-            for path in sorted(TESTS_DIR.glob("*/test_*.py")):
-                subdir = path.parent.name
-                module_name = path.stem
-                candidates.append((f"tests.{subdir}.{module_name}", subdir, module_name))
-
-    import_errors: List[str] = []
-    for import_path, prefix, module_name in candidates:
-        if test_filter and not _module_matches_filter(test_filter, prefix, module_name):
-            continue
-
-        try:
-            module = importlib.import_module(import_path)
-        except Exception as exc:
-            print(f"  ERROR importing {import_path}: {exc}")
-            import_errors.append(f"{import_path}: {exc}")
-            continue
-
-        for name, func in inspect.getmembers(module, inspect.isfunction):
-            if not name.startswith("test_"):
-                continue
-            if test_filter and not _function_matches_filter(test_filter, prefix, name):
-                continue
-            tests.append((_qualified_name(prefix, module_name, name), func))
+    for candidate in _iter_candidates(feature, suite):
+        module_tests, import_error = _discover_module_tests(candidate, test_filter)
+        tests.extend(module_tests)
+        if import_error:
+            import_errors.append(import_error)
 
     if import_errors:
         raise RuntimeError(
@@ -70,6 +67,48 @@ def discover_tests(
         )
 
     return tests
+
+
+def _iter_candidates(feature: Optional[str], suite: str) -> Iterable[Candidate]:
+    if feature:
+        for path in sorted(TESTS_DIR.glob(f"{feature}/test_*.py")):
+            subdir = path.parent.name
+            module_name = path.stem
+            yield f"tests.{subdir}.{module_name}", subdir, module_name
+        return
+
+    if suite in ("all", "legacy-flat"):
+        for path in sorted(TESTS_DIR.glob("test_*.py")):
+            module_name = path.stem
+            yield f"tests.{module_name}", "", module_name
+
+    if suite in ("all", "features"):
+        for path in sorted(TESTS_DIR.glob("*/test_*.py")):
+            subdir = path.parent.name
+            module_name = path.stem
+            yield f"tests.{subdir}.{module_name}", subdir, module_name
+
+
+def _discover_module_tests(
+    candidate: Candidate,
+    test_filter: Optional[str],
+) -> Tuple[List[DiscoveredTest], Optional[str]]:
+    import_path, prefix, module_name = candidate
+    if test_filter and not _module_matches_filter(test_filter, prefix, module_name):
+        return [], None
+
+    try:
+        module = importlib.import_module(import_path)
+    except Exception as exc:
+        print(f"  ERROR importing {import_path}: {exc}")
+        return [], f"{import_path}: {exc}"
+
+    tests = [
+        (_qualified_name(prefix, module_name, name), func)
+        for name, func in inspect.getmembers(module, inspect.isfunction)
+        if _is_selected_test_function(name, prefix, test_filter)
+    ]
+    return tests, None
 
 
 def load_failed_names(results_file: str) -> List[str]:
@@ -87,6 +126,50 @@ def load_failed_names(results_file: str) -> List[str]:
             if name:
                 names.append(name)
     return sorted(set(names))
+
+
+def _filter_failed_tests(tests: List[DiscoveredTest], results_file: str) -> List[DiscoveredTest]:
+    failed_names = set(load_failed_names(results_file))
+    return [(name, func) for name, func in tests if name in failed_names]
+
+
+def _no_tests_message(
+    test_filter: Optional[str],
+    feature: Optional[str],
+    rerun_failed: Optional[str],
+) -> str:
+    lines = ["No tests found."]
+    if test_filter:
+        lines.append(f"  Filter '{test_filter}' matched nothing.")
+    if feature:
+        lines.append(f"  Feature '{feature}' matched nothing.")
+    if rerun_failed:
+        lines.append(f"  No failed/error tests found in '{rerun_failed}'.")
+    return "\n".join(lines)
+
+
+def _has_locked_count_drift(
+    test_filter: Optional[str],
+    feature: Optional[str],
+    suite: str,
+    rerun_failed: Optional[str],
+    allow_count_drift: bool,
+    tests: List[DiscoveredTest],
+) -> bool:
+    return (
+        not test_filter
+        and not feature
+        and not rerun_failed
+        and suite == "all"
+        and len(tests) != LOCKED_FULL_SUITE_COUNT
+        and not allow_count_drift
+    )
+
+
+def _is_selected_test_function(name: str, prefix: str, test_filter: Optional[str]) -> bool:
+    if not name.startswith("test_"):
+        return False
+    return not test_filter or _function_matches_filter(test_filter, prefix, name)
 
 
 def _module_matches_filter(test_filter: str, prefix: str, module_name: str) -> bool:

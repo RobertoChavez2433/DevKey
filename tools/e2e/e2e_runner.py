@@ -31,7 +31,11 @@ if hasattr(sys.stdout, "reconfigure"):
 if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
-from lib.discovery import LOCKED_FULL_SUITE_COUNT, discover_tests, load_failed_names
+from lib.discovery import (
+    LOCKED_FULL_SUITE_COUNT,
+    DiscoveryError,
+    select_tests as select_requested_tests,
+)
 from lib.driver_setup import require_driver_with_forwarding, warm_debug_pipeline
 from lib.executor import run_tests
 from lib.inventory import generate_inventory_payload
@@ -178,40 +182,6 @@ def run_inventory_command(args: argparse.Namespace, serial: str | None) -> int:
     return 0
 
 
-def select_tests(args: argparse.Namespace):
-    tests = discover_tests(test_filter=args.test, feature=args.feature, suite=args.suite)
-
-    if args.rerun_failed:
-        failed_names = set(load_failed_names(args.rerun_failed))
-        tests = [(name, func) for name, func in tests if name in failed_names]
-
-    if not tests:
-        print("No tests found.")
-        if args.test:
-            print(f"  Filter '{args.test}' matched nothing.")
-        if args.feature:
-            print(f"  Feature '{args.feature}' matched nothing.")
-        if args.rerun_failed:
-            print(f"  No failed/error tests found in '{args.rerun_failed}'.")
-        sys.exit(1)
-
-    if (
-        not args.test
-        and not args.feature
-        and not args.rerun_failed
-        and args.suite == "all"
-        and len(tests) != LOCKED_FULL_SUITE_COUNT
-        and not args.allow_count_drift
-    ):
-        print(
-            f"Discovered {len(tests)} tests, expected locked full-suite count "
-            f"{LOCKED_FULL_SUITE_COUNT}. Use --allow-count-drift if this change is intentional."
-        )
-        sys.exit(1)
-
-    return tests
-
-
 def print_test_list(tests) -> None:
     print(f"Discovered {len(tests)} test(s):")
     for name, _ in tests:
@@ -276,7 +246,17 @@ def main() -> None:
         print(str(exc), file=sys.stderr)
         sys.exit(2)
 
-    tests = select_tests(args)
+    try:
+        tests = select_requested_tests(
+            test_filter=args.test,
+            feature=args.feature,
+            suite=args.suite,
+            rerun_failed=args.rerun_failed,
+            allow_count_drift=args.allow_count_drift,
+        )
+    except DiscoveryError as exc:
+        print(str(exc))
+        sys.exit(1)
 
     if args.list:
         print_test_list(tests)

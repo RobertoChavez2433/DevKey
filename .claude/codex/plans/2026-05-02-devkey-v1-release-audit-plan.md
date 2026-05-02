@@ -197,13 +197,18 @@ Created: 2026-05-02
   - reports line-count and import-count violations for maintained source
   - current audit scans 349 files and reports 8 line-count violations and 1
     import-count violation
+- [x] Residual E2E hotspot split:
+  - split `tools/e2e/lib/discovery.py::discover_tests` into candidate,
+    module, and function selection helpers
+  - split `tools/e2e/lib/executor.py::execute_test_inline` into child-helper
+    loading, process preparation, verification summary, and result builders
+  - `discover_tests` dropped to cyclomatic 6
+  - `execute_test_inline` dropped to cyclomatic 7
+  - current jCodeMunch hotspot report no longer includes `tools/e2e`
+    runner/discovery/executor functions in the top 12
 
 ## Remaining Implementation Work
 
-- [ ] Continue E2E complexity reduction after runner split:
-  - split `tools/e2e/lib/discovery.py::discover_tests`
-  - split `tools/e2e/lib/executor.py::execute_test_inline`
-  - keep `tools/e2e/e2e_runner.py` as CLI command dispatch only
 - [ ] Integrate DevKey architecture guardrails into final release gates:
   - run `python tools/audit_structure.py`
   - capture jCodeMunch hotspot/complexity report with the release checklist
@@ -287,10 +292,8 @@ Created: 2026-05-02
   voice is fixed or when deliberately collecting the remaining failures.
 - AnySoftKeyboard dictionary spike is still research work; do not integrate new
   dictionary sources before provenance and behavior are proven.
-- DevKey’s test harness still has god modules after the runner extraction:
-  `adb.py` and `keyboard.py` still mix unrelated responsibilities, and
-  `discovery.py::discover_tests` / `executor.py::execute_test_inline` remain
-  above the high-complexity threshold.
+- DevKey’s test harness still has god helper modules after the runner
+  extraction: `adb.py` and `keyboard.py` still mix unrelated responsibilities.
 - The current structure audit still reports 8 files above 400 lines and 1 file
   above 35 imports. These are now visible release-gate findings, not hidden
   cleanup debt.

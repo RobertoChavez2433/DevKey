@@ -43,91 +43,153 @@ def serialize_error(e: BaseException) -> Tuple[str, str, str]:
 
 
 def execute_test_inline(name: str, func: callable, retry_status: str) -> Dict[str, Any]:
-    try:
-        from lib import adb as _adb_for_focus  # type: ignore
-        from lib import driver as _driver_for_logs  # type: ignore
-        from lib import verify as _verify  # type: ignore
-
-        _focus_serial = _adb_for_focus.get_device_serial()
-    except Exception:
-        _adb_for_focus = None
-        _driver_for_logs = None
-        _verify = None
-        _focus_serial = None
-
+    adb_module, driver_module, verify_module, focus_serial = _load_child_helpers()
     start = time.time()
     verification_state: Dict[str, Any] = {"actions": [], "evidence": []}
+
     try:
-        if _adb_for_focus is not None:
-            _adb_for_focus.reset_test_host_state(_focus_serial)
-            _adb_for_focus.clear_logcat(_focus_serial)
-        if _driver_for_logs is not None:
-            _driver_for_logs.clear_logs()
-        if _verify is not None:
-            _verify.begin(name)
+        _prepare_test_process(adb_module, driver_module, verify_module, focus_serial, name)
         func()
-        if _verify is not None:
-            verification_state = _verify.assert_verified()
-        elapsed = time.time() - start
-        result = {
-            "name": name,
-            "status": "PASS",
-            "duration_seconds": round(elapsed, 3),
-            "retry_status": retry_status,
-            "verification": _verify.summarize(verification_state) if _verify is not None else {},
-        }
-    except AssertionError as e:
-        elapsed = time.time() - start
-        if _verify is not None:
-            verification_state = _verify.end()
-        error_type, message, category = serialize_error(e)
-        result = {
-            "name": name,
-            "status": "FAIL",
-            "duration_seconds": round(elapsed, 3),
-            "error_type": error_type,
-            "error": message,
-            "failure_category": category,
-            "retry_status": retry_status,
-            "verification": _verify.summarize(verification_state) if _verify is not None else {},
-        }
-    except BaseException as e:
-        if isinstance(e, (KeyboardInterrupt, SystemExit)):
+        if verify_module is not None:
+            verification_state = verify_module.assert_verified()
+        result = _pass_result(name, retry_status, start, verify_module, verification_state)
+        _end_verification(verify_module)
+        return result
+    except AssertionError as exc:
+        verification_state = _end_verification(verify_module)
+        return _failure_result(name, retry_status, start, verify_module, verification_state, exc)
+    except BaseException as exc:
+        if isinstance(exc, (KeyboardInterrupt, SystemExit)):
             raise
-        elapsed = time.time() - start
-        if _PytestSkipped is not None and isinstance(e, _PytestSkipped):
-            if _verify is not None:
-                verification_state = _verify.end()
-            reason = getattr(e, "msg", None) or (e.args[0] if e.args else "")
-            result = {
-                "name": name,
-                "status": "SKIP",
-                "duration_seconds": round(elapsed, 3),
-                "reason": reason,
-                "failure_category": "skipped",
-                "retry_status": retry_status,
-                "verification": _verify.summarize(verification_state) if _verify is not None else {},
-            }
-        else:
-            if os.environ.get("DEVKEY_E2E_VERBOSE"):
-                traceback.print_exc()
-            if _verify is not None:
-                verification_state = _verify.end()
-            error_type, message, category = serialize_error(e)
-            result = {
-                "name": name,
-                "status": "ERROR",
-                "duration_seconds": round(elapsed, 3),
-                "error_type": error_type,
-                "error": message,
-                "failure_category": category,
-                "retry_status": retry_status,
-                "verification": _verify.summarize(verification_state) if _verify is not None else {},
-            }
-    else:
-        if _verify is not None:
-            _verify.end()
-    return result
+        verification_state = _end_verification(verify_module)
+        if _is_pytest_skip(exc):
+            return _skip_result(name, retry_status, start, verify_module, verification_state, exc)
+        if os.environ.get("DEVKEY_E2E_VERBOSE"):
+            traceback.print_exc()
+        return _error_result(name, retry_status, start, verify_module, verification_state, exc)
+
+
+def _load_child_helpers() -> Tuple[Any, Any, Any, Optional[str]]:
+    try:
+        from lib import adb, driver, verify  # type: ignore
+
+        return adb, driver, verify, adb.get_device_serial()
+    except Exception:
+        return None, None, None, None
+
+
+def _prepare_test_process(
+    adb_module: Any,
+    driver_module: Any,
+    verify_module: Any,
+    focus_serial: Optional[str],
+    name: str,
+) -> None:
+    if adb_module is not None:
+        adb_module.reset_test_host_state(focus_serial)
+        adb_module.clear_logcat(focus_serial)
+    if driver_module is not None:
+        driver_module.clear_logs()
+    if verify_module is not None:
+        verify_module.begin(name)
+
+
+def _end_verification(verify_module: Any) -> Dict[str, Any]:
+    if verify_module is None:
+        return {"actions": [], "evidence": []}
+    return verify_module.end()
+
+
+def _verification_summary(verify_module: Any, state: Dict[str, Any]) -> Dict[str, Any]:
+    if verify_module is None:
+        return {}
+    return verify_module.summarize(state)
+
+
+def _pass_result(
+    name: str,
+    retry_status: str,
+    start: float,
+    verify_module: Any,
+    verification_state: Dict[str, Any],
+) -> Dict[str, Any]:
+    return {
+        "name": name,
+        "status": "PASS",
+        "duration_seconds": _elapsed_seconds(start),
+        "retry_status": retry_status,
+        "verification": _verification_summary(verify_module, verification_state),
+    }
+
+
+def _failure_result(
+    name: str,
+    retry_status: str,
+    start: float,
+    verify_module: Any,
+    verification_state: Dict[str, Any],
+    exc: BaseException,
+) -> Dict[str, Any]:
+    error_type, message, category = serialize_error(exc)
+    return {
+        "name": name,
+        "status": "FAIL",
+        "duration_seconds": _elapsed_seconds(start),
+        "error_type": error_type,
+        "error": message,
+        "failure_category": category,
+        "retry_status": retry_status,
+        "verification": _verification_summary(verify_module, verification_state),
+    }
+
+
+def _skip_result(
+    name: str,
+    retry_status: str,
+    start: float,
+    verify_module: Any,
+    verification_state: Dict[str, Any],
+    exc: BaseException,
+) -> Dict[str, Any]:
+    reason = getattr(exc, "msg", None) or (exc.args[0] if exc.args else "")
+    return {
+        "name": name,
+        "status": "SKIP",
+        "duration_seconds": _elapsed_seconds(start),
+        "reason": reason,
+        "failure_category": "skipped",
+        "retry_status": retry_status,
+        "verification": _verification_summary(verify_module, verification_state),
+    }
+
+
+def _error_result(
+    name: str,
+    retry_status: str,
+    start: float,
+    verify_module: Any,
+    verification_state: Dict[str, Any],
+    exc: BaseException,
+) -> Dict[str, Any]:
+    error_type, message, category = serialize_error(exc)
+    return {
+        "name": name,
+        "status": "ERROR",
+        "duration_seconds": _elapsed_seconds(start),
+        "error_type": error_type,
+        "error": message,
+        "failure_category": category,
+        "retry_status": retry_status,
+        "verification": _verification_summary(verify_module, verification_state),
+    }
+
+
+def _is_pytest_skip(exc: BaseException) -> bool:
+    return _PytestSkipped is not None and isinstance(exc, _PytestSkipped)
+
+
+def _elapsed_seconds(start: float) -> float:
+    return round(time.time() - start, 3)
 
 
 def _test_process_entry(

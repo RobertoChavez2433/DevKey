@@ -73,19 +73,37 @@ def test_paste_same_entry_5x():
     """
     serial = _setup()
 
+    driver.broadcast("dev.devkey.keyboard.CLIPBOARD_CLEAR_ALL", {})
+    driver.wait_for(
+        "DevKey/UI",
+        "clipboard_clear_all",
+        match={"entry_count": 0, "success": True},
+        timeout_ms=3000,
+    )
+
     # Seed clipboard with one entry via broadcast.
     driver.broadcast(
         "dev.devkey.keyboard.CLIPBOARD_ADD",
         {"entry_index": 0},
     )
-    time.sleep(0.3)
+    driver.wait_for(
+        "DevKey/UI",
+        "clipboard_add",
+        match={"entry_count": 1, "success": True},
+        timeout_ms=3000,
+    )
 
     for _ in range(5):
         driver.broadcast(
             "dev.devkey.keyboard.CLIPBOARD_PASTE",
             {"entry_index": 0},
         )
-        time.sleep(0.3)
+        driver.wait_for(
+            "DevKey/UI",
+            "clipboard_paste",
+            match={"entry_index": 0, "success": True},
+            timeout_ms=3000,
+        )
 
     # Verify IME survived 5 rapid paste actions without crashing.
     _assert_ime_alive(serial)
@@ -99,6 +117,14 @@ def test_fill_to_max_entries():
     """
     serial = _setup()
 
+    driver.broadcast("dev.devkey.keyboard.CLIPBOARD_CLEAR_ALL", {})
+    driver.wait_for(
+        "DevKey/UI",
+        "clipboard_clear_all",
+        match={"entry_count": 0, "success": True},
+        timeout_ms=3000,
+    )
+
     # Add 51 entries to trigger eviction past MAX_ENTRIES (50).
     for i in range(51):
         driver.broadcast(
@@ -107,7 +133,12 @@ def test_fill_to_max_entries():
         )
         time.sleep(0.05)
 
-    time.sleep(0.5)
+    driver.wait_for(
+        "DevKey/UI",
+        "clipboard_add",
+        match={"entry_count": 50, "success": True},
+        timeout_ms=5000,
+    )
 
     # Verify IME survived mass entry addition without crashing.
     _assert_ime_alive(serial)
@@ -120,6 +151,14 @@ def test_pin_survive_clear():
     """
     serial = _setup()
 
+    driver.broadcast("dev.devkey.keyboard.CLIPBOARD_CLEAR_ALL", {})
+    driver.wait_for(
+        "DevKey/UI",
+        "clipboard_clear_all",
+        match={"entry_count": 0, "success": True},
+        timeout_ms=3000,
+    )
+
     # Add entries and pin some via broadcasts.
     for i in range(5):
         driver.broadcast(
@@ -127,22 +166,43 @@ def test_pin_survive_clear():
             {"entry_index": i},
         )
         time.sleep(0.05)
-    time.sleep(0.3)
+    driver.wait_for(
+        "DevKey/UI",
+        "clipboard_add",
+        match={"entry_count": 5, "success": True},
+        timeout_ms=3000,
+    )
 
     # Pin entries 0 and 2.
     driver.broadcast(
         "dev.devkey.keyboard.CLIPBOARD_PIN",
         {"entry_index": 0},
     )
+    driver.wait_for(
+        "DevKey/UI",
+        "clipboard_pin",
+        match={"pinned_count": 1, "success": True},
+        timeout_ms=3000,
+    )
     driver.broadcast(
         "dev.devkey.keyboard.CLIPBOARD_PIN",
         {"entry_index": 2},
     )
-    time.sleep(0.3)
+    driver.wait_for(
+        "DevKey/UI",
+        "clipboard_pin",
+        match={"pinned_count": 2, "success": True},
+        timeout_ms=3000,
+    )
 
     # Clear all unpinned.
     driver.broadcast("dev.devkey.keyboard.CLIPBOARD_CLEAR_UNPINNED", {})
-    time.sleep(0.5)
+    driver.wait_for(
+        "DevKey/UI",
+        "clipboard_clear_unpinned",
+        match={"entry_count": 2, "pinned_count": 2, "success": True},
+        timeout_ms=3000,
+    )
 
     # Verify IME survived pin + clear cycle without crashing.
     _assert_ime_alive(serial)

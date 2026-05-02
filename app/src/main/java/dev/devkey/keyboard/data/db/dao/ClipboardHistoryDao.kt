@@ -15,6 +15,9 @@ interface ClipboardHistoryDao {
     @Query("SELECT * FROM clipboard_history ORDER BY timestamp DESC")
     fun getAllEntries(): Flow<List<ClipboardHistoryEntity>>
 
+    @Query("SELECT * FROM clipboard_history ORDER BY timestamp DESC")
+    suspend fun getAllEntriesList(): List<ClipboardHistoryEntity>
+
     @Query("SELECT * FROM clipboard_history WHERE is_pinned = 1 ORDER BY timestamp DESC")
     fun getPinnedEntries(): Flow<List<ClipboardHistoryEntity>>
 

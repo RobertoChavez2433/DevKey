@@ -139,10 +139,89 @@ fun rememberKeyboardDependencies(
                 androidx.core.content.ContextCompat.RECEIVER_EXPORTED
             )
 
+            val clipboardR = object : android.content.BroadcastReceiver() {
+                override fun onReceive(c: android.content.Context, i: android.content.Intent) {
+                    coroutineScope.launch {
+                        when (i.action) {
+                            "dev.devkey.keyboard.CLIPBOARD_ADD" -> {
+                                val index = i.getIntExtra("entry_index", 0)
+                                val lengthHint = i.getIntExtra("length_hint", 24).coerceIn(1, 5000)
+                                val specialChars = i.getBooleanExtra("special_chars", false)
+                                val content = if (specialChars) {
+                                    "clip-$index @#\$% [] {} <>"
+                                } else {
+                                    "clip-$index-" + "x".repeat(lengthHint)
+                                }
+                                clipboardRepo.addEntry(content)
+                                logClipboardState("clipboard_add", index, lengthHint, true)
+                            }
+                            "dev.devkey.keyboard.CLIPBOARD_PASTE" -> {
+                                val index = i.getIntExtra("entry_index", 0)
+                                val entry = clipboardRepo.getAllSnapshot().getOrNull(index)
+                                if (entry != null) {
+                                    bridge.onText(entry.content)
+                                    modeManager.setMode(KeyboardMode.Normal)
+                                }
+                                logClipboardState(
+                                    "clipboard_paste",
+                                    index,
+                                    entry?.content?.length ?: 0,
+                                    entry != null
+                                )
+                            }
+                            "dev.devkey.keyboard.CLIPBOARD_PIN" -> {
+                                val index = i.getIntExtra("entry_index", 0)
+                                val pinned = clipboardRepo.pinByIndex(index)
+                                logClipboardState("clipboard_pin", index, null, pinned)
+                            }
+                            "dev.devkey.keyboard.CLIPBOARD_CLEAR_ALL" -> {
+                                clipboardRepo.clearEverything()
+                                logClipboardState("clipboard_clear_all", null, null, true)
+                            }
+                            "dev.devkey.keyboard.CLIPBOARD_CLEAR_UNPINNED" -> {
+                                clipboardRepo.clearAll()
+                                logClipboardState("clipboard_clear_unpinned", null, null, true)
+                            }
+                        }
+                    }
+                }
+
+                private suspend fun logClipboardState(
+                    event: String,
+                    entryIndex: Int?,
+                    contentLength: Int?,
+                    success: Boolean
+                ) {
+                    DevKeyLogger.ui(
+                        event,
+                        buildMap {
+                            put("entry_count", clipboardRepo.getCount())
+                            put("pinned_count", clipboardRepo.getPinnedCount())
+                            put("success", success)
+                            entryIndex?.let { put("entry_index", it) }
+                            contentLength?.let { put("content_length", it) }
+                        }
+                    )
+                }
+            }
+            androidx.core.content.ContextCompat.registerReceiver(
+                context,
+                clipboardR,
+                android.content.IntentFilter().apply {
+                    addAction("dev.devkey.keyboard.CLIPBOARD_ADD")
+                    addAction("dev.devkey.keyboard.CLIPBOARD_PASTE")
+                    addAction("dev.devkey.keyboard.CLIPBOARD_PIN")
+                    addAction("dev.devkey.keyboard.CLIPBOARD_CLEAR_ALL")
+                    addAction("dev.devkey.keyboard.CLIPBOARD_CLEAR_UNPINNED")
+                },
+                androidx.core.content.ContextCompat.RECEIVER_EXPORTED
+            )
+
             onDispose {
                 try { context.unregisterReceiver(resetR) } catch (_: IllegalArgumentException) {}
                 try { context.unregisterReceiver(setR) } catch (_: IllegalArgumentException) {}
                 try { context.unregisterReceiver(cmdR) } catch (_: IllegalArgumentException) {}
+                try { context.unregisterReceiver(clipboardR) } catch (_: IllegalArgumentException) {}
             }
         }
     }

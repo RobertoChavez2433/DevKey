@@ -22,6 +22,12 @@ class ClipboardRepository(private val dao: ClipboardHistoryDao) {
      */
     fun getAll(): Flow<List<ClipboardHistoryEntity>> = dao.getAllEntries()
 
+    suspend fun getAllSnapshot(): List<ClipboardHistoryEntity> = dao.getAllEntriesList()
+
+    suspend fun getCount(): Int = dao.getCount()
+
+    suspend fun getPinnedCount(): Int = dao.getPinnedEntriesList().size
+
     /**
      * Returns a Flow of entries filtered by a search query (case-insensitive).
      */
@@ -57,6 +63,12 @@ class ClipboardRepository(private val dao: ClipboardHistoryDao) {
         dao.update(entry.copy(isPinned = true))
     }
 
+    suspend fun pinByIndex(index: Int): Boolean {
+        val entry = getAllSnapshot().getOrNull(index) ?: return false
+        dao.update(entry.copy(isPinned = true))
+        return true
+    }
+
     /**
      * Unpins a clipboard entry.
      */
@@ -78,5 +90,9 @@ class ClipboardRepository(private val dao: ClipboardHistoryDao) {
      */
     suspend fun clearAll() {
         dao.deleteUnpinned()
+    }
+
+    suspend fun clearEverything() {
+        dao.deleteAll()
     }
 }

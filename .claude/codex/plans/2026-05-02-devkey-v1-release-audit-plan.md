@@ -93,6 +93,17 @@ Created: 2026-05-02
   - final result: 21 passed, 0 failed, 0 errors, 0 skipped
   - JSON: `.claude/test-results/e2e-results-20260502T154310Z.json`
   - all passing tests had verification evidence
+- [x] S21 punctuation feature rerun under verified-state harness:
+  - result: 13 passed, 0 failed, 0 errors, 0 skipped
+  - JSON: `.claude/test-results/e2e-results-20260502T155020Z.json`
+  - all passing tests had verification evidence
+- [x] S21 clipboard feature rerun under verified-state harness:
+  - initial result exposed nonexistent `CLIPBOARD_*` debug receivers and
+    action-only tests
+  - added debug-only repository-backed clipboard actions with structural logs
+  - final result: 8 passed, 0 failed, 0 errors, 0 skipped
+  - JSON: `.claude/test-results/e2e-results-20260502T155426Z.json`
+  - all passing tests had verification evidence
 - [x] S21 `--dump-inventory`
   - regenerated after coordinate fix:
     `.claude/test-results/key-inventory-20260502T153201Z.json`

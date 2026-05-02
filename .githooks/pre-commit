@@ -1,0 +1,5 @@
+#!/bin/sh
+# Pre-commit hook wrapper — calls PowerShell script for Windows compatibility
+# -ExecutionPolicy Bypass is scoped to this child process only; does not affect system policy
+pwsh -ExecutionPolicy Bypass -File ".claude/hooks/pre-commit.ps1"
+exit $?

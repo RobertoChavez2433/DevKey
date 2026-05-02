@@ -19,11 +19,14 @@ Environment Variables:
 import argparse
 import importlib
 import inspect
+import json
 import os
 import pathlib
+import subprocess
 import sys
 import time
 import traceback
+from datetime import datetime, timezone
 
 # WHY: Windows console default encoding is cp1252 which cannot encode Unicode
 #      glyphs used in long-press expectations (e.g. ⌫ U+232B, ≠, α) or in test
@@ -48,12 +51,17 @@ try:
     from _pytest.outcomes import Skipped as _PytestSkipped
 except ImportError:  # pragma: no cover — exercised only when pytest is absent
     _PytestSkipped = None
-from typing import List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
+
+LOCKED_FULL_SUITE_COUNT = 178
+PROJECT_ROOT = pathlib.Path(__file__).resolve().parents[2]
+DEFAULT_RESULTS_DIR = PROJECT_ROOT / ".claude" / "test-results"
 
 
 def discover_tests(
     test_filter: str = None,
     feature: str = None,
+    suite: str = "all",
 ) -> List[Tuple[str, callable]]:
     """
     Discover all test functions in the tests/ directory.
@@ -67,6 +75,9 @@ def discover_tests(
                      'test_smoke.test_keyboard_visible'). Mutually exclusive
                      with *feature*.
         feature:     Restrict discovery to tests/<feature>/test_*.py.
+        suite:       "all" runs both legacy flat tests and feature tests,
+                     "legacy-flat" runs tests/test_*.py only, and "features"
+                     runs tests/*/test_*.py only.
 
     Returns list of (fully_qualified_name, function) tuples.
     """
@@ -85,18 +96,20 @@ def discover_tests(
             import_path = f"tests.{subdir}.{module_name}"
             candidates.append((import_path, subdir, module_name, p))
     else:
-        # 1. Flat files: tests/test_*.py
-        for p in sorted(tests_dir.glob("test_*.py")):
-            module_name = p.stem
-            import_path = f"tests.{module_name}"
-            candidates.append((import_path, "", module_name, p))
+        if suite in ("all", "legacy-flat"):
+            # 1. Flat files: tests/test_*.py
+            for p in sorted(tests_dir.glob("test_*.py")):
+                module_name = p.stem
+                import_path = f"tests.{module_name}"
+                candidates.append((import_path, "", module_name, p))
 
-        # 2. Subdirectory files: tests/*/test_*.py
-        for p in sorted(tests_dir.glob("*/test_*.py")):
-            subdir = p.parent.name
-            module_name = p.stem
-            import_path = f"tests.{subdir}.{module_name}"
-            candidates.append((import_path, subdir, module_name, p))
+        if suite in ("all", "features"):
+            # 2. Subdirectory files: tests/*/test_*.py
+            for p in sorted(tests_dir.glob("*/test_*.py")):
+                subdir = p.parent.name
+                module_name = p.stem
+                import_path = f"tests.{subdir}.{module_name}"
+                candidates.append((import_path, subdir, module_name, p))
 
     for import_path, prefix, module_name, _ in candidates:
         # --test filter: supports "test_smoke" (flat only), or
@@ -147,16 +160,204 @@ def discover_tests(
     return tests
 
 
-def run_tests(tests: List[Tuple[str, callable]]) -> Tuple[int, int, int, int]:
+def _run_adb(args: List[str], serial: Optional[str] = None, timeout: float = 10.0) -> subprocess.CompletedProcess:
+    cmd = ["adb"]
+    if serial:
+        cmd.extend(["-s", serial])
+    cmd.extend(args)
+    return subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=timeout,
+    )
+
+
+def _first_nonblank(value: str) -> str:
+    for line in value.splitlines():
+        if line.strip():
+            return line.strip()
+    return ""
+
+
+def _device_metadata(serial: Optional[str]) -> Dict[str, Any]:
+    def prop(name: str) -> str:
+        try:
+            return _run_adb(["shell", "getprop", name], serial).stdout.strip()
+        except Exception:
+            return ""
+
+    version_name = ""
+    version_code = ""
+    try:
+        pkg = _run_adb(["shell", "dumpsys", "package", "dev.devkey.keyboard"], serial, timeout=15.0).stdout
+        for line in pkg.splitlines():
+            line = line.strip()
+            if line.startswith("versionName="):
+                version_name = line.split("=", 1)[1]
+            elif "versionCode=" in line:
+                version_code = line.split("versionCode=", 1)[1].split()[0]
+    except Exception:
+        pass
+
+    return {
+        "serial": serial or os.environ.get("DEVKEY_DEVICE_SERIAL") or "(default)",
+        "model": prop("ro.product.model"),
+        "manufacturer": prop("ro.product.manufacturer"),
+        "sdk": prop("ro.build.version.sdk"),
+        "release": prop("ro.build.version.release"),
+        "app_version_name": version_name,
+        "app_version_code": version_code,
+    }
+
+
+def _local_voice_assets() -> Dict[str, bool]:
+    assets_dir = PROJECT_ROOT / "app" / "src" / "main" / "assets"
+    return {
+        "whisper-tiny.en.tflite": (assets_dir / "whisper-tiny.en.tflite").is_file(),
+        "filters_vocab_en.bin": (assets_dir / "filters_vocab_en.bin").is_file(),
+    }
+
+
+def run_preflight(serial: Optional[str]) -> Dict[str, Any]:
+    from lib import adb, driver, keyboard
+
+    checks: Dict[str, Any] = {}
+
+    boot = _run_adb(["shell", "getprop", "sys.boot_completed"], serial)
+    checks["device_booted"] = {
+        "ok": boot.returncode == 0 and boot.stdout.strip() == "1",
+        "value": boot.stdout.strip(),
+    }
+
+    installed = _run_adb(["shell", "pm", "list", "packages", "dev.devkey.keyboard"], serial)
+    checks["ime_installed"] = {
+        "ok": installed.returncode == 0 and "dev.devkey.keyboard" in installed.stdout,
+    }
+
+    default_ime = _run_adb(["shell", "settings", "get", "secure", "default_input_method"], serial)
+    checks["ime_default"] = {
+        "ok": "dev.devkey.keyboard" in default_ime.stdout,
+        "value": _first_nonblank(default_ime.stdout),
+    }
+
+    try:
+        health = driver.health()
+        checks["debug_server"] = {
+            "ok": health.get("status") == "ok",
+            "entries": health.get("entries"),
+            "url": driver.DRIVER_URL,
+        }
+    except Exception as e:
+        checks["debug_server"] = {
+            "ok": False,
+            "url": driver.DRIVER_URL,
+            "error": str(e),
+        }
+
+    focus_status = adb.ensure_keyboard_visible(serial)
+    checks["keyboard_visible"] = {"ok": bool(focus_status.get("visible")), **focus_status}
+    checks["audio_permission"] = {
+        "ok": bool(focus_status.get("permissions", {}).get("RECORD_AUDIO")),
+        "permission": "RECORD_AUDIO",
+    }
+
+    try:
+        key_map = keyboard.load_key_map(serial)
+        key_map_size = len(key_map)
+        checks["key_map"] = {
+            "ok": key_map_size > 10,
+            "size": key_map_size,
+            "symbols_size": len(keyboard.get_symbols_key_map()),
+        }
+        checks["keyboard_visible"]["key_map_size"] = key_map_size
+    except Exception as e:
+        checks["key_map"] = {
+            "ok": False,
+            "size": 0,
+            "error": f"{type(e).__name__}: {e}",
+        }
+
+    checks["voice_assets"] = {
+        "ok": all(_local_voice_assets().values()),
+        "assets": _local_voice_assets(),
+    }
+    checks["reset_strategy"] = {
+        "ok": True,
+        "strategy": "TestHostActivity focus + RESET_CIRCUIT_BREAKER; no force-stop",
+    }
+
+    ok = all(bool(value.get("ok")) for value in checks.values())
+    return {
+        "ok": ok,
+        "checks": checks,
+        "device": _device_metadata(serial),
+    }
+
+
+def _failure_category(error_type: str, message: str) -> str:
+    text = f"{error_type} {message}".lower()
+    if "drivertimeout" in text or "timeout" in text:
+        return "timeout"
+    if "keyerror" in text or "key map" in text or "not found in key map" in text:
+        return "key_map"
+    if "driver" in text:
+        return "driver"
+    if error_type == "AssertionError":
+        return "assertion"
+    if error_type == "Skipped":
+        return "skipped"
+    return "exception"
+
+
+def _serialize_error(e: BaseException) -> Tuple[str, str, str]:
+    error_type = "Skipped" if (_PytestSkipped is not None and isinstance(e, _PytestSkipped)) else type(e).__name__
+    message = getattr(e, "msg", None) or (str(e) if str(e) else "")
+    return error_type, message, _failure_category(error_type, message)
+
+
+def _load_failed_names(results_file: str) -> List[str]:
+    with open(results_file, "r", encoding="utf-8") as fh:
+        data = json.load(fh)
+    names = []
+    for result in data.get("tests", []):
+        if result.get("status") in ("FAIL", "ERROR"):
+            name = result.get("name")
+            if name:
+                names.append(name)
+    if not names:
+        for result in data.get("failures", []):
+            name = result.get("name")
+            if name:
+                names.append(name)
+    return sorted(set(names))
+
+
+def _write_results(payload: Dict[str, Any], explicit_path: Optional[str] = None) -> pathlib.Path:
+    if explicit_path:
+        path = pathlib.Path(explicit_path)
+    else:
+        DEFAULT_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        path = DEFAULT_RESULTS_DIR / f"e2e-results-{stamp}.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    return path
+
+
+def run_tests(tests: List[Tuple[str, callable]], retry_status: str = "not_retried") -> Tuple[int, int, int, int, List[Dict[str, Any]]]:
     """
     Run all discovered tests and print results.
 
-    Returns (passed, failed, errors, skipped) counts.
+    Returns (passed, failed, errors, skipped, per_test_results).
     """
     passed = 0
     failed = 0
     errors = 0
     skipped = 0
+    results: List[Dict[str, Any]] = []
 
     total = len(tests)
     print(f"\nRunning {total} test(s)...\n")
@@ -190,11 +391,27 @@ def run_tests(tests: List[Tuple[str, callable]]) -> Tuple[int, int, int, int]:
             elapsed = time.time() - start
             print(f"PASS ({elapsed:.1f}s)")
             passed += 1
+            results.append({
+                "name": name,
+                "status": "PASS",
+                "duration_seconds": round(elapsed, 3),
+                "retry_status": retry_status,
+            })
         except AssertionError as e:
             elapsed = time.time() - start
             print(f"FAIL ({elapsed:.1f}s)")
             print(f"         {e}")
             failed += 1
+            error_type, message, category = _serialize_error(e)
+            results.append({
+                "name": name,
+                "status": "FAIL",
+                "duration_seconds": round(elapsed, 3),
+                "error_type": error_type,
+                "error": message,
+                "failure_category": category,
+                "retry_status": retry_status,
+            })
         except BaseException as e:
             # WHY: BaseException catches pytest.Skipped (which inherits from
             #      BaseException, NOT Exception) AND generic Exception errors
@@ -213,18 +430,36 @@ def run_tests(tests: List[Tuple[str, callable]]) -> Tuple[int, int, int, int]:
                 if reason:
                     print(f"         {reason}")
                 skipped += 1
+                results.append({
+                    "name": name,
+                    "status": "SKIP",
+                    "duration_seconds": round(elapsed, 3),
+                    "reason": reason,
+                    "failure_category": "skipped",
+                    "retry_status": retry_status,
+                })
             else:
                 print(f"ERROR ({elapsed:.1f}s)")
                 print(f"         {type(e).__name__}: {e}")
                 if os.environ.get("DEVKEY_E2E_VERBOSE"):
                     traceback.print_exc()
                 errors += 1
+                error_type, message, category = _serialize_error(e)
+                results.append({
+                    "name": name,
+                    "status": "ERROR",
+                    "duration_seconds": round(elapsed, 3),
+                    "error_type": error_type,
+                    "error": message,
+                    "failure_category": category,
+                    "retry_status": retry_status,
+                })
 
     print("=" * 70)
     print(f"\nResults: {passed} passed, {failed} failed, {errors} errors, "
           f"{skipped} skipped (out of {total} tests)")
 
-    return passed, failed, errors, skipped
+    return passed, failed, errors, skipped, results
 
 
 def main():
@@ -240,14 +475,49 @@ def main():
         "--feature", "-f",
         help="Restrict discovery to tests/<feature>/test_*.py subdirectory"
     )
+    filter_group.add_argument(
+        "--rerun-failed",
+        help="Read a prior JSON results file and rerun only failed/error tests"
+    )
     parser.add_argument(
         "--device", "-d",
         help="ADB device serial (overrides DEVKEY_DEVICE_SERIAL env var)"
     )
     parser.add_argument(
+        "--suite",
+        choices=("all", "features", "legacy-flat"),
+        default="all",
+        help="Discovery suite to run when --test/--feature are not used"
+    )
+    parser.add_argument(
         "--list", "-l",
         action="store_true",
         help="List all discovered tests without running them"
+    )
+    parser.add_argument(
+        "--preflight",
+        action="store_true",
+        help="Run preflight checks and exit"
+    )
+    parser.add_argument(
+        "--no-preflight",
+        action="store_true",
+        help="Skip the default preflight before running tests"
+    )
+    parser.add_argument(
+        "--timeout-multiplier",
+        type=float,
+        default=1.0,
+        help="Multiply driver wait_for timeouts for slow emulators"
+    )
+    parser.add_argument(
+        "--results-file",
+        help="Path for JSON results output (default: .claude/test-results/e2e-results-<timestamp>.json)"
+    )
+    parser.add_argument(
+        "--allow-count-drift",
+        action="store_true",
+        help=f"Allow --suite all discovery to differ from locked count {LOCKED_FULL_SUITE_COUNT}"
     )
     parser.add_argument(
         "--verbose", "-v",
@@ -263,13 +533,26 @@ def main():
     if args.verbose:
         os.environ["DEVKEY_E2E_VERBOSE"] = "1"
 
+    os.environ["DEVKEY_TIMEOUT_MULTIPLIER"] = str(args.timeout_multiplier)
+
     # Add the e2e directory to path so imports work
     e2e_dir = os.path.dirname(os.path.abspath(__file__))
     if e2e_dir not in sys.path:
         sys.path.insert(0, e2e_dir)
 
+    serial = os.environ.get("DEVKEY_DEVICE_SERIAL")
+
+    if args.preflight:
+        preflight = run_preflight(serial)
+        print(json.dumps(preflight, indent=2, sort_keys=True))
+        sys.exit(0 if preflight.get("ok") else 1)
+
     # Discover tests
-    tests = discover_tests(test_filter=args.test, feature=args.feature)
+    tests = discover_tests(test_filter=args.test, feature=args.feature, suite=args.suite)
+
+    if args.rerun_failed:
+        failed_names = set(_load_failed_names(args.rerun_failed))
+        tests = [(name, func) for name, func in tests if name in failed_names]
 
     if not tests:
         print("No tests found.")
@@ -277,6 +560,22 @@ def main():
             print(f"  Filter '{args.test}' matched nothing.")
         if args.feature:
             print(f"  Feature '{args.feature}' matched nothing.")
+        if args.rerun_failed:
+            print(f"  No failed/error tests found in '{args.rerun_failed}'.")
+        sys.exit(1)
+
+    if (
+        not args.test
+        and not args.feature
+        and not args.rerun_failed
+        and args.suite == "all"
+        and len(tests) != LOCKED_FULL_SUITE_COUNT
+        and not args.allow_count_drift
+    ):
+        print(
+            f"Discovered {len(tests)} tests, expected locked full-suite count "
+            f"{LOCKED_FULL_SUITE_COUNT}. Use --allow-count-drift if this change is intentional."
+        )
         sys.exit(1)
 
     if args.list:
@@ -320,8 +619,49 @@ def main():
                 )
     driver.clear_logs()
 
+    preflight = None
+    if not args.no_preflight:
+        preflight = run_preflight(serial)
+        if not preflight.get("ok"):
+            print(json.dumps(preflight, indent=2, sort_keys=True))
+            print("Preflight failed; aborting test run.")
+            sys.exit(1)
+
     # Run tests
-    passed, failed, errors, skipped = run_tests(tests)
+    started_at = datetime.now(timezone.utc)
+    passed, failed, errors, skipped, test_results = run_tests(
+        tests,
+        retry_status="retry" if args.rerun_failed else "not_retried",
+    )
+    ended_at = datetime.now(timezone.utc)
+    result_payload = {
+        "schema_version": 1,
+        "started_at": started_at.isoformat(),
+        "ended_at": ended_at.isoformat(),
+        "duration_seconds": round((ended_at - started_at).total_seconds(), 3),
+        "device": _device_metadata(serial),
+        "suite": args.suite,
+        "feature": args.feature,
+        "test_filter": args.test,
+        "rerun_source": args.rerun_failed,
+        "timeout_multiplier": args.timeout_multiplier,
+        "preflight": preflight,
+        "total": len(tests),
+        "passed": passed,
+        "failed": failed,
+        "errors": errors,
+        "skipped": skipped,
+        "tests": test_results,
+        "failures": [r for r in test_results if r.get("status") in ("FAIL", "ERROR")],
+        "artifacts": [],
+        "privacy": {
+            "typed_text_logged": False,
+            "transcripts_logged": False,
+            "clipboard_logged": False,
+        },
+    }
+    results_path = _write_results(result_payload, args.results_file)
+    print(f"JSON results: {results_path}")
 
     # WHY: Skipped tests are NOT failures. Spec §3.5 visual-diff gate
     #      explicitly relies on SKIPs for uncaptured SwiftKey references

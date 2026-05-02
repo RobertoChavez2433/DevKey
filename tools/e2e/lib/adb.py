@@ -122,7 +122,14 @@ TEST_HOST_ACTIVITY = (
 )
 
 
-def ensure_keyboard_visible(serial: Optional[str] = None) -> None:
+def _permission_granted(permission: str, serial: Optional[str] = None) -> bool:
+    cmd = _adb_cmd(["shell", "dumpsys", "package", "dev.devkey.keyboard"], serial)
+    result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
+    pattern = rf"{re.escape(permission)}: granted=true"
+    return re.search(pattern, result.stdout) is not None
+
+
+def ensure_keyboard_visible(serial: Optional[str] = None) -> dict:
     """
     Ensure the soft keyboard is visible and focused on a controlled EditText.
 
@@ -147,7 +154,7 @@ def ensure_keyboard_visible(serial: Optional[str] = None) -> None:
     """
     # Grant RECORD_AUDIO permission — required for voice tests. This is
     # idempotent and cheap; avoids requiring manual setup on fresh emulators.
-    subprocess.run(
+    grant_result = subprocess.run(
         _adb_cmd(
             ["shell", "pm", "grant", "dev.devkey.keyboard",
              "android.permission.RECORD_AUDIO"],
@@ -208,6 +215,15 @@ def ensure_keyboard_visible(serial: Optional[str] = None) -> None:
             ),
             capture_output=True,
         )
+
+    return {
+        "visible": visible,
+        "permissions": {
+            "RECORD_AUDIO": _permission_granted("android.permission.RECORD_AUDIO", serial)
+                or grant_result.returncode == 0,
+        },
+        "key_map_size": 0,
+    }
 
 
 def assert_logcat_contains(tag: str, pattern: str, timeout: float = 2.0,

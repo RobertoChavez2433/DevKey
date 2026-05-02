@@ -10,6 +10,7 @@ from typing import Any, Dict, Optional
 from urllib import request, parse, error
 
 DRIVER_URL = os.environ.get("DEVKEY_DRIVER_URL", "http://127.0.0.1:3950")
+TIMEOUT_MULTIPLIER = float(os.environ.get("DEVKEY_TIMEOUT_MULTIPLIER", "1.0"))
 
 
 class DriverError(Exception):
@@ -92,14 +93,15 @@ def wait_for(category: str, event: Optional[str] = None,
 
     Raises DriverTimeout if no entry matches within timeout_ms.
     """
-    params = {"category": category, "timeout": timeout_ms}
+    effective_timeout_ms = max(1, int(timeout_ms * TIMEOUT_MULTIPLIER))
+    params = {"category": category, "timeout": effective_timeout_ms}
     if event:
         params["event"] = event
     if match:
         params["match"] = json.dumps(match)
     # Python-side timeout is 2x server-side — catches the case where the
     # server's own timeout fires slightly late without dropping the wait.
-    result = _get("/wait", params=params, timeout=(timeout_ms / 1000.0) + 5.0)
+    result = _get("/wait", params=params, timeout=(effective_timeout_ms / 1000.0) + 5.0)
     if not result.get("matched"):
         raise DriverTimeout(result.get("error", "unknown"))
     return result["entry"]

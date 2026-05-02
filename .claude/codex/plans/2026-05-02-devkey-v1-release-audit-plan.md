@@ -111,27 +111,51 @@ Created: 2026-05-02
 - [x] S21 focused smoke under verified-state harness:
   - `test_smoke.test_tap_letter_produces_logcat`
   - evidence included `DevKeyPress` logcat assertion after tap
+- [x] Dictionary/autocorrect unit validation:
+  - targeted `testDebugUnitTest` passed for prediction, dictionary,
+    autocorrect pipeline, and suggestion coordinator tests
+  - ordinary learned typos no longer suppress autocorrect
+  - explicit custom words still suppress unwanted autocorrect
+  - empty native dictionary bigram lookup returns without a JNI crash
+- [x] S21 voice scope under verified-state harness:
+  - state-machine paths execute, but real round-trip remains blocked
+  - `voice.test_smoke.test_voice_round_trip_committed_text` fails because
+    `process_file_result` reports `committed=false`
+  - `voice.test_stress.test_audio_inject_rapid_cycle` fails for the same
+    non-committable Whisper output
+  - this is a release blocker, not a test skip
+- [x] False-positive hardening after strict S21 rerun:
+  - runner no longer swallows per-test reset/log-clear failures
+  - runner no longer manufactures generic logcat evidence after final taps
+  - S21 modifier rerun initially exposed 9 unverified final-action tests
+  - repaired modifier tests now require setting acknowledgements, mode events,
+    modifier transitions, key events, or focused host state after the last
+    action
+  - final strict S21 modifiers result: 21 passed, 0 failed, 0 errors, 0 skipped
+  - JSON: `.claude/test-results/e2e-results-20260502T165433Z.json`
+- [x] Generated artifact privacy guard:
+  - result JSON checked for structural-only evidence
+  - `.claude/test-results/` is now ignored to avoid accidental commits of
+    local JSON or screenshots
+- [x] Hung-test guard:
+  - each E2E test now runs in an isolated child process
+  - default hard timeout is 90 seconds per test
+  - `--test-timeout-seconds` and `DEVKEY_E2E_TEST_TIMEOUT_SECONDS` override it
+  - forced S21 timeout probe produced `TestTimeout` and JSON instead of hanging
+  - normal S21 input smoke still passed under child-process isolation
 
 ## Remaining Implementation Work
 
 - [ ] Add toolbar/dynamic button action inventory, then tie it to release
   validation.
-- [ ] Rerun and repair all feature scopes under the verified-state harness.
-  Earlier E2E results are audit data only; they are not release-green because
-  they were produced before action/evidence ordering was enforced.
+- [ ] Rerun the full S21 suite under the hardened child-process timeout.
+  Feature-scope evidence is useful, but the release still needs one complete
+  strict run after the timeout guard.
 - [ ] Validate toolbar buttons, dynamic panels, mode switches, modifiers, and
   settings workflows against the generated inventory.
 - [ ] Resolve plugin loading security for v1.0:
   - either gate plugin loading behind debug-only behavior
   - or add signature/provenance verification before release
-- [ ] Validate custom dictionary/non-word behavior:
-  - programming words and user-added non-words must not be aggressively
-    autocorrected after learning
-  - autocorrect must stay conservative by default
-- [ ] Validate dictionary resilience:
-  - dictionary `close()`/cleanup idempotency
-  - corrupt binary dictionary handling does not crash the IME
-  - native/JNI dictionary package path remains aligned
 - [ ] Complete AnySoftKeyboard dictionary spike:
   - verify Apache-2.0 compatibility and source provenance
   - compare current DevKey dictionaries against an AnySoft-backed candidate on
@@ -148,14 +172,15 @@ Created: 2026-05-02
 
 - [x] Rerun `--preflight` on S21 after clean-state and visual-baseline gates
   are in place.
-- [ ] Run feature scopes: voice, input, modifiers, modes,
-  prediction/autocorrect, punctuation, clipboard, macros, command_mode,
-  visual/long-press.
+- [x] Run feature scopes on S21 with verified evidence for input, modifiers,
+  modes, prediction/autocorrect, punctuation, clipboard, macros,
+  command_mode, visual, and long-press.
+- [ ] Resolve voice round-trip, then rerun the S21 voice scope.
 - [ ] Run dictionary-specific validation:
   - current AOSP-derived dictionaries load
   - synthetic prefixes and misspellings produce expected suggestions/corrections
   - next-word/bigram path works through the legacy dictionary stack
-  - learned/custom words suppress unwanted autocorrect
+  - learned/custom words suppress unwanted autocorrect where intended
 - [ ] Run `--rerun-failed` once after fixes.
 - [ ] Run full E2E suite on the primary S21 release target.
 - [ ] Reproduce final failures or final full suite on `Pixel_7_API_36` only if
@@ -168,11 +193,14 @@ Created: 2026-05-02
 
 ## Current Blockers
 
-- Prior S21 feature-scope results are not trusted as release-green until rerun
-  under the verified-state harness.
-- Voice S21 scope before the verified-state harness produced 15 passes, 2
-  emulator-only skips, and 2 transient errors that passed on `--rerun-failed`.
-  Treat this as diagnostic only, not final release validation.
+- Voice is the hard release blocker. The S21 verified-state scope completes
+  file processing but the Whisper output is non-committable, so committed text
+  length does not increase and the correct tests fail.
+- Full-suite S21 validation was manually interrupted before the timeout guard
+  because it ran too long without a hard per-test watchdog. Rerun only after
+  voice is fixed or when deliberately collecting the remaining failures.
+- AnySoftKeyboard dictionary spike is still research work; do not integrate new
+  dictionary sources before provenance and behavior are proven.
 
 ## Commit Trail
 
@@ -182,3 +210,10 @@ Created: 2026-05-02
 - `2f6e628 refactor(core): route settings access through repository`
 - `5cd6817 test(e2e): add canonical key inventory`
 - `aade9a9 test(e2e): enforce inventory coverage`
+- `addc44f fix(dictionary): guard bigram lookup without native handle`
+- `e1159bf fix(prediction): preserve autocorrect for learned typos`
+- `d4d5b53 test(clipboard): update history dao fake`
+- `66a80c1 test(e2e): fail unverified runner state`
+- `7993e1d test(e2e): verify modifier state transitions`
+- `393c6d9 chore(git): ignore local test results`
+- `67fe5ce test(e2e): add hard per-test timeout`

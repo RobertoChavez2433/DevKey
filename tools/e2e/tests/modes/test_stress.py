@@ -162,6 +162,10 @@ def test_symbols_type_toggle_back():
     driver.clear_logs()
     keyboard.tap_key("a", serial)
     keyboard.tap_key_by_code(SPACE_CODE, serial)
+    state = adb.query_test_host_state(serial, timeout_ms=2000)
+    assert state["text_length"] >= 2, (
+        f"Normal mode did not accept typed key after symbol round-trip; "
+        f"length={state['text_length']}"
+    )
 
-    # If we get here without exception the IME survived the round-trip.
     _reset_mode()

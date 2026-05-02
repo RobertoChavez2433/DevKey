@@ -21,8 +21,9 @@ Created: 2026-05-02
 - [x] Flat/subdirectory E2E ambiguity reduced with explicit suites and locked
   full-suite discovery count.
 - [x] Debug/log server port normalized to `3950`.
-- [x] Release device docs normalized to S21 and `Pixel_7_API_36`; Windows
-  automation remains emulator-only by repo rule.
+- [x] Release device docs normalized to S21 and `Pixel_7_API_36`; current
+  validation direction is S21-only, with the emulator retained only as a
+  documented reproducibility fallback.
 - [x] Canonical key/button inventory added for full, compact, compact_dev, and
   symbols layers.
 - [x] Inventory coverage validation added so `--dump-inventory` fails on
@@ -262,6 +263,17 @@ Created: 2026-05-02
     10/11 passed, then `--rerun-failed` passed 1/1
   - punctuation setup is now shared, uses verified host clearing, and has a
     shorter best-effort dictionary wait instead of a 15-second stale-log wait
+- [x] Voice Whisper round-trip repaired and validated:
+  - parsed the bundled `filters_vocab_en.bin` using the actual three-int
+    filter/vocabulary header and vocabulary placement
+  - aligned mel-spectrogram generation with the upstream Android Whisper
+    reference's 400-point FFT path
+  - debug file inference reloads the model before processing each fixture to
+    avoid stale interpreter state during stress loops
+  - voice E2E now distinguishes speech fixtures from the near-silent fixture
+    and requires committed output for speech
+  - voice tail-action tests now require final host-state or driver evidence
+    after their last action
 
 ## Remaining Implementation Work
 
@@ -280,7 +292,7 @@ Created: 2026-05-02
   validation.
 - [ ] Rerun the full S21 suite under the hardened child-process timeout.
   Feature-scope evidence is useful, but the release still needs one complete
-  strict run after the timeout guard.
+  strict run after the voice fix and timeout guard.
 - [ ] Validate toolbar buttons, dynamic panels, mode switches, modifiers, and
   settings workflows against the generated inventory.
 - [ ] Resolve plugin loading security for v1.0:
@@ -305,7 +317,11 @@ Created: 2026-05-02
 - [x] Run feature scopes on S21 with verified evidence for input, modifiers,
   modes, prediction/autocorrect, punctuation, clipboard, macros,
   command_mode, visual, and long-press.
-- [ ] Resolve voice round-trip, then rerun the S21 voice scope.
+- [x] Resolve voice round-trip, then rerun the S21 voice scope:
+  - isolated failed rerun: 1 passed, 0 failed, 0 errors
+  - JSON: `.claude/test-results/e2e-results-20260502T190908Z.json`
+  - full voice scope: 19 passed, 0 failed, 0 errors, 0 skipped
+  - JSON: `.claude/test-results/e2e-results-20260502T191613Z.json`
 - [ ] Run dictionary-specific validation:
   - current AOSP-derived dictionaries load
   - synthetic prefixes and misspellings produce expected suggestions/corrections
@@ -328,14 +344,12 @@ Created: 2026-05-02
 
 ## Current Blockers
 
-- Voice is the hard release blocker. The S21 verified-state scope completes
-  file processing but the Whisper output is non-committable, so committed text
-  length does not increase and the correct tests fail.
-- Full-suite S21 validation was manually interrupted before the timeout guard
-  because it ran too long without a hard per-test watchdog. Rerun only after
-  voice is fixed or when deliberately collecting the remaining failures.
+- Full-suite S21 validation still needs one complete strict run after the voice
+  round-trip fix and child-process timeout guard.
 - AnySoftKeyboard dictionary spike is still research work; do not integrate new
   dictionary sources before provenance and behavior are proven.
+- Plugin loading security still needs a v1.0 decision: debug-only gate or
+  signature/provenance verification.
 - The current structure audit still reports 5 files above 400 lines and 1 file
   above 35 imports. These are now visible release-gate findings, not hidden
   cleanup debt.
@@ -367,3 +381,6 @@ Created: 2026-05-02
 - `a34f0d6 docs(e2e): update release audit backlog`
 - `7d43d1a refactor(core): extract separator input handler`
 - `877dfa4 test(e2e): harden separator-adjacent evidence`
+- `442bd0b docs(e2e): record separator validation results`
+- `6b43d68 fix(voice): decode Whisper assets for round trip`
+- `cd7a397 test(e2e): require committable voice inference`

@@ -226,6 +226,25 @@ Created: 2026-05-02
   - `tools/e2e/lib/keyboard.py` is no longer a structure-audit line violation
   - S21 preflight, input smoke, and layout-mode round-trip smoke passed after
     the split
+- [x] Keyboard debug/test receiver split:
+  - moved debug-only key-map, mode/reset, command-mode, clipboard, and macro
+    receivers out of `KeyboardDependencies.rememberKeyboardDependencies`
+  - split receiver logic into focused modules:
+    `DebugKeyboardReceivers.kt`, `ClipboardDebugReceiver.kt`, and
+    `MacroDebugReceiver.kt`
+  - `rememberKeyboardDependencies` is now low complexity in jCodeMunch:
+    cyclomatic 1, 36 lines
+  - `KeyboardDependencies.kt` is no longer a structure-audit line violation
+  - current structure audit scans 361 files and reports 5 line-count
+    violations plus 1 import-count violation
+  - fresh debug APK installed on S21 `RFCNC0Y975L`
+  - S21 preflight passed after install:
+    `.claude/test-results/visual-baseline-20260502T174905Z.png`
+  - receiver-backed S21 scopes passed after the split:
+    clipboard 8/8, macros 8/8, command_mode 6/6, modes 10/10
+  - the first modes rerun exposed one real false-positive risk in
+    `modes.test_stress.test_symbols_type_toggle_back`; the test now proves
+    final host text length after returning to normal mode
 
 ## Remaining Implementation Work
 
@@ -233,12 +252,6 @@ Created: 2026-05-02
   - run `python tools/audit_structure.py`
   - capture jCodeMunch hotspot/complexity report with the release checklist
   - attach explicit deferral rationale for each remaining structure violation
-- [ ] Split debug/test action receivers out of
-  `KeyboardDependencies.rememberKeyboardDependencies`:
-  - clipboard debug receiver manager
-  - macro debug receiver manager
-  - command/test-mode receiver manager
-  - keep Compose dependency creation free of test-control branching
 - [ ] Refactor production hotspots before release where they affect validation:
   - `InputHandlers.handleSeparator`
   - `InputHandlers.handleCharacter`
@@ -307,7 +320,7 @@ Created: 2026-05-02
   voice is fixed or when deliberately collecting the remaining failures.
 - AnySoftKeyboard dictionary spike is still research work; do not integrate new
   dictionary sources before provenance and behavior are proven.
-- The current structure audit still reports 6 files above 400 lines and 1 file
+- The current structure audit still reports 5 files above 400 lines and 1 file
   above 35 imports. These are now visible release-gate findings, not hidden
   cleanup debt.
 
@@ -329,3 +342,9 @@ Created: 2026-05-02
 - `4664b46 test(e2e): extract per-test executor`
 - `0d46ef1 docs(e2e): add structural audit backlog`
 - `7521758 test(e2e): split runner command modules`
+- `63ae463 test(tooling): add structure audit guardrail`
+- `26e13e5 test(e2e): split discovery and executor hotspots`
+- `926cd6a test(e2e): split adb helper responsibilities`
+- `5aa8cb3 test(e2e): split keyboard helper responsibilities`
+- `d1717ec refactor(keyboard): extract debug receiver registration`
+- `c641a2c test(e2e): verify symbol mode round trip state`

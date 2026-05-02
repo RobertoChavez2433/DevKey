@@ -71,9 +71,10 @@ def test_voice_round_trip_committed_text():
 
     process_voice_fixture(
         serial,
-        "voice-hello.wav",
+        "voice-complex.wav",
         expect_commit=True,
         clear_logs=True,
+        idle_timeout_ms=90000,
     )
 
 

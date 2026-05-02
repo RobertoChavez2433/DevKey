@@ -102,7 +102,12 @@ def test_audio_inject_rapid_cycle():
 
     for _ in range(3):
         _enter_voice_mode(serial)
-        process_voice_fixture(serial, "voice-hello.wav", expect_commit=True)
+        process_voice_fixture(
+            serial,
+            "voice-complex.wav",
+            expect_commit=True,
+            idle_timeout_ms=90000,
+        )
 
 
 def test_start_stop_interleaved_with_typing():
@@ -122,3 +127,8 @@ def test_start_stop_interleaved_with_typing():
         driver.clear_logs()
         keyboard.tap_key("a", serial)
         keyboard.tap_key_by_code(SPACE_CODE, serial)
+
+    state = adb.query_test_host_state(serial, timeout_ms=2000)
+    assert state["text_length"] >= 6, (
+        f"Typing after voice start/stop cycles did not commit expected text; length={state['text_length']}"
+    )

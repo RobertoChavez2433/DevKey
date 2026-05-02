@@ -89,6 +89,10 @@ def test_voice_during_composing():
     driver.clear_logs()
     keyboard.tap_key("a", serial)
     keyboard.tap_key_by_code(SPACE_CODE, serial)
+    state = adb.query_test_host_state(serial, timeout_ms=2000)
+    assert state["text_length"] >= 4, (
+        f"Typing after voice cancel did not commit expected text; length={state['text_length']}"
+    )
 
 
 def test_empty_audio_buffer():

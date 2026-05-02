@@ -85,7 +85,10 @@ def test_voice_typing_voice_rapid_alternation():
         keyboard.tap_key_by_code(SPACE_CODE, serial)
         time.sleep(0.5)
 
-    # Final health check
+    state = adb.query_test_host_state(serial, timeout_ms=2000)
+    assert state["text_length"] >= 6, (
+        f"Rapid voice/typing alternation did not commit expected text; length={state['text_length']}"
+    )
     driver.require_driver()
 
 
@@ -126,6 +129,11 @@ def test_voice_mode_switch_during_listening():
         "dev.devkey.keyboard.SET_KEYBOARD_MODE",
         {"mode": "clipboard"},
     )
+    driver.wait_for(
+        "DevKey/IME",
+        "keyboard_mode_changed",
+        timeout_ms=3000,
+    )
     time.sleep(0.5)
 
     # Switch back to normal
@@ -137,6 +145,10 @@ def test_voice_mode_switch_during_listening():
     keyboard.tap_key("b", serial)
     keyboard.tap_key_by_code(SPACE_CODE, serial)
     time.sleep(0.3)
+    state = adb.query_test_host_state(serial, timeout_ms=2000)
+    assert state["text_length"] >= 2, (
+        f"Typing after voice mode switch did not commit expected text; length={state['text_length']}"
+    )
 
     driver.require_driver()
 
@@ -160,16 +172,24 @@ def test_file_inference_during_listening():
 
 def test_file_inference_three_fixtures():
     """
-    Process all three voice fixtures back-to-back: voice-hello.wav,
-    voice-complex.wav, voice-extended.wav. Each must complete with a
-    result event.
+    Process the non-speech fixture plus two speech fixtures back-to-back.
+    Each must complete with the expected commit/reject status.
     """
     serial = _setup_voice()
-    fixtures = ["voice-hello.wav", "voice-complex.wav", "voice-extended.wav"]
+    fixtures = [
+        ("voice-hello.wav", False),
+        ("voice-complex.wav", True),
+        ("voice-extended.wav", True),
+    ]
 
     result_count = 0
-    for fixture_name in fixtures:
-        process_voice_fixture(serial, fixture_name)
+    for fixture_name, expect_speech in fixtures:
+        process_voice_fixture(
+            serial,
+            fixture_name,
+            expect_speech=expect_speech,
+            idle_timeout_ms=90000,
+        )
         result_count += 1
 
     assert result_count == 3, (
@@ -210,6 +230,7 @@ def test_voice_after_heavy_typing():
         "dev.devkey.keyboard.SET_BOOL_PREF",
         {"key": "show_suggestions", "value": True},
     )
+    driver.wait_for("DevKey/IME", "bool_pref_set", timeout_ms=3000)
     time.sleep(0.3)
 
     # Type 30 words rapidly
@@ -231,5 +252,9 @@ def test_voice_after_heavy_typing():
     keyboard.tap_key("z", serial)
     keyboard.tap_key_by_code(SPACE_CODE, serial)
     time.sleep(0.3)
+    state = adb.query_test_host_state(serial, timeout_ms=2000)
+    assert state["text_length"] >= 30, (
+        f"Typing after heavy voice cycle did not leave expected text; length={state['text_length']}"
+    )
 
     driver.require_driver()

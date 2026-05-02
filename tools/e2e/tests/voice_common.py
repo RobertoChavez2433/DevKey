@@ -46,9 +46,11 @@ def process_voice_fixture(
     serial,
     fixture_name="voice-complex.wav",
     expect_commit=False,
+    expect_speech=True,
     clear_logs=True,
     processing_timeout_ms=10000,
     idle_timeout_ms=60000,
+    result_timeout_ms=15000,
 ):
     file_path = push_voice_fixture(serial, fixture_name)
     before_length = None
@@ -76,11 +78,19 @@ def process_voice_fixture(
     result = driver.wait_for(
         "DevKey/VOX",
         "process_file_result",
-        timeout_ms=5000,
+        timeout_ms=result_timeout_ms,
     )
     data = result.get("data", {})
     length = data.get("length", 0)
     assert length > 0, f"Expected non-empty transcription length, got {length}"
+    if expect_speech:
+        assert data.get("committed") is True, (
+            "Expected voice fixture to produce committable speech, but committed=false"
+        )
+    else:
+        assert data.get("committed") is False, (
+            "Expected non-speech fixture to be rejected, but committed=true"
+        )
     if expect_commit:
         assert data.get("committed") is True, (
             "Expected voice result to be accepted for commit, but committed=false"

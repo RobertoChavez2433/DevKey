@@ -91,13 +91,11 @@ fun ToolbarRow(
             Box(
                 modifier = Modifier
                     .fillMaxHeight()
-                    .then(
-                        toolbarInventoryModifier(
-                            id = "macros",
-                            action = "toggle_macro_chips",
-                            longAction = "toggle_macro_grid",
-                            isActive = macroActive
-                        )
+                    .toolbarInventory(
+                        id = "macros",
+                        action = "toggle_macro_chips",
+                        longAction = "toggle_macro_grid",
+                        isActive = macroActive
                     )
                     .combinedClickable(
                         onClick = {
@@ -121,12 +119,10 @@ fun ToolbarRow(
             Box(
                 modifier = Modifier
                     .fillMaxHeight()
-                    .then(
-                        toolbarInventoryModifier(
-                            id = "overflow",
-                            action = "toggle_command_mode",
-                            isActive = isCommandMode
-                        )
+                    .toolbarInventory(
+                        id = "overflow",
+                        action = "toggle_command_mode",
+                        isActive = isCommandMode
                     )
                     .clickable {
                         logToolbarAction("overflow", "toggle_command_mode")
@@ -186,7 +182,7 @@ private fun ToolbarButton(
     Box(
         modifier = Modifier
             .fillMaxHeight()
-            .then(toolbarInventoryModifier(id = id, action = action, isActive = isActive))
+            .toolbarInventory(id = id, action = action, isActive = isActive)
             .clickable {
                 logToolbarAction(id, action)
                 onClick()

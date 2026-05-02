@@ -39,12 +39,10 @@ fun ToolbarChevronBar(
             .fillMaxWidth()
             .height(DevKeyThemeDimensions.chevronRowHeight)
             .background(DevKeyThemeColors.kbBg)
-            .then(
-                toolbarInventoryModifier(
-                    id = "toolbar_chevron",
-                    action = "toggle_toolbar",
-                    isActive = expanded
-                )
+            .toolbarInventory(
+                id = "toolbar_chevron",
+                action = "toggle_toolbar",
+                isActive = expanded
             )
             .clickable {
                 logToolbarAction("toolbar_chevron", "toggle_toolbar")

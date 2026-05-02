@@ -12,7 +12,7 @@ import dev.devkey.keyboard.debug.DevKeyLogger
 import dev.devkey.keyboard.debug.KeyMapGenerator
 
 @Composable
-internal fun toolbarInventoryModifier(
+internal fun Modifier.toolbarInventory(
     id: String,
     action: String,
     longAction: String? = null,
@@ -22,9 +22,9 @@ internal fun toolbarInventoryModifier(
     val context = LocalContext.current
     val view = LocalView.current
     val shouldLog = remember(context) { KeyMapGenerator.isDebugBuild(context) }
-    if (!shouldLog) return Modifier
+    if (!shouldLog) return this
 
-    return Modifier.onGloballyPositioned { coordinates ->
+    return this.onGloballyPositioned { coordinates ->
         val viewLocation = IntArray(2)
         view.getLocationOnScreen(viewLocation)
         val rootBounds = coordinates.boundsInRoot()

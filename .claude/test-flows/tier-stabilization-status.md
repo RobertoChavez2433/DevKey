@@ -23,17 +23,19 @@ inside this implementation session.
 
 Before attempting the stabilization run, verify every item below:
 
-- [ ] Android emulator (or reference device) booted and reachable via `adb devices`.
+- [ ] `Pixel_7_API_36` emulator booted and reachable via `adb devices`
+      (S21 remains an allowed release validation target, but Windows
+      automation uses the emulator).
 - [ ] Phase 1 debug APK installed on the emulator
       (`./gradlew installDebug` completes clean).
 - [ ] DevKey IME enabled and selected as the active input method
       (`adb shell ime enable <id>` + `adb shell ime set <id>`).
 - [ ] Driver server running locally:
-      `node tools/debug-server/server.js` (default port 3947).
+      `node tools/debug-server/server.js` (default port 3950).
 - [ ] Debug server enabled on-device:
-      `adb shell am broadcast -a dev.devkey.keyboard.ENABLE_DEBUG_SERVER --es url http://10.0.2.2:3947`
+      `adb shell am broadcast -a dev.devkey.keyboard.ENABLE_DEBUG_SERVER --es url http://10.0.2.2:3950`
       (verify `debug_server_enabled` handshake line appears in
-      `curl http://127.0.0.1:3947/logs?category=DevKey/IME&last=5`).
+      `curl http://127.0.0.1:3950/logs?category=DevKey/IME&last=5`).
 - [ ] Python harness env ready: `pip install -r tools/e2e/requirements.txt`
       (or repo equivalent), and `DEVKEY_DRIVER_URL` / `DEVKEY_LAYOUT_MODE`
       env vars exported as needed.
@@ -46,7 +48,7 @@ Before attempting the stabilization run, verify every item below:
 
 ## Run procedure
 
-1. Start the driver server, ensure ENABLE_DEBUG_SERVER broadcast was sent.
+1. Start the driver server and run `python tools/e2e/e2e_runner.py --preflight`.
 2. For each of `full`, `compact`, `compact_dev`:
    - `adb shell am broadcast -a dev.devkey.keyboard.SET_LAYOUT_MODE --es mode <mode>`
    - `DEVKEY_LAYOUT_MODE=<mode> python tools/e2e/e2e_runner.py`

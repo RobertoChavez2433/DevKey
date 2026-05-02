@@ -203,12 +203,12 @@ Persisted test run: `.claude/test-results/2026-04-09-baseline-after-encoding-fix
 
 4. **Enable debug forwarding:**
    ```
-   adb -s emulator-5554 shell am broadcast -a dev.devkey.keyboard.ENABLE_DEBUG_SERVER --es url http://10.0.2.2:3948
+   adb -s emulator-5554 shell am broadcast -a dev.devkey.keyboard.ENABLE_DEBUG_SERVER --es url http://10.0.2.2:3950
    ```
 
 5. **Run harness:**
    ```
-   DEVKEY_DRIVER_URL=http://127.0.0.1:3948 \
+   DEVKEY_DRIVER_URL=http://127.0.0.1:3950 \
      DEVKEY_DEVICE_SERIAL=emulator-5554 \
      ANDROID_SERIAL=emulator-5554 \
      DEVKEY_LAYOUT_MODE=full \

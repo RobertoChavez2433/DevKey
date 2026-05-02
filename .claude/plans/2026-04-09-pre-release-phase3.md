@@ -122,7 +122,7 @@ Bucket 4 (user escalation / spec amendment) is a **meta-level outcome**, not an 
 - `tools/e2e/requirements.txt` — 3 lines, no `pytest`.
 - `app/build.gradle.kts:71-74` — lint block, `abortOnError = false`.
 - `tools/e2e/lib/driver.py:12` —
-  `DRIVER_URL = os.environ.get("DEVKEY_DRIVER_URL", "http://127.0.0.1:3947")`.
+  `DRIVER_URL = os.environ.get("DEVKEY_DRIVER_URL", "http://127.0.0.1:3950")`.
 - `lib/keyboard.py::set_layout_mode` valid values `("full", "compact", "compact_dev")`.
 - `KEYCODE_VOICE = -102` (`KeyData.kt:148`, used in `test_voice.py:17`).
 - Instrumentation emit sites verified in source:
@@ -143,10 +143,10 @@ Bucket 4 (user escalation / spec amendment) is a **meta-level outcome**, not an 
 - [ ] Phase 1 debug APK installed (`./gradlew installDebug` clean).
 - [ ] DevKey IME enabled and selected (`ime enable` + `ime set`).
 - [ ] Node driver server ready to be started locally
-  (`node tools/debug-server/server.js` on port 3947).
+  (`node tools/debug-server/server.js` on port 3950).
 - [ ] `adb`, Python 3.8+, Node 18+, and `pip install -r tools/e2e/requirements.txt`
   (post-B2 fix) available on the host.
-- [ ] Host loopback reachable from emulator at `http://10.0.2.2:3947`.
+- [ ] Host loopback reachable from emulator at `http://10.0.2.2:3950`.
 - [ ] `phase1-regression-smoke.md` + `phase1-voice-verification.md` present
   and unmodified since Phase 1.
 
@@ -393,10 +393,10 @@ user for a spec amendment.
    ```bash
    node tools/debug-server/server.js
    ```
-   In a second shell, `curl http://127.0.0.1:3947/health`. Expected:
+   In a second shell, `curl http://127.0.0.1:3950/health`. Expected:
    `{"status":"ok", "entries":0, ...}`.
 
-2. Verify the emulator / device is visible to ADB and has the Phase 1 debug
+2. Verify the release target (S21 or emulator) is visible to ADB and has the Phase 1 debug
    APK installed:
    ```bash
    adb devices
@@ -429,8 +429,8 @@ user for a spec amendment.
    runner itself, but doing it once here confirms the handshake works):
    ```bash
    adb shell am broadcast -a dev.devkey.keyboard.ENABLE_DEBUG_SERVER \
-       --es url http://10.0.2.2:3947
-   curl 'http://127.0.0.1:3947/logs?category=DevKey/IME&last=5'
+       --es url http://10.0.2.2:3950
+   curl 'http://127.0.0.1:3950/logs?category=DevKey/IME&last=5'
    ```
    Expected: the `debug_server_enabled` handshake entry appears in the
    logs response. Absence means the IME is not forwarding — check that
@@ -448,7 +448,7 @@ user for a spec amendment.
 1. Switch the IME to FULL layout:
    ```bash
    adb shell am broadcast -a dev.devkey.keyboard.SET_LAYOUT_MODE --es mode full
-   curl 'http://127.0.0.1:3947/logs?category=DevKey/IME&last=5'
+   curl 'http://127.0.0.1:3950/logs?category=DevKey/IME&last=5'
    ```
    Expected: `layout_mode_set{mode=full}` visible in the logs response
    (the emit site is `LatinIME.kt:479`, verified in tailor ground-truth).
@@ -476,13 +476,13 @@ user for a spec amendment.
 5. **If the run is red:** for each failed/errored test, gather evidence
    from the driver server and the test run log:
    ```bash
-   curl 'http://127.0.0.1:3947/logs?category=DevKey/IME&last=100' \
+   curl 'http://127.0.0.1:3950/logs?category=DevKey/IME&last=100' \
        > .claude/test-results/2026-04-09_phase3_gate/full/ime-logs.json
-   curl 'http://127.0.0.1:3947/logs?category=DevKey/VOX&last=50' \
+   curl 'http://127.0.0.1:3950/logs?category=DevKey/VOX&last=50' \
        > .claude/test-results/2026-04-09_phase3_gate/full/vox-logs.json
-   curl 'http://127.0.0.1:3947/logs?category=DevKey/TXT&last=100' \
+   curl 'http://127.0.0.1:3950/logs?category=DevKey/TXT&last=100' \
        > .claude/test-results/2026-04-09_phase3_gate/full/txt-logs.json
-   curl 'http://127.0.0.1:3947/logs?category=DevKey/UI&last=50' \
+   curl 'http://127.0.0.1:3950/logs?category=DevKey/UI&last=50' \
        > .claude/test-results/2026-04-09_phase3_gate/full/ui-logs.json
    ```
    Dispatch a `general-purpose` sonnet agent with the tailored prompt:
@@ -541,7 +541,7 @@ user for a spec amendment.
    ```bash
    adb shell am broadcast -a dev.devkey.keyboard.SET_LAYOUT_MODE --es mode compact
    ```
-   Verify via `curl 'http://127.0.0.1:3947/logs?category=DevKey/IME&last=5'`
+   Verify via `curl 'http://127.0.0.1:3950/logs?category=DevKey/IME&last=5'`
    that `layout_mode_set{mode=compact}` and `layout_mode_recomposed{mode=compact}`
    both appeared.
 
@@ -1087,7 +1087,7 @@ plus any defect filings.
    (same as sub-phase 2.1 steps 2-3).
 
 2. The operator walks `.claude/test-flows/phase1-regression-smoke.md`
-   top-to-bottom on a physical device or emulator, ticking each checkbox
+   top-to-bottom on the S21 release target or `Pixel_7_API_36` emulator, ticking each checkbox
    as they verify the behavior. The file covers clipboard, macros,
    command mode, and plugins (per `coverage-matrix.md` Supplementary
    manual smoke section).

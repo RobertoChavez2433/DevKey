@@ -6,7 +6,8 @@ ADB-based end-to-end tests for the DevKey keyboard app.
 
 - Python 3.8+
 - ADB installed and on PATH
-- Android emulator running (or physical device connected)
+- Android emulator running. Release validation targets are S21 and the
+  `Pixel_7_API_36` emulator; on Windows, use the emulator for automation.
 - DevKey installed as the active keyboard
 - Debug build (KeyMapGenerator requires debug mode)
 
@@ -19,6 +20,10 @@ cd tools/e2e
 # Run all tests
 python e2e_runner.py
 
+# Run only canonical feature subdirectories or legacy flat tests
+python e2e_runner.py --suite features
+python e2e_runner.py --suite legacy-flat
+
 # Run a specific test module
 python e2e_runner.py --test test_smoke
 
@@ -27,6 +32,12 @@ python e2e_runner.py --test test_modes.test_symbols_mode_switch
 
 # List all tests without running
 python e2e_runner.py --list
+
+# Run environment preflight only
+python e2e_runner.py --preflight
+
+# Re-run failures from a prior JSON result
+python e2e_runner.py --rerun-failed .claude/test-results/e2e-results-YYYYMMDDTHHMMSSZ.json
 
 # Target a specific device
 python e2e_runner.py --device emulator-5554
@@ -42,6 +53,15 @@ python e2e_runner.py --verbose
 2. **Y-Offset Calibration**: Screen coordinates from `KeyMapGenerator` may not exactly match ADB `input tap` coordinates (due to status bar, navigation bar, etc.). The calibration step taps a known key and adjusts the offset.
 
 3. **Test Execution**: Each test taps keys via ADB, then asserts on logcat output to verify the keyboard handled the input correctly.
+
+4. **Preflight and Results**: Test runs preflight the device, IME, debug
+   server, audio permission, key map, voice assets, and reset strategy before
+   executing. Each run writes privacy-safe JSON results under
+   `.claude/test-results/` unless `--results-file` is provided.
+
+The locked full-suite discovery count is 178 tests for `--suite all`.
+Use `--suite features` or `--suite legacy-flat` when you need one side of the
+flat/subdirectory split explicitly.
 
 ## Directory Structure
 
@@ -101,7 +121,7 @@ for SwiftKey parity testing.
 
 ### Running a test suite
 
-    # Terminal 1 — start the driver server
+    # Terminal 1 — start the driver server on port 3950
     node tools/debug-server/server.js
 
     # Terminal 2 — run the tests (the runner auto-enables HTTP forwarding)
@@ -116,7 +136,8 @@ for SwiftKey parity testing.
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `DEVKEY_DEVICE_SERIAL` | (first device) | ADB target |
-| `DEVKEY_DRIVER_URL` | `http://127.0.0.1:3947` | Driver server URL |
+| `DEVKEY_DRIVER_URL` | `http://127.0.0.1:3950` | Driver server URL |
+| `DEVKEY_TIMEOUT_MULTIPLIER` | `1.0` | Multiplies driver wait timeouts |
 | `DEVKEY_SSIM_THRESHOLD` | `0.92` | Visual diff pass threshold |
 | `DEVKEY_E2E_VERBOSE` | unset | Verbose tracebacks |
 
@@ -128,10 +149,10 @@ module directly or driving the IME by hand), the runner's auto-broadcast of
 to the driver server:
 
     adb shell am broadcast -a dev.devkey.keyboard.ENABLE_DEBUG_SERVER \
-        --es url http://10.0.2.2:3947
+        --es url http://10.0.2.2:3950
 
-Note: `10.0.2.2` is the emulator's alias for the host loopback. On a physical
-device, replace it with the host's LAN IP and ensure the driver port is reachable.
+Note: `10.0.2.2` is the emulator's alias for the host loopback. The harness
+translates the host `DEVKEY_DRIVER_URL` automatically.
 
 ## Coordinate Calibration
 

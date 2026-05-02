@@ -1,6 +1,6 @@
 # DevKey Debug + Test Driver Server
 
-Local HTTP server for DevKey test infrastructure. Binds `127.0.0.1:3947`, zero npm deps, dep-free on purpose.
+Local HTTP server for DevKey test infrastructure. Binds `127.0.0.1:3950`, zero npm deps, dep-free on purpose.
 
 ## Roles
 1. **Log sink** — receives structured log entries from `DevKeyLogger` (Android-side HTTP client in `app/src/main/java/dev/devkey/keyboard/debug/DevKeyLogger.kt`).
@@ -15,16 +15,14 @@ With a specific device:
 
     ADB_SERIAL=emulator-5554 node server.js
 
+Release validation targets are the S21 and the `Pixel_7_API_36` emulator.
+On Windows, run automated verification on the emulator only.
+
 ## Enabling HTTP forwarding on the device
 
 The driver server receives nothing until the running IME is told to forward logs. Use the `ENABLE_DEBUG_SERVER` broadcast (debug builds only):
 
-    # Emulator (host-loopback alias)
-    adb shell am broadcast -a dev.devkey.keyboard.ENABLE_DEBUG_SERVER --es url http://10.0.2.2:3947
-
-    # Physical device — forward the host port first, then broadcast the forwarded URL
-    adb reverse tcp:3947 tcp:3947
-    adb shell am broadcast -a dev.devkey.keyboard.ENABLE_DEBUG_SERVER --es url http://127.0.0.1:3947
+    adb shell am broadcast -a dev.devkey.keyboard.ENABLE_DEBUG_SERVER --es url http://10.0.2.2:3950
 
 To disable (broadcast with no `url` extra):
 
@@ -66,4 +64,4 @@ To disable (broadcast with no `url` extra):
 
 DevKey IMEs see every keystroke, including passwords and PII. The HTTP log endpoint accepts ONLY structural data (state names, lengths, counts, durations). NEVER log typed text, transcripts, audio samples, or buffer bytes — see `DevKeyLogger.kt` privacy comment.
 
-This server exposes a local ADB convenience layer on 127.0.0.1:3947. The `/adb/logcat` endpoint can return `DevKeyPress` KEY/LONG lines, which on debug builds contain a live stream of keystrokes. Any process on this machine can poll `/adb/logcat`. DO NOT run the driver server on a workstation where untrusted local processes exist. Stop the driver server between sessions.
+This server exposes a local ADB convenience layer on 127.0.0.1:3950. The `/adb/logcat` endpoint can return `DevKeyPress` KEY/LONG lines, which on debug builds contain a live stream of keystrokes. Any process on this machine can poll `/adb/logcat`. DO NOT run the driver server on a workstation where untrusted local processes exist. Stop the driver server between sessions.

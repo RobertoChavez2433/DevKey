@@ -34,6 +34,19 @@ The shared test harness lives in `tools/e2e/` and `tools/debug-server/`.
 - Reuse existing debug server endpoints and harness wait helpers before adding
   new polling or sleep-heavy logic.
 
+## E2E Release Gates
+
+- Start the debug server on port `3950`.
+- Run `python tools/e2e/e2e_runner.py --preflight` before feature or full-suite
+  E2E gates.
+- Use `--rerun-failed <results-json>` once after fixes to distinguish flaky
+  failures from real regressions.
+- Keep E2E result JSON under `.claude/test-results/` and keep artifacts
+  structural: no typed text, voice transcripts, clipboard contents, credentials,
+  or credential-adjacent input.
+- Treat the locked `--suite all` discovery count as intentional. If it drifts,
+  update the runner count and docs in the same change.
+
 ## Testing Philosophy
 
 - Test real behavior, not mock presence.

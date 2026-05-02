@@ -130,7 +130,7 @@ zero emit sites found despite `test_command_mode.py` gating on it.
 
 ## 4. Driver server contract (verified `tools/debug-server/server.js`)
 
-- Binds `127.0.0.1:3947` (line 242) — loopback only, matches Phase 2 threat model.
+- Binds `127.0.0.1:3950` (line 242) — loopback only, matches Phase 2 threat model.
 - Endpoints:
   - `POST /log` · `GET /logs?last=N&category=X&hypothesis=H`
   - `GET /health` · `GET /categories` · `POST /clear`
@@ -144,8 +144,8 @@ zero emit sites found despite `test_command_mode.py` gating on it.
 - Requires env var `ADB_SERIAL` when multiple devices attached (line 249).
 
 **Python client contract (`tools/e2e/lib/driver.py`):**
-- `DRIVER_URL = os.environ.get("DEVKEY_DRIVER_URL", "http://127.0.0.1:3947")`
-  — Python runs on the host; Android IME uses `http://10.0.2.2:3947`.
+- `DRIVER_URL = os.environ.get("DEVKEY_DRIVER_URL", "http://127.0.0.1:3950")`
+  — Python runs on the host; Android IME uses `http://10.0.2.2:3950`.
 - `require_driver()` — called at the top of every new test; `e2e_runner.py:171`
   also calls it globally before dispatching tests, so fail-fast on missing
   driver is already enforced.

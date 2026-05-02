@@ -77,31 +77,31 @@ adb logcat -s "DevKey/ERR:E"
 
 ## Debug Server API (Deep Mode)
 
-Server runs at `http://localhost:3947` (forwarded via ADB reverse).
+Server runs at `http://localhost:3950`.
 
 ### Endpoints
 
 ```bash
 # Health check
-curl http://localhost:3947/health
+curl http://localhost:3950/health
 
 # Last N log entries
-curl "http://localhost:3947/logs?last=50"
+curl "http://localhost:3950/logs?last=50"
 
 # Filter by category
-curl "http://localhost:3947/logs?last=100&category=IME_LIFECYCLE"
+curl "http://localhost:3950/logs?last=100&category=IME_LIFECYCLE"
 
 # Filter by hypothesis ID
-curl "http://localhost:3947/logs?last=100&hypothesis=H001"
+curl "http://localhost:3950/logs?last=100&hypothesis=H001"
 
 # Combined filter
-curl "http://localhost:3947/logs?last=100&category=MODIFIER_STATE&hypothesis=H001"
+curl "http://localhost:3950/logs?last=100&category=MODIFIER_STATE&hypothesis=H001"
 
 # List available categories
-curl http://localhost:3947/categories
+curl http://localhost:3950/categories
 
 # Clear log buffer
-curl -X POST http://localhost:3947/clear
+curl -X POST http://localhost:3950/clear
 ```
 
 ### Response format

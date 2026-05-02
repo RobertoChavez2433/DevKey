@@ -3,14 +3,11 @@
 ## Server Setup (Deep Mode Only)
 
 ```bash
-# Start debug server (port 3947)
+# Start debug server (port 3950)
 node tools/debug-server/server.js
 
-# ADB reverse port forwarding (device → host)
-adb reverse tcp:3947 tcp:3947
-
-# Verify server is reachable from device
-curl http://localhost:3947/health
+# Verify server is reachable from host
+curl http://localhost:3950/health
 ```
 
 ## App Launch / Reset

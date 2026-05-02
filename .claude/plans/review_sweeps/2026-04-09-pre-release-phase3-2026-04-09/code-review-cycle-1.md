@@ -40,7 +40,7 @@
 
 ### [LOW] Sub-phase 2.2 step 1 broadcast → curl race
 - **Description:** Post-broadcast `curl ?last=5` could race the IME's emission. Practically <1s, but the plan could use the `/wait` long-poll endpoint instead.
-- **Recommendation:** Use `curl 'http://127.0.0.1:3947/wait?category=DevKey/IME&event=layout_mode_set&timeout=2000'`.
+- **Recommendation:** Use `curl 'http://127.0.0.1:3950/wait?category=DevKey/IME&event=layout_mode_set&timeout=2000'`.
 
 ### [LOW] Sub-phase 6.3 step 3 stages voice-verification file unconditionally
 - **Description:** The `# only if modified` comment is human guidance; the literal `git add` on an unmodified file is a no-op.

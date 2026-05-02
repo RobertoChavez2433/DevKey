@@ -36,7 +36,7 @@ sys.exit(1 if (failed + errors) > 0 else 0)
 # F7: fail-fast on missing driver + auto-enable HTTP forwarding.
 from lib import driver
 driver.require_driver()
-_driver_url = os.environ.get("DEVKEY_DRIVER_URL", "http://10.0.2.2:3947")
+_driver_url = os.environ.get("DEVKEY_DRIVER_URL", "http://10.0.2.2:3950")
 driver.broadcast(
     "dev.devkey.keyboard.ENABLE_DEBUG_SERVER",
     {"url": _driver_url},

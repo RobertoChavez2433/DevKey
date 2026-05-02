@@ -35,19 +35,35 @@ Created: 2026-05-02
   - tests fail if they complete with no evidence
   - tests fail if meaningful actions occur after the last evidence point
   - S21 tap smoke was rerun with evidence recorded in JSON
+- [x] S21 screenshot review caught an invalid visual/test-host state:
+  - the host EditText contained stale accumulated synthetic text
+  - prior preflight did not prove a clean field before visual validation
+  - this invalidates any broad "visual pass" claim from earlier runs
+- [x] Clean visual-state gate added and verified on S21:
+  - shared reset clears `TestHostActivity` before each test
+  - debug-only host state logs text length and focus state, never text content
+  - preflight fails if the field is non-empty, unfocused, blank, or low contrast
+  - S21 clean screenshot reviewed after the stale-text failure
 
 ## Verified Locally
 
-- [x] `python -m py_compile tools/e2e/e2e_runner.py tools/e2e/lib/keyboard.py`
+- [x] `python -m py_compile tools/e2e/e2e_runner.py tools/e2e/lib/adb.py tools/e2e/lib/keyboard.py tools/e2e/lib/verify.py`
 - [x] `python tools/e2e/e2e_runner.py --list`
   - locked full-suite count: 178
 - [x] `./gradlew test assembleDebug lint detekt`
+- [x] `./gradlew assembleDebug` after debug `TestHostActivity` state logging
+- [x] Installed debug APK on S21: `adb -s RFCNC0Y975L install -r ...`
 - [x] S21 `--preflight`
   - serial: `RFCNC0Y975L`
   - model: `SM-G996U`
   - DevKey default IME: yes
   - key map: 104 normal entries, 86 symbols entries
   - voice assets: present
+- [x] S21 clean visual preflight after the screenshot failure:
+  - clean field length: `0`
+  - screenshot: `.claude/test-results/visual-baseline-20260502T150040Z.png`
+  - keyboard crop contrast: `228`
+  - keyboard crop stddev: `50.301`
 - [x] S21 `--dump-inventory`
 - [x] S21 focused smoke under verified-state harness:
   - `test_smoke.test_tap_letter_produces_logcat`
@@ -62,6 +78,17 @@ Created: 2026-05-02
   they were produced before action/evidence ordering was enforced.
 - [ ] Validate toolbar buttons, dynamic panels, mode switches, modifiers, and
   settings workflows against the generated inventory.
+- [ ] Resolve plugin loading security for v1.0:
+  - either gate plugin loading behind debug-only behavior
+  - or add signature/provenance verification before release
+- [ ] Validate custom dictionary/non-word behavior:
+  - programming words and user-added non-words must not be aggressively
+    autocorrected after learning
+  - autocorrect must stay conservative by default
+- [ ] Validate dictionary resilience:
+  - dictionary `close()`/cleanup idempotency
+  - corrupt binary dictionary handling does not crash the IME
+  - native/JNI dictionary package path remains aligned
 - [ ] Complete AnySoftKeyboard dictionary spike:
   - verify Apache-2.0 compatibility and source provenance
   - compare current DevKey dictionaries against an AnySoft-backed candidate on
@@ -76,15 +103,25 @@ Created: 2026-05-02
 
 ## Remaining Validation Gates
 
-- [x] Run `--preflight` on S21.
+- [x] Rerun `--preflight` on S21 after clean-state and visual-baseline gates
+  are in place.
 - [ ] Run feature scopes: voice, input, modifiers, modes,
   prediction/autocorrect, punctuation, clipboard, macros, command_mode,
   visual/long-press.
+- [ ] Run dictionary-specific validation:
+  - current AOSP-derived dictionaries load
+  - synthetic prefixes and misspellings produce expected suggestions/corrections
+  - next-word/bigram path works through the legacy dictionary stack
+  - learned/custom words suppress unwanted autocorrect
 - [ ] Run `--rerun-failed` once after fixes.
-- [ ] Run full E2E suite on the primary release target.
-- [ ] Reproduce final failures or final full suite on `Pixel_7_API_36`.
+- [ ] Run full E2E suite on the primary S21 release target.
+- [ ] Reproduce final failures or final full suite on `Pixel_7_API_36` only if
+  the S21 release gate needs a reproducibility fallback. Current validation
+  direction is S21-only.
 - [ ] Confirm logs/artifacts contain no typed text, transcripts, clipboard
   contents, or credential-adjacent input.
+- [ ] Confirm generated result JSON contains verification evidence for every
+  passing test.
 
 ## Current Blockers
 

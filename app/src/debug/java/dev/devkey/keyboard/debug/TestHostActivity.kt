@@ -39,6 +39,7 @@ import android.widget.TextView
  *            release APKs.
  */
 class TestHostActivity : Activity() {
+    private lateinit var editText: EditText
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -58,7 +59,7 @@ class TestHostActivity : Activity() {
             gravity = Gravity.CENTER
         }
 
-        val edit = EditText(this).apply {
+        editText = EditText(this).apply {
             id = ID_TEST_EDIT
             hint = "type here"
             // Multi-line so Enter doesn't close the IME or submit anything.
@@ -73,17 +74,36 @@ class TestHostActivity : Activity() {
         }
 
         root.addView(label)
-        root.addView(edit)
+        root.addView(editText)
         setContentView(root)
     }
 
-    private val clearTextReceiver = object : BroadcastReceiver() {
+    private val testHostReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
-            findViewById<EditText>(ID_TEST_EDIT)?.let {
-                it.text.clear()
-                it.requestFocus()
+            when (intent.action) {
+                ACTION_CLEAR_EDIT_TEXT -> {
+                    editText.text.clear()
+                    editText.requestFocus()
+                    logState("test_host_text_cleared", intent)
+                }
+                ACTION_DUMP_STATE -> {
+                    editText.requestFocus()
+                    logState("test_host_state", intent)
+                }
             }
         }
+    }
+
+    private fun logState(event: String, intent: Intent) {
+        val requestId = intent.getStringExtra(EXTRA_REQUEST_ID) ?: ""
+        DevKeyLogger.ime(
+            event,
+            mapOf(
+                "text_length" to editText.text.length,
+                "focused" to editText.hasFocus(),
+                "request_id" to requestId
+            )
+        )
     }
 
     override fun onResume() {
@@ -93,20 +113,26 @@ class TestHostActivity : Activity() {
         findViewById<EditText>(ID_TEST_EDIT)?.requestFocus()
         ContextCompat.registerReceiver(
             this,
-            clearTextReceiver,
-            IntentFilter("dev.devkey.keyboard.debug.CLEAR_EDIT_TEXT"),
+            testHostReceiver,
+            IntentFilter().apply {
+                addAction(ACTION_CLEAR_EDIT_TEXT)
+                addAction(ACTION_DUMP_STATE)
+            },
             ContextCompat.RECEIVER_EXPORTED
         )
     }
 
     override fun onPause() {
         super.onPause()
-        try { unregisterReceiver(clearTextReceiver) } catch (_: IllegalArgumentException) {}
+        try { unregisterReceiver(testHostReceiver) } catch (_: IllegalArgumentException) {}
     }
 
     companion object {
         // Stable resource ID so UIAutomator can find the EditText by id.
         // Not an R.id reference because we build the view hierarchy in code.
         const val ID_TEST_EDIT = 0x7f0a9001
+        const val ACTION_CLEAR_EDIT_TEXT = "dev.devkey.keyboard.debug.CLEAR_EDIT_TEXT"
+        const val ACTION_DUMP_STATE = "dev.devkey.keyboard.debug.DUMP_TEST_HOST_STATE"
+        const val EXTRA_REQUEST_ID = "request_id"
     }
 }

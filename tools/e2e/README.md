@@ -6,8 +6,8 @@ ADB-based end-to-end tests for the DevKey keyboard app.
 
 - Python 3.8+
 - ADB installed and on PATH
-- Android emulator running. Release validation targets are S21 and the
-  `Pixel_7_API_36` emulator; on Windows, use the emulator for automation.
+- Android target connected. Current v1.0 release validation is S21-first; use
+  the `Pixel_7_API_36` emulator only as an explicit reproducibility fallback.
 - DevKey installed as the active keyboard
 - Debug build (KeyMapGenerator requires debug mode)
 
@@ -43,7 +43,7 @@ python e2e_runner.py --rerun-failed .claude/test-results/e2e-results-YYYYMMDDTHH
 python e2e_runner.py --dump-inventory
 
 # Target a specific device
-python e2e_runner.py --device emulator-5554
+python e2e_runner.py --device RFCNC0Y975L
 
 # Verbose mode (full tracebacks)
 python e2e_runner.py --verbose
@@ -58,18 +58,25 @@ python e2e_runner.py --verbose
 3. **Test Execution**: Each test taps keys via ADB, then asserts on logcat output to verify the keyboard handled the input correctly.
 
 4. **Preflight and Results**: Test runs preflight the device, IME, debug
-   server, audio permission, key map, voice assets, and reset strategy before
-   executing. Each run writes privacy-safe JSON results under
+   server, audio permission, clean TestHostActivity state, keyboard visual
+   baseline, key map, voice assets, and reset strategy before executing. Each
+   run writes privacy-safe JSON results under
    `.claude/test-results/` unless `--results-file` is provided.
 
-5. **Verification State**: A test cannot pass only because it returned without
+5. **Clean Test State**: Before each test the runner brings
+   `TestHostActivity` to the foreground, resets the keyboard mode, clears the
+   focused EditText, and verifies only the text length is zero. Stale text,
+   stuck panels/modes, or blank/low-contrast screenshots fail preflight rather
+   than being counted as release-green evidence.
+
+6. **Verification State**: A test cannot pass only because it returned without
    throwing. During each test the harness records actions separately from
    evidence, and fails any test that does not observe at least one explicit
    verification signal such as `driver.wait_for`, key-map load, keyboard
    visibility, logcat assertion, or visual diff. JSON results include the
    evidence count and evidence source names.
 
-6. **Key Inventory**: `--dump-inventory` writes a privacy-safe JSON artifact
+7. **Key Inventory**: `--dump-inventory` writes a privacy-safe JSON artifact
    with visible key labels, keycodes, coordinates, and counts for the full,
    compact, compact_dev, and symbols-layer layouts. It records structure only,
    not typed text, transcripts, or clipboard contents. The command fails if any

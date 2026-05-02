@@ -266,6 +266,33 @@ def run_preflight(serial: Optional[str]) -> Dict[str, Any]:
     }
 
     try:
+        clean_state = adb.reset_test_host_state(serial)
+        checks["clean_test_state"] = {
+            "ok": (
+                bool(clean_state.get("visible"))
+                and clean_state.get("text_length") == 0
+            ),
+            "text_length": clean_state.get("text_length"),
+            "keyboard_visible": bool(clean_state.get("visible")),
+        }
+    except Exception as e:
+        checks["clean_test_state"] = {
+            "ok": False,
+            "error": f"{type(e).__name__}: {e}",
+        }
+
+    try:
+        keyboard.set_layout_mode("full", serial)
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        visual_path = DEFAULT_RESULTS_DIR / f"visual-baseline-{stamp}.png"
+        checks["visual_baseline"] = adb.capture_visual_baseline(serial, visual_path)
+    except Exception as e:
+        checks["visual_baseline"] = {
+            "ok": False,
+            "error": f"{type(e).__name__}: {e}",
+        }
+
+    try:
         key_map = keyboard.load_key_map(serial)
         key_map_size = len(key_map)
         checks["key_map"] = {
@@ -287,7 +314,10 @@ def run_preflight(serial: Optional[str]) -> Dict[str, Any]:
     }
     checks["reset_strategy"] = {
         "ok": True,
-        "strategy": "TestHostActivity focus + RESET_CIRCUIT_BREAKER; no force-stop",
+        "strategy": (
+            "TestHostActivity focus + text clear + normal keyboard mode + "
+            "RESET_CIRCUIT_BREAKER; no force-stop"
+        ),
     }
 
     ok = all(bool(value.get("ok")) for value in checks.values())
@@ -491,11 +521,12 @@ def run_tests(tests: List[Tuple[str, callable]], retry_status: str = "not_retrie
     print(f"\nRunning {total} test(s)...\n")
     print("=" * 70)
 
-    # Pre-test focus guard — lazy-import to avoid pulling the lib path before
+    # Pre-test clean-state guard — lazy-import to avoid pulling the lib path before
     # test discovery patches sys.path. WHY: several tests (set_layout_mode,
     # symbols toggle, ABC return) cause the IME to temporarily hide. Without
-    # a refocus hook between tests, later tests tap into nothing and produce
-    # zero events. See lib/adb.py::ensure_keyboard_visible.
+    # a reset hook between tests, later tests can inherit stale text, the wrong
+    # keyboard mode, or no focused IME and then produce false positives.
+    # See lib/adb.py::reset_test_host_state.
     try:
         from lib import adb as _adb_for_focus  # type: ignore
         from lib import verify as _verify  # type: ignore
@@ -513,9 +544,9 @@ def run_tests(tests: List[Tuple[str, callable]], retry_status: str = "not_retrie
         try:
             if _adb_for_focus is not None:
                 try:
-                    _adb_for_focus.ensure_keyboard_visible(_focus_serial)
+                    _adb_for_focus.reset_test_host_state(_focus_serial)
                 except Exception:
-                    # Never fail a test because the refocus helper raised —
+                    # Never fail a test because the reset helper raised —
                     # tests that need a focused keyboard will still assert on it.
                     pass
                 try:

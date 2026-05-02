@@ -173,20 +173,41 @@ Created: 2026-05-02
     `input.test_smoke.test_backspace_plain --test-timeout-seconds 60`
   - S21 forced timeout still failed loudly:
     `input.test_smoke.test_backspace_plain --test-timeout-seconds 1`
+- [x] Second E2E runner modularity iteration:
+  - moved discovery/filtering/locked-count logic into
+    `tools/e2e/lib/discovery.py`
+  - moved preflight/device metadata into `tools/e2e/lib/preflight.py`
+  - moved inventory/action inventory into `tools/e2e/lib/inventory.py`
+  - moved JSON result payload and artifact writing into
+    `tools/e2e/lib/results.py`
+  - moved debug-server forwarding/warmup into
+    `tools/e2e/lib/driver_setup.py`
+  - `e2e_runner.py::main` dropped from cyclomatic 59 to 6 after command
+    handler extraction
+  - locked full-suite discovery still reports 178 tests
+- [x] S21 host-state concurrency guard:
+  - added a per-device E2E run lock under `.claude/test-results/locks`
+  - a second S21 preflight/test/inventory run now exits immediately with
+    code 2 instead of mutating the same device state concurrently
+  - this directly addresses the invalid preflight screenshot observed when
+    preflight and smoke were accidentally run in parallel
+- [x] Initial Field-Guide-style structure audit guardrail:
+  - added `python tools/audit_structure.py`
+  - excludes generated/build/cache/artifact paths from reports
+  - reports line-count and import-count violations for maintained source
+  - current audit scans 349 files and reports 8 line-count violations and 1
+    import-count violation
 
 ## Remaining Implementation Work
 
-- [ ] Continue E2E runner decomposition:
-  - move discovery/filtering/locked-count logic out of `e2e_runner.py`
-  - move preflight/device metadata out of `e2e_runner.py`
-  - move inventory/action inventory out of `e2e_runner.py`
-  - move JSON result IO out of `e2e_runner.py`
-  - keep `e2e_runner.py` as CLI orchestration only
-- [ ] Add DevKey architecture guardrails modeled after Field Guide:
-  - max file length audit for Kotlin/Python/JS test harness files
-  - max import count audit
-  - hotspot/complexity report in the release checklist
-  - no generated/build-output files in structure reports
+- [ ] Continue E2E complexity reduction after runner split:
+  - split `tools/e2e/lib/discovery.py::discover_tests`
+  - split `tools/e2e/lib/executor.py::execute_test_inline`
+  - keep `tools/e2e/e2e_runner.py` as CLI command dispatch only
+- [ ] Integrate DevKey architecture guardrails into final release gates:
+  - run `python tools/audit_structure.py`
+  - capture jCodeMunch hotspot/complexity report with the release checklist
+  - attach explicit deferral rationale for each remaining structure violation
 - [ ] Split E2E helper god modules:
   - `tools/e2e/lib/adb.py` into device, logcat, test-host state, visual, and
     permission helpers
@@ -253,6 +274,7 @@ Created: 2026-05-02
 - [ ] Confirm architecture audit output is attached to the release gate:
   - current top hotspots
   - god files/classes/functions above thresholds
+  - `tools/audit_structure.py` output
   - refactor deferrals with explicit release-risk rationale
 
 ## Current Blockers
@@ -265,9 +287,13 @@ Created: 2026-05-02
   voice is fixed or when deliberately collecting the remaining failures.
 - AnySoftKeyboard dictionary spike is still research work; do not integrate new
   dictionary sources before provenance and behavior are proven.
-- DevKey’s test harness still has god modules after the executor extraction:
-  `e2e_runner.py` remains a high-complexity CLI/orchestrator, and `adb.py` /
-  `keyboard.py` still mix unrelated responsibilities.
+- DevKey’s test harness still has god modules after the runner extraction:
+  `adb.py` and `keyboard.py` still mix unrelated responsibilities, and
+  `discovery.py::discover_tests` / `executor.py::execute_test_inline` remain
+  above the high-complexity threshold.
+- The current structure audit still reports 8 files above 400 lines and 1 file
+  above 35 imports. These are now visible release-gate findings, not hidden
+  cleanup debt.
 
 ## Commit Trail
 
@@ -284,3 +310,6 @@ Created: 2026-05-02
 - `7993e1d test(e2e): verify modifier state transitions`
 - `393c6d9 chore(git): ignore local test results`
 - `67fe5ce test(e2e): add hard per-test timeout`
+- `4664b46 test(e2e): extract per-test executor`
+- `0d46ef1 docs(e2e): add structural audit backlog`
+- `7521758 test(e2e): split runner command modules`

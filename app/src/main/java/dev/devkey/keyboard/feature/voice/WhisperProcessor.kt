@@ -48,13 +48,9 @@ class WhisperProcessor(private val context: Context) {
      * Load the mel filter bank and vocabulary from `filters_vocab_en.bin`.
      *
      * The bin file is the canonical `nyadla-sys/whisper-tiny.en.tflite`
-     * companion: little-endian header `magic:int32 numMelBins:int32
-     * melFilterCount:int32 vocabSize:int32`, followed by `melFilterCount`
-     * float32s and a length-prefixed UTF-8 vocabulary table. We accept any
-     * mel filter shape (this implementation does not yet compute the
-     * spectrogram itself — see [computeMelSpectrogram]) and best-effort
-     * load the vocabulary so [decodeTokens] can produce text once decoder
-     * support lands.
+     * companion: little-endian `magic:int32 numMelBins:int32 numFreqs:int32`,
+     * followed by `numMelBins * numFreqs` float32 mel filters, then
+     * `vocabSize:int32` and a length-prefixed UTF-8 vocabulary table.
      *
      * Failures degrade gracefully: returns false and leaves [melFilters]
      * and [vocabulary] null. The TF Lite interpreter still runs.
@@ -67,19 +63,19 @@ class WhisperProcessor(private val context: Context) {
             val bytes = assetManager.open("filters_vocab_en.bin").use { it.readBytes() }
             val buf = java.nio.ByteBuffer.wrap(bytes).order(java.nio.ByteOrder.LITTLE_ENDIAN)
 
-            // Header: magic:int32 numMelBins:int32 numFreqs:int32 vocabSize:int32 = 16 bytes
-            // Canonical nyadla-sys/whisper-tiny.en.tflite companion format.
-            if (bytes.size < 16) return false
+            if (bytes.size < 12) return false
             val magic = buf.int
+            if (magic != 0x5553454e) return false
             val numMelBins = buf.int
             val numFreqs = buf.int
-            val vocabSize = buf.int
             val melFilterCount = numMelBins * numFreqs
-            val melFloats = FloatArray(melFilterCount.coerceAtMost((bytes.size - 16) / 4))
+            if (melFilterCount <= 0 || buf.remaining() < melFilterCount * 4 + 4) return false
+            val melFloats = FloatArray(melFilterCount)
             for (i in melFloats.indices) melFloats[i] = buf.float
             melFilters = melFloats
 
             // Vocabulary section: vocabSize entries, each length:int32 + UTF-8 bytes.
+            val vocabSize = buf.int
             val vocab = mutableListOf<String>()
             for (i in 0 until vocabSize) {
                 if (buf.remaining() < 4) break
@@ -159,7 +155,6 @@ class WhisperProcessor(private val context: Context) {
         val nFft = 400
         val hopLength = 160
         val nFreqs = nFft / 2 + 1 // 201
-        val fftSize = 512 // Next power-of-2 for radix-2 FFT
 
         // Hann window
         val window = FloatArray(nFft) { i ->
@@ -167,34 +162,34 @@ class WhisperProcessor(private val context: Context) {
         }
 
         // STFT → power spectrum for each frame
-        val magnitudes = Array(N_FRAMES) { frame ->
+        val fftIn = FloatArray(nFft)
+        val fftOut = FloatArray(nFft * 2)
+        val output = FloatArray(N_MELS * N_FRAMES)
+        for (frame in 0 until N_FRAMES) {
             val offset = frame * hopLength
-            // Windowed frame, zero-padded to fftSize for radix-2 FFT
-            val real = FloatArray(fftSize)
-            val imag = FloatArray(fftSize)
             for (i in 0 until nFft) {
                 val idx = offset + i
-                real[i] = if (idx < audio.size) audio[idx] * window[i] else 0f
+                fftIn[i] = if (idx < audio.size) audio[idx] * window[i] else 0f
             }
-            // In-place radix-2 FFT (requires power-of-2 length)
-            fft(real, imag)
-            // Power spectrum (squared magnitude), only first nFreqs bins
-            FloatArray(nFreqs) { k -> real[k] * real[k] + imag[k] * imag[k] }
-        }
+            fft(fftIn, fftOut)
+            for (i in 0 until nFft) {
+                fftOut[i] = fftOut[2 * i] * fftOut[2 * i] + fftOut[2 * i + 1] * fftOut[2 * i + 1]
+            }
+            for (i in 1 until nFft / 2) {
+                fftOut[i] += fftOut[nFft - i]
+            }
 
-        // Apply mel filter bank: filters is flat [numMelBins * nFreqs] = 80 * 201
-        val output = FloatArray(N_MELS * N_FRAMES)
-        for (mel in 0 until N_MELS) {
-            for (frame in 0 until N_FRAMES) {
+            // Apply mel filter bank: filters is flat [numMelBins * nFreqs] = 80 * 201
+            for (mel in 0 until N_MELS) {
                 var sum = 0.0
                 val filterOffset = mel * nFreqs
                 for (k in 0 until nFreqs) {
                     if (filterOffset + k < filters.size) {
-                        sum += filters[filterOffset + k] * magnitudes[frame][k]
+                        sum += filters[filterOffset + k] * fftOut[k]
                     }
                 }
                 // Log10 compression, clamp floor
-                val logVal = if (sum < 1e-10) -10.0 else Math.log10(sum)
+                val logVal = Math.log10(sum.coerceAtLeast(1e-10))
                 output[mel * N_FRAMES + frame] = logVal.toFloat()
             }
         }
@@ -211,43 +206,62 @@ class WhisperProcessor(private val context: Context) {
     }
 
     /**
-     * In-place radix-2 Cooley-Tukey FFT. Input arrays must be power-of-2 length.
+     * Cooley-Tukey FFT matching the upstream Android Whisper reference.
+     * The Whisper filter bank expects a 400-point FFT folded into 201 bins.
      */
-    private fun fft(real: FloatArray, imag: FloatArray) {
-        val n = real.size
-        // Bit-reversal permutation
-        var j = 0
-        for (i in 1 until n) {
-            var bit = n shr 1
-            while (j and bit != 0) {
-                j = j xor bit
-                bit = bit shr 1
-            }
-            j = j xor bit
-            if (i < j) {
-                var tmp = real[i]; real[i] = real[j]; real[j] = tmp
-                tmp = imag[i]; imag[i] = imag[j]; imag[j] = tmp
+    private fun fft(input: FloatArray, output: FloatArray) {
+        val size = input.size
+        if (size == 1) {
+            output[0] = input[0]
+            output[1] = 0.0f
+            return
+        }
+        if (size % 2 == 1) {
+            dft(input, output)
+            return
+        }
+
+        val even = FloatArray(size / 2)
+        val odd = FloatArray(size / 2)
+        var evenIndex = 0
+        var oddIndex = 0
+        for (i in 0 until size) {
+            if (i % 2 == 0) {
+                even[evenIndex++] = input[i]
+            } else {
+                odd[oddIndex++] = input[i]
             }
         }
-        // FFT butterfly
-        var len = 2
-        while (len <= n) {
-            val halfLen = len / 2
-            val angle = -2.0 * Math.PI / len
-            for (i in 0 until n step len) {
-                for (k in 0 until halfLen) {
-                    val theta = angle * k
-                    val cos = Math.cos(theta).toFloat()
-                    val sin = Math.sin(theta).toFloat()
-                    val tReal = real[i + k + halfLen] * cos - imag[i + k + halfLen] * sin
-                    val tImag = real[i + k + halfLen] * sin + imag[i + k + halfLen] * cos
-                    real[i + k + halfLen] = real[i + k] - tReal
-                    imag[i + k + halfLen] = imag[i + k] - tImag
-                    real[i + k] += tReal
-                    imag[i + k] += tImag
-                }
+
+        val evenFft = FloatArray(size)
+        val oddFft = FloatArray(size)
+        fft(even, evenFft)
+        fft(odd, oddFft)
+
+        for (k in 0 until size / 2) {
+            val theta = 2.0 * Math.PI * k / size
+            val re = Math.cos(theta).toFloat()
+            val im = (-Math.sin(theta)).toFloat()
+            val oddRe = oddFft[2 * k]
+            val oddIm = oddFft[2 * k + 1]
+            output[2 * k] = evenFft[2 * k] + re * oddRe - im * oddIm
+            output[2 * k + 1] = evenFft[2 * k + 1] + re * oddIm + im * oddRe
+            output[2 * (k + size / 2)] = evenFft[2 * k] - re * oddRe + im * oddIm
+            output[2 * (k + size / 2) + 1] = evenFft[2 * k + 1] - re * oddIm - im * oddRe
+        }
+    }
+
+    private fun dft(input: FloatArray, output: FloatArray) {
+        for (k in input.indices) {
+            var re = 0.0f
+            var im = 0.0f
+            for (n in input.indices) {
+                val angle = (2.0 * Math.PI * k * n / input.size).toFloat()
+                re += input[n] * Math.cos(angle.toDouble()).toFloat()
+                im -= input[n] * Math.sin(angle.toDouble()).toFloat()
             }
-            len = len shl 1
+            output[k * 2] = re
+            output[k * 2 + 1] = im
         }
     }
 

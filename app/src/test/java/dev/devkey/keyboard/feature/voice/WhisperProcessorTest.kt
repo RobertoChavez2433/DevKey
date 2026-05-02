@@ -47,7 +47,7 @@ class WhisperProcessorTest {
     @Test
     fun `loadResources with valid header returns true`() {
         val bin = buildValidFilterVocabBin(
-            magic = 0x5749_4853,
+            magic = 0x5553_454e,
             numMelBins = 2,
             numFreqs = 3,
             vocabSize = 2,
@@ -66,8 +66,8 @@ class WhisperProcessorTest {
     // ------------------------------------------------------------------
 
     @Test
-    fun `loadResources with header shorter than 16 bytes returns false`() {
-        val tooShort = ByteArray(12) // less than 16-byte header
+    fun `loadResources with header shorter than 12 bytes returns false`() {
+        val tooShort = ByteArray(8) // less than magic + nMel + nFft header
         whenever(assetManager.open("filters_vocab_en.bin"))
             .thenReturn(ByteArrayInputStream(tooShort))
 
@@ -175,7 +175,7 @@ class WhisperProcessorTest {
         val numFreqs = 201 // nFft/2 + 1 where nFft=400
         val melFloats = FloatArray(numMelBins * numFreqs) { 0.001f }
         val bin = buildValidFilterVocabBin(
-            magic = 0x5749_4853,
+            magic = 0x5553_454e,
             numMelBins = numMelBins,
             numFreqs = numFreqs,
             vocabSize = 0,
@@ -202,7 +202,7 @@ class WhisperProcessorTest {
     @Test
     fun `decodeTokens with valid IDs returns joined text`() {
         val bin = buildValidFilterVocabBin(
-            magic = 0x5749_4853,
+            magic = 0x5553_454e,
             numMelBins = 1,
             numFreqs = 1,
             vocabSize = 3,
@@ -226,7 +226,7 @@ class WhisperProcessorTest {
     @Test
     fun `decodeTokens filters out-of-range token IDs`() {
         val bin = buildValidFilterVocabBin(
-            magic = 0x5749_4853,
+            magic = 0x5553_454e,
             numMelBins = 1,
             numFreqs = 1,
             vocabSize = 2,
@@ -262,7 +262,7 @@ class WhisperProcessorTest {
     @Test
     fun `decodeTokens with empty array returns empty string`() {
         val bin = buildValidFilterVocabBin(
-            magic = 0x5749_4853,
+            magic = 0x5553_454e,
             numMelBins = 1,
             numFreqs = 1,
             vocabSize = 2,
@@ -291,7 +291,7 @@ class WhisperProcessorTest {
         melFloats: FloatArray,
         vocab: List<String>,
     ): ByteArray {
-        // Header: 4 ints (16 bytes) + mel floats + vocab entries
+        // Header: 3 ints (12 bytes) + mel floats + vocab size + vocab entries
         val vocabBytes = vocab.map { it.toByteArray(Charsets.UTF_8) }
         val vocabTotalSize = vocabBytes.sumOf { 4 + it.size }
         val totalSize = 16 + (melFloats.size * 4) + vocabTotalSize
@@ -300,8 +300,8 @@ class WhisperProcessorTest {
         buf.putInt(magic)
         buf.putInt(numMelBins)
         buf.putInt(numFreqs)
-        buf.putInt(vocabSize)
         for (f in melFloats) buf.putFloat(f)
+        buf.putInt(vocabSize)
         for (bytes in vocabBytes) {
             buf.putInt(bytes.size)
             buf.put(bytes)

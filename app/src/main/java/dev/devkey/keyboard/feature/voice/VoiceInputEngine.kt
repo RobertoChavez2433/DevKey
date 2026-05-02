@@ -335,7 +335,6 @@ class VoiceInputEngine(private val context: Context) {
      * @return Transcribed text or an error/status message.
      */
     suspend fun processFileForTest(filePath: String): String {
-        if (interpreter == null) initialize()
         if (captureManager.isCapturing()) {
             captureManager.cancel()
             DevKeyLogger.voice(
@@ -343,6 +342,7 @@ class VoiceInputEngine(private val context: Context) {
                 mapOf("source" to "processFileForTest")
             )
         }
+        reloadModelForFileTest()
         _state.value = VoiceState.PROCESSING
         DevKeyLogger.voice("state_transition", mapOf("state" to "PROCESSING", "source" to "processFileForTest"))
 
@@ -355,6 +355,14 @@ class VoiceInputEngine(private val context: Context) {
 
         DevKeyLogger.voice("file_loaded", mapOf("samples" to audioData.size))
         return runInference(audioData, source = "processFileForTest")
+    }
+
+    private fun reloadModelForFileTest() {
+        interpreter?.close()
+        interpreter = null
+        modelLoaded = false
+        initialize()
+        DevKeyLogger.voice("model_reloaded_for_file", mapOf("loaded" to modelLoaded))
     }
 
     /** Read PCM samples from a standard 16-bit mono WAV file. */

@@ -360,9 +360,11 @@ def _write_inventory(payload: Dict[str, Any], explicit_path: Optional[str] = Non
     return path
 
 
-def _enable_debug_forwarding(driver_module: Any) -> None:
+def _enable_debug_forwarding(driver_module: Any, serial: Optional[str] = None) -> None:
+    from lib import adb
+
     _driver_url = os.environ.get("DEVKEY_DRIVER_URL", "http://127.0.0.1:3950")
-    _ime_url = _driver_url.replace("127.0.0.1", "10.0.2.2").replace("localhost", "10.0.2.2")
+    _ime_url = adb.configure_debug_server_forwarding(serial, _driver_url)
     driver_module.broadcast(
         "dev.devkey.keyboard.ENABLE_DEBUG_SERVER",
         {"url": _ime_url},
@@ -686,7 +688,7 @@ def main():
         from lib import driver
 
         driver.require_driver()
-        _enable_debug_forwarding(driver)
+        _enable_debug_forwarding(driver, serial)
         preflight = None
         if not args.no_preflight:
             preflight = run_preflight(serial)
@@ -754,7 +756,7 @@ def main():
     # WHY: The host-side driver URL (e.g. http://127.0.0.1:3950) is NOT reachable
     #      from inside the emulator. Android emulator uses 10.0.2.2 to reach the
     #      host's loopback. Translate automatically so callers don't need two vars.
-    _enable_debug_forwarding(driver)
+    _enable_debug_forwarding(driver, serial)
     # Warmup: wait for the debug_server_enabled event, then verify with a
     # round-trip pref broadcast. Retries absorb post-install connection lag.
     for attempt in range(5):
@@ -770,7 +772,7 @@ def main():
             if attempt < 4:
                 time.sleep(2.0)
                 # Re-send enable in case the first one was dropped
-                _enable_debug_forwarding(driver)
+                _enable_debug_forwarding(driver, serial)
     driver.clear_logs()
 
     preflight = None

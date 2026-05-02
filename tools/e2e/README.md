@@ -138,6 +138,10 @@ for SwiftKey parity testing.
     # Terminal 2 — run the tests (the runner auto-enables HTTP forwarding)
     python tools/e2e/e2e_runner.py
 
+For a physical S21, start the server with `ADB_SERIAL=<serial>` and pass the
+same serial to the runner. The harness automatically uses `adb reverse` for
+`127.0.0.1:3950`; emulator runs still use `10.0.2.2`.
+
 ### Switching layout modes during a run
 
     adb shell am broadcast -a dev.devkey.keyboard.SET_LAYOUT_MODE --es mode compact

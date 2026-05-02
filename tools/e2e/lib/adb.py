@@ -26,6 +26,46 @@ def _adb_cmd(args: List[str], serial: Optional[str] = None) -> List[str]:
     return cmd
 
 
+def is_emulator(serial: Optional[str] = None) -> bool:
+    """Return true when the selected ADB target is an Android emulator."""
+    if serial and serial.startswith("emulator-"):
+        return True
+    result = subprocess.run(
+        _adb_cmd(["shell", "getprop", "ro.kernel.qemu"], serial),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    return result.stdout.strip() == "1"
+
+
+def configure_debug_server_forwarding(
+    serial: Optional[str] = None,
+    driver_url: Optional[str] = None,
+) -> str:
+    """
+    Return the URL the IME should use for the host debug server.
+
+    Emulators reach the host loopback through 10.0.2.2. Physical devices need
+    adb reverse for loopback URLs so device localhost forwards to the host.
+    """
+    url = driver_url or os.environ.get("DEVKEY_DRIVER_URL", "http://127.0.0.1:3950")
+    if is_emulator(serial):
+        return url.replace("127.0.0.1", "10.0.2.2").replace("localhost", "10.0.2.2")
+
+    match = re.match(r"^(https?://)(127\.0\.0\.1|localhost):(\d+)(/.*)?$", url)
+    if match:
+        port = match.group(3)
+        subprocess.run(
+            _adb_cmd(["reverse", f"tcp:{port}", f"tcp:{port}"], serial),
+            check=True,
+            capture_output=True,
+        )
+        return f"{match.group(1)}127.0.0.1:{port}{match.group(4) or ''}"
+    return url
+
+
 def tap(x: int, y: int, serial: Optional[str] = None) -> None:
     """Tap at (x, y) screen coordinates via ADB shell input."""
     cmd = _adb_cmd(["shell", "input", "tap", str(x), str(y)], serial)
@@ -188,10 +228,7 @@ def ensure_keyboard_visible(serial: Optional[str] = None) -> dict:
     #      DevKeyLogger.serverUrl is guaranteed set for the upcoming test.
     # IMPORTANT: This is a no-op on the IME side if the URL is unchanged.
     if visible:
-        driver_url = os.environ.get("DEVKEY_DRIVER_URL", "http://127.0.0.1:3950")
-        # WHY: 127.0.0.1 on host is not reachable from inside the emulator.
-        # Android emulator uses 10.0.2.2 to reach host loopback.
-        ime_url = driver_url.replace("127.0.0.1", "10.0.2.2").replace("localhost", "10.0.2.2")
+        ime_url = configure_debug_server_forwarding(serial)
         subprocess.run(
             _adb_cmd(
                 [

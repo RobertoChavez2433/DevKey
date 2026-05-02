@@ -309,6 +309,25 @@ Created: 2026-05-02
     `.claude/test-results/e2e-results-20260502T193751Z.json`
   - `./gradlew assembleRelease` passed, confirming the release variant builds
     with the debug-only plugin gate compiled
+- [x] Dictionary/provider gate resolved for v1.0:
+  - AnySoftKeyboard remains the only plausible post-v1.0 integration candidate
+    because upstream is Apache-2.0:
+    `https://github.com/AnySoftKeyboard/AnySoftKeyboard` and
+    `https://anysoftkeyboard.github.io/about/`
+  - AnySoft add-on dictionaries were not integrated for v1.0 because behavior,
+    package provenance, latency, memory, APK size, and crash profile are not yet
+    proven better than the current conservative stack
+  - HeliBoard remains excluded due GPL risk; Hunspell remains excluded unless a
+    future spike proves it lower risk than AnySoft
+  - current AOSP-derived/legacy path is the v1.0 release path with conservative
+    autocorrect defaults
+  - focused unit validation passed for `DictionaryProvider`, `PredictionEngine`,
+    `AutocorrectEngine`, prediction/autocorrect integrations,
+    `SuggestionCoordinator`, and empty native-dictionary bigram handling
+  - S21 prediction scope passed 12/12:
+    `.claude/test-results/e2e-results-20260502T194116Z.json`
+  - S21 autocorrect scope passed 11/11:
+    `.claude/test-results/e2e-results-20260502T194550Z.json`
 
 ## Remaining Implementation Work
 
@@ -325,17 +344,6 @@ Created: 2026-05-02
 - [ ] Rerun the full S21 suite under the hardened child-process timeout.
   Feature-scope evidence is useful, but the release still needs one complete
   strict run after the voice fix and timeout guard.
-- [ ] Complete AnySoftKeyboard dictionary spike:
-  - verify Apache-2.0 compatibility and source provenance
-  - compare current DevKey dictionaries against an AnySoft-backed candidate on
-    synthetic prefixes and misspellings
-  - measure quality, latency, memory, APK size, and crash behavior
-  - integrate only behind `DictionaryProvider` if clearly lower-risk and better
-- [ ] Keep HeliBoard code out of v1.0 due GPL risk.
-- [ ] Avoid Hunspell before release unless AnySoft fails and Hunspell is proven
-  lower-risk.
-- [ ] If AnySoft is rejected, ship current AOSP-derived dictionaries with
-  conservative autocorrect.
 
 ## Remaining Validation Gates
 
@@ -349,7 +357,7 @@ Created: 2026-05-02
   - JSON: `.claude/test-results/e2e-results-20260502T190908Z.json`
   - full voice scope: 19 passed, 0 failed, 0 errors, 0 skipped
   - JSON: `.claude/test-results/e2e-results-20260502T191613Z.json`
-- [ ] Run dictionary-specific validation:
+- [x] Run dictionary-specific validation:
   - current AOSP-derived dictionaries load
   - synthetic prefixes and misspellings produce expected suggestions/corrections
   - next-word/bigram path works through the legacy dictionary stack
@@ -373,8 +381,6 @@ Created: 2026-05-02
 
 - Full-suite S21 validation still needs one complete strict run after the voice
   round-trip fix and child-process timeout guard.
-- AnySoftKeyboard dictionary spike is still research work; do not integrate new
-  dictionary sources before provenance and behavior are proven.
 - The current structure audit still reports 5 files above 400 lines and 1 file
   above 35 imports. These are now visible release-gate findings, not hidden
   cleanup debt.

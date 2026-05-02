@@ -20,6 +20,7 @@ import argparse
 import importlib
 import inspect
 import json
+import multiprocessing as mp
 import os
 import pathlib
 import subprocess
@@ -57,6 +58,7 @@ LOCKED_FULL_SUITE_COUNT = 178
 PROJECT_ROOT = pathlib.Path(__file__).resolve().parents[2]
 DEFAULT_RESULTS_DIR = PROJECT_ROOT / ".claude" / "test-results"
 LONG_PRESS_EXPECTATIONS_DIR = PROJECT_ROOT / ".claude" / "test-flows" / "long-press-expectations"
+DEFAULT_TEST_TIMEOUT_SECONDS = float(os.environ.get("DEVKEY_E2E_TEST_TIMEOUT_SECONDS", "90"))
 
 
 def discover_tests(
@@ -357,6 +359,189 @@ def _serialize_error(e: BaseException) -> Tuple[str, str, str]:
     return error_type, message, _failure_category(error_type, message)
 
 
+def _execute_test_inline(name: str, func: callable, retry_status: str) -> Dict[str, Any]:
+    """
+    Execute one test and return its result payload.
+
+    This runs inside the per-test child process. Keeping the reset, log clear,
+    verification begin/end, and exception serialization here lets the parent
+    enforce a hard timeout without losing normal failure details.
+    """
+    try:
+        from lib import adb as _adb_for_focus  # type: ignore
+        from lib import driver as _driver_for_logs  # type: ignore
+        from lib import verify as _verify  # type: ignore
+        _focus_serial = _adb_for_focus.get_device_serial()
+    except Exception:
+        _adb_for_focus = None
+        _driver_for_logs = None
+        _verify = None
+        _focus_serial = None
+
+    start = time.time()
+    verification_state: Dict[str, Any] = {"actions": [], "evidence": []}
+    try:
+        if _adb_for_focus is not None:
+            _adb_for_focus.reset_test_host_state(_focus_serial)
+            _adb_for_focus.clear_logcat(_focus_serial)
+        if _driver_for_logs is not None:
+            _driver_for_logs.clear_logs()
+        if _verify is not None:
+            _verify.begin(name)
+        func()
+        if _verify is not None:
+            verification_state = _verify.assert_verified()
+        elapsed = time.time() - start
+        result = {
+            "name": name,
+            "status": "PASS",
+            "duration_seconds": round(elapsed, 3),
+            "retry_status": retry_status,
+            "verification": _verify.summarize(verification_state) if _verify is not None else {},
+        }
+    except AssertionError as e:
+        elapsed = time.time() - start
+        if _verify is not None:
+            verification_state = _verify.end()
+        error_type, message, category = _serialize_error(e)
+        result = {
+            "name": name,
+            "status": "FAIL",
+            "duration_seconds": round(elapsed, 3),
+            "error_type": error_type,
+            "error": message,
+            "failure_category": category,
+            "retry_status": retry_status,
+            "verification": _verify.summarize(verification_state) if _verify is not None else {},
+        }
+    except BaseException as e:
+        if isinstance(e, (KeyboardInterrupt, SystemExit)):
+            raise
+        elapsed = time.time() - start
+        if _PytestSkipped is not None and isinstance(e, _PytestSkipped):
+            if _verify is not None:
+                verification_state = _verify.end()
+            reason = getattr(e, "msg", None) or (e.args[0] if e.args else "")
+            result = {
+                "name": name,
+                "status": "SKIP",
+                "duration_seconds": round(elapsed, 3),
+                "reason": reason,
+                "failure_category": "skipped",
+                "retry_status": retry_status,
+                "verification": _verify.summarize(verification_state) if _verify is not None else {},
+            }
+        else:
+            if os.environ.get("DEVKEY_E2E_VERBOSE"):
+                traceback.print_exc()
+            if _verify is not None:
+                verification_state = _verify.end()
+            error_type, message, category = _serialize_error(e)
+            result = {
+                "name": name,
+                "status": "ERROR",
+                "duration_seconds": round(elapsed, 3),
+                "error_type": error_type,
+                "error": message,
+                "failure_category": category,
+                "retry_status": retry_status,
+                "verification": _verify.summarize(verification_state) if _verify is not None else {},
+            }
+    else:
+        if _verify is not None:
+            _verify.end()
+    return result
+
+
+def _test_process_entry(
+    qualified_name: str,
+    module_name: str,
+    function_name: str,
+    retry_status: str,
+    queue: Any,
+) -> None:
+    module = importlib.import_module(module_name)
+    func = getattr(module, function_name)
+    queue.put(_execute_test_inline(qualified_name, func, retry_status))
+
+
+def _timeout_result(name: str, retry_status: str, timeout_seconds: float) -> Dict[str, Any]:
+    return {
+        "name": name,
+        "status": "ERROR",
+        "duration_seconds": round(timeout_seconds, 3),
+        "error_type": "TestTimeout",
+        "error": f"test exceeded hard timeout of {timeout_seconds:g}s",
+        "failure_category": "timeout",
+        "retry_status": retry_status,
+        "verification": {"verified": False, "evidence_count": 0, "action_count": 0, "evidence": []},
+    }
+
+
+def _child_exit_result(name: str, retry_status: str, exitcode: Optional[int], elapsed: float) -> Dict[str, Any]:
+    return {
+        "name": name,
+        "status": "ERROR",
+        "duration_seconds": round(elapsed, 3),
+        "error_type": "ChildProcessError",
+        "error": f"test child exited without a result; exitcode={exitcode}",
+        "failure_category": "exception",
+        "retry_status": retry_status,
+        "verification": {"verified": False, "evidence_count": 0, "action_count": 0, "evidence": []},
+    }
+
+
+def _recover_after_timeout() -> None:
+    try:
+        from lib import adb, driver  # type: ignore
+        serial = adb.get_device_serial()
+        try:
+            driver.clear_logs()
+        except Exception:
+            pass
+        try:
+            adb.reset_test_host_state(serial)
+        except Exception:
+            pass
+    except Exception:
+        pass
+
+
+def _run_test_with_timeout(
+    name: str,
+    func: callable,
+    retry_status: str,
+    timeout_seconds: float,
+) -> Dict[str, Any]:
+    if timeout_seconds <= 0:
+        return _execute_test_inline(name, func, retry_status)
+
+    ctx = mp.get_context("spawn")
+    queue = ctx.Queue(maxsize=1)
+    process = ctx.Process(
+        target=_test_process_entry,
+        args=(name, func.__module__, func.__name__, retry_status, queue),
+        daemon=True,
+    )
+    start = time.time()
+    process.start()
+    process.join(timeout_seconds)
+    if process.is_alive():
+        process.terminate()
+        process.join(5)
+        if process.is_alive():
+            process.kill()
+            process.join(5)
+        _recover_after_timeout()
+        return _timeout_result(name, retry_status, timeout_seconds)
+
+    elapsed = time.time() - start
+    try:
+        return queue.get_nowait()
+    except Exception:
+        return _child_exit_result(name, retry_status, process.exitcode, elapsed)
+
+
 def _load_failed_names(results_file: str) -> List[str]:
     with open(results_file, "r", encoding="utf-8") as fh:
         data = json.load(fh)
@@ -513,7 +698,11 @@ def generate_action_inventory(inventory: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def run_tests(tests: List[Tuple[str, callable]], retry_status: str = "not_retried") -> Tuple[int, int, int, int, List[Dict[str, Any]]]:
+def run_tests(
+    tests: List[Tuple[str, callable]],
+    retry_status: str = "not_retried",
+    test_timeout_seconds: float = DEFAULT_TEST_TIMEOUT_SECONDS,
+) -> Tuple[int, int, int, int, List[Dict[str, Any]]]:
     """
     Run all discovered tests and print results.
 
@@ -526,121 +715,44 @@ def run_tests(tests: List[Tuple[str, callable]], retry_status: str = "not_retrie
     results: List[Dict[str, Any]] = []
 
     total = len(tests)
-    print(f"\nRunning {total} test(s)...\n")
+    print(f"\nRunning {total} test(s)...")
+    if test_timeout_seconds > 0:
+        print(f"Hard timeout: {test_timeout_seconds:g}s per test")
+    else:
+        print("Hard timeout: disabled")
+    print()
     print("=" * 70)
-
-    # Pre-test clean-state guard — lazy-import to avoid pulling the lib path before
-    # test discovery patches sys.path. WHY: several tests (set_layout_mode,
-    # symbols toggle, ABC return) cause the IME to temporarily hide. Without
-    # a reset hook between tests, later tests can inherit stale text, the wrong
-    # keyboard mode, or no focused IME and then produce false positives.
-    # See lib/adb.py::reset_test_host_state.
-    try:
-        from lib import adb as _adb_for_focus  # type: ignore
-        from lib import driver as _driver_for_logs  # type: ignore
-        from lib import verify as _verify  # type: ignore
-        _focus_serial = _adb_for_focus.get_device_serial()
-    except Exception:
-        _adb_for_focus = None
-        _driver_for_logs = None
-        _verify = None
-        _focus_serial = None
 
     for i, (name, func) in enumerate(tests, 1):
         print(f"  [{i}/{total}] {name} ... ", end="", flush=True)
-        start = time.time()
+        result = _run_test_with_timeout(
+            name,
+            func,
+            retry_status,
+            test_timeout_seconds,
+        )
+        status = result.get("status")
+        elapsed = float(result.get("duration_seconds", 0.0))
+        results.append(result)
 
-        verification_state: Dict[str, Any] = {"actions": [], "evidence": []}
-        try:
-            if _adb_for_focus is not None:
-                _adb_for_focus.reset_test_host_state(_focus_serial)
-                _adb_for_focus.clear_logcat(_focus_serial)
-            if _driver_for_logs is not None:
-                _driver_for_logs.clear_logs()
-            if _verify is not None:
-                _verify.begin(name)
-            func()
-            if _verify is not None:
-                verification_state = _verify.assert_verified()
-            elapsed = time.time() - start
+        if status == "PASS":
             print(f"PASS ({elapsed:.1f}s)")
             passed += 1
-            results.append({
-                "name": name,
-                "status": "PASS",
-                "duration_seconds": round(elapsed, 3),
-                "retry_status": retry_status,
-                "verification": _verify.summarize(verification_state) if _verify is not None else {},
-            })
-        except AssertionError as e:
-            elapsed = time.time() - start
+        elif status == "FAIL":
             print(f"FAIL ({elapsed:.1f}s)")
-            print(f"         {e}")
-            if _verify is not None:
-                verification_state = _verify.end()
+            if result.get("error"):
+                print(f"         {result.get('error')}")
             failed += 1
-            error_type, message, category = _serialize_error(e)
-            results.append({
-                "name": name,
-                "status": "FAIL",
-                "duration_seconds": round(elapsed, 3),
-                "error_type": error_type,
-                "error": message,
-                "failure_category": category,
-                "retry_status": retry_status,
-                "verification": _verify.summarize(verification_state) if _verify is not None else {},
-            })
-        except BaseException as e:
-            # WHY: BaseException catches pytest.Skipped (which inherits from
-            #      BaseException, NOT Exception) AND generic Exception errors
-            #      in a single branch. We discriminate on type immediately
-            #      below so skipped tests are not counted as errors.
-            # IMPORTANT: Re-raise KeyboardInterrupt and SystemExit — those
-            #            must not be swallowed by the harness.
-            if isinstance(e, (KeyboardInterrupt, SystemExit)):
-                raise
-            elapsed = time.time() - start
-            if _PytestSkipped is not None and isinstance(e, _PytestSkipped):
-                if _verify is not None:
-                    verification_state = _verify.end()
-                # pytest.skip("reason") — reason is accessible via e.msg on
-                # pytest 7+, or the first arg on older versions.
-                reason = getattr(e, "msg", None) or (e.args[0] if e.args else "")
-                print(f"SKIP ({elapsed:.1f}s)")
-                if reason:
-                    print(f"         {reason}")
-                skipped += 1
-                results.append({
-                    "name": name,
-                    "status": "SKIP",
-                    "duration_seconds": round(elapsed, 3),
-                    "reason": reason,
-                    "failure_category": "skipped",
-                    "retry_status": retry_status,
-                    "verification": _verify.summarize(verification_state) if _verify is not None else {},
-                })
-            else:
-                print(f"ERROR ({elapsed:.1f}s)")
-                print(f"         {type(e).__name__}: {e}")
-                if os.environ.get("DEVKEY_E2E_VERBOSE"):
-                    traceback.print_exc()
-                if _verify is not None:
-                    verification_state = _verify.end()
-                errors += 1
-                error_type, message, category = _serialize_error(e)
-                results.append({
-                    "name": name,
-                    "status": "ERROR",
-                    "duration_seconds": round(elapsed, 3),
-                    "error_type": error_type,
-                    "error": message,
-                    "failure_category": category,
-                    "retry_status": retry_status,
-                    "verification": _verify.summarize(verification_state) if _verify is not None else {},
-                })
+        elif status == "SKIP":
+            print(f"SKIP ({elapsed:.1f}s)")
+            if result.get("reason"):
+                print(f"         {result.get('reason')}")
+            skipped += 1
         else:
-            if _verify is not None:
-                _verify.end()
+            label = "TIMEOUT" if result.get("error_type") == "TestTimeout" else "ERROR"
+            print(f"{label} ({elapsed:.1f}s)")
+            print(f"         {result.get('error_type')}: {result.get('error')}")
+            errors += 1
 
     print("=" * 70)
     print(f"\nResults: {passed} passed, {failed} failed, {errors} errors, "
@@ -696,6 +808,16 @@ def main():
         type=float,
         default=1.0,
         help="Multiply driver wait_for timeouts for slow emulators"
+    )
+    parser.add_argument(
+        "--test-timeout-seconds",
+        type=float,
+        default=DEFAULT_TEST_TIMEOUT_SECONDS,
+        help=(
+            "Hard wall-clock timeout per test before the runner terminates the "
+            "test child and records TestTimeout (default: "
+            f"{DEFAULT_TEST_TIMEOUT_SECONDS:g}; set 0 to disable)"
+        ),
     )
     parser.add_argument(
         "--results-file",
@@ -847,6 +969,7 @@ def main():
     passed, failed, errors, skipped, test_results = run_tests(
         tests,
         retry_status="retry" if args.rerun_failed else "not_retried",
+        test_timeout_seconds=args.test_timeout_seconds,
     )
     ended_at = datetime.now(timezone.utc)
     result_payload = {
@@ -860,6 +983,7 @@ def main():
         "test_filter": args.test,
         "rerun_source": args.rerun_failed,
         "timeout_multiplier": args.timeout_multiplier,
+        "test_timeout_seconds": args.test_timeout_seconds,
         "preflight": preflight,
         "total": len(tests),
         "passed": passed,

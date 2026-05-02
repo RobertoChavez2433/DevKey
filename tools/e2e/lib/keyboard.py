@@ -11,6 +11,7 @@ import time
 from typing import Any, Dict, List, Optional, Tuple
 
 from . import adb
+from . import verify
 
 
 # Key map: maps key names/labels to (x, y) coordinates
@@ -94,6 +95,12 @@ def load_key_map(serial: Optional[str] = None) -> Dict[str, Tuple[int, int]]:
     _key_map = key_map
     _symbols_key_map = symbols_map
     _key_inventory = inventory
+    if key_map or symbols_map:
+        verify.record_evidence("keyboard.key_map_loaded", {
+            "normal_size": len(key_map),
+            "symbols_size": len(symbols_map),
+            "visible_records": len(inventory),
+        })
     return key_map
 
 
@@ -298,6 +305,7 @@ def tap_key(key_name: str, serial: Optional[str] = None) -> None:
         )
 
     x, y = _key_map[key_name]
+    verify.record_action("keyboard.tap_key", {"key": key_name})
     adb.tap(x, y + _y_offset, serial)
 
 
@@ -317,6 +325,7 @@ def tap_key_by_code(code: int, serial: Optional[str] = None) -> None:
         )
 
     x, y = _key_map[code_key]
+    verify.record_action("keyboard.tap_key_by_code", {"code": code})
     adb.tap(x, y + _y_offset, serial)
 
 
@@ -363,6 +372,7 @@ def set_layout_mode(mode: str, serial: Optional[str] = None) -> None:
         "-a", "dev.devkey.keyboard.RESET_KEYBOARD_MODE",
     ]
     subprocess.run(cmd_reset, check=False, capture_output=True)
+    verify.record_action("keyboard.reset_mode_for_layout", {"mode": mode}, requires_verification=False)
     # WHY: The mode reset triggers a Compose recomposition. If SET_LAYOUT_MODE
     #      arrives while the reset recomposition is in flight, the subsequent
     #      DUMP_KEY_MAP can race with layout re-measurement and return empty.
@@ -377,6 +387,7 @@ def set_layout_mode(mode: str, serial: Optional[str] = None) -> None:
         "--es", "mode", mode,
     ]
     subprocess.run(cmd, check=True, capture_output=True)
+    verify.record_action("keyboard.set_layout_mode", {"mode": mode})
     # WHY: Phase 3 defect #21 — after a layout switch the cached _key_map
     #      holds stale coordinates from the previous mode. Subsequent
     #      `get_key_map()` callers would tap the wrong positions. Clear here

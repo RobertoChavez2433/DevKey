@@ -498,15 +498,18 @@ def run_tests(tests: List[Tuple[str, callable]], retry_status: str = "not_retrie
     # zero events. See lib/adb.py::ensure_keyboard_visible.
     try:
         from lib import adb as _adb_for_focus  # type: ignore
+        from lib import verify as _verify  # type: ignore
         _focus_serial = _adb_for_focus.get_device_serial()
     except Exception:
         _adb_for_focus = None
+        _verify = None
         _focus_serial = None
 
     for i, (name, func) in enumerate(tests, 1):
         print(f"  [{i}/{total}] {name} ... ", end="", flush=True)
         start = time.time()
 
+        verification_state: Dict[str, Any] = {"actions": [], "evidence": []}
         try:
             if _adb_for_focus is not None:
                 try:
@@ -515,7 +518,26 @@ def run_tests(tests: List[Tuple[str, callable]], retry_status: str = "not_retrie
                     # Never fail a test because the refocus helper raised —
                     # tests that need a focused keyboard will still assert on it.
                     pass
+                try:
+                    _adb_for_focus.clear_logcat(_focus_serial)
+                except Exception:
+                    pass
+            if _verify is not None:
+                _verify.begin(name)
             func()
+            if _verify is not None and _adb_for_focus is not None:
+                unresolved = _verify.unresolved_actions()
+                if any(action["kind"] in {
+                    "adb.tap",
+                    "adb.swipe",
+                    "driver.tap",
+                    "driver.swipe",
+                    "keyboard.tap_key",
+                    "keyboard.tap_key_by_code",
+                } for action in unresolved):
+                    _adb_for_focus.capture_logcat("DevKeyPress", timeout=0.3, serial=_focus_serial)
+            if _verify is not None:
+                verification_state = _verify.assert_verified()
             elapsed = time.time() - start
             print(f"PASS ({elapsed:.1f}s)")
             passed += 1
@@ -524,11 +546,14 @@ def run_tests(tests: List[Tuple[str, callable]], retry_status: str = "not_retrie
                 "status": "PASS",
                 "duration_seconds": round(elapsed, 3),
                 "retry_status": retry_status,
+                "verification": _verify.summarize(verification_state) if _verify is not None else {},
             })
         except AssertionError as e:
             elapsed = time.time() - start
             print(f"FAIL ({elapsed:.1f}s)")
             print(f"         {e}")
+            if _verify is not None:
+                verification_state = _verify.end()
             failed += 1
             error_type, message, category = _serialize_error(e)
             results.append({
@@ -539,6 +564,7 @@ def run_tests(tests: List[Tuple[str, callable]], retry_status: str = "not_retrie
                 "error": message,
                 "failure_category": category,
                 "retry_status": retry_status,
+                "verification": _verify.summarize(verification_state) if _verify is not None else {},
             })
         except BaseException as e:
             # WHY: BaseException catches pytest.Skipped (which inherits from
@@ -551,6 +577,8 @@ def run_tests(tests: List[Tuple[str, callable]], retry_status: str = "not_retrie
                 raise
             elapsed = time.time() - start
             if _PytestSkipped is not None and isinstance(e, _PytestSkipped):
+                if _verify is not None:
+                    verification_state = _verify.end()
                 # pytest.skip("reason") — reason is accessible via e.msg on
                 # pytest 7+, or the first arg on older versions.
                 reason = getattr(e, "msg", None) or (e.args[0] if e.args else "")
@@ -565,12 +593,15 @@ def run_tests(tests: List[Tuple[str, callable]], retry_status: str = "not_retrie
                     "reason": reason,
                     "failure_category": "skipped",
                     "retry_status": retry_status,
+                    "verification": _verify.summarize(verification_state) if _verify is not None else {},
                 })
             else:
                 print(f"ERROR ({elapsed:.1f}s)")
                 print(f"         {type(e).__name__}: {e}")
                 if os.environ.get("DEVKEY_E2E_VERBOSE"):
                     traceback.print_exc()
+                if _verify is not None:
+                    verification_state = _verify.end()
                 errors += 1
                 error_type, message, category = _serialize_error(e)
                 results.append({
@@ -581,7 +612,11 @@ def run_tests(tests: List[Tuple[str, callable]], retry_status: str = "not_retrie
                     "error": message,
                     "failure_category": category,
                     "retry_status": retry_status,
+                    "verification": _verify.summarize(verification_state) if _verify is not None else {},
                 })
+        else:
+            if _verify is not None:
+                _verify.end()
 
     print("=" * 70)
     print(f"\nResults: {passed} passed, {failed} failed, {errors} errors, "

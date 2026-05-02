@@ -62,7 +62,14 @@ python e2e_runner.py --verbose
    executing. Each run writes privacy-safe JSON results under
    `.claude/test-results/` unless `--results-file` is provided.
 
-5. **Key Inventory**: `--dump-inventory` writes a privacy-safe JSON artifact
+5. **Verification State**: A test cannot pass only because it returned without
+   throwing. During each test the harness records actions separately from
+   evidence, and fails any test that does not observe at least one explicit
+   verification signal such as `driver.wait_for`, key-map load, keyboard
+   visibility, logcat assertion, or visual diff. JSON results include the
+   evidence count and evidence source names.
+
+6. **Key Inventory**: `--dump-inventory` writes a privacy-safe JSON artifact
    with visible key labels, keycodes, coordinates, and counts for the full,
    compact, compact_dev, and symbols-layer layouts. It records structure only,
    not typed text, transcripts, or clipboard contents. The command fails if any

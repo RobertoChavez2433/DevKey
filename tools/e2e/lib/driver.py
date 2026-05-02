@@ -9,6 +9,8 @@ import time
 from typing import Any, Dict, Optional
 from urllib import request, parse, error
 
+from . import verify
+
 DRIVER_URL = os.environ.get("DEVKEY_DRIVER_URL", "http://127.0.0.1:3950")
 TIMEOUT_MULTIPLIER = float(os.environ.get("DEVKEY_TIMEOUT_MULTIPLIER", "1.0"))
 
@@ -82,6 +84,7 @@ def require_driver() -> None:
 
 def clear_logs() -> None:
     _post("/clear")
+    verify.record_action("driver.clear_logs", requires_verification=False)
 
 
 # --- Wave gating ---
@@ -104,22 +107,39 @@ def wait_for(category: str, event: Optional[str] = None,
     result = _get("/wait", params=params, timeout=(effective_timeout_ms / 1000.0) + 5.0)
     if not result.get("matched"):
         raise DriverTimeout(result.get("error", "unknown"))
+    verify.record_evidence("driver.wait_for", {
+        "category": category,
+        "event": event,
+        "match": match or {},
+    })
     return result["entry"]
 
 
 # --- ADB dispatch ---
 
 def tap(x: int, y: int) -> Dict:
+    verify.record_action("driver.tap", {"x": x, "y": y})
     return _post("/adb/tap", params={"x": x, "y": y})
 
 
 def swipe(x1: int, y1: int, x2: int, y2: int, duration_ms: int = 300) -> Dict:
+    verify.record_action("driver.swipe", {"x1": x1, "y1": y1, "x2": x2, "y2": y2, "duration_ms": duration_ms})
     return _post("/adb/swipe", params={
         "x1": x1, "y1": y1, "x2": x2, "y2": y2, "duration": duration_ms
     })
 
 
 def broadcast(action: str, extras: Optional[Dict[str, str]] = None) -> Dict:
+    requires_verification = action not in {
+        "dev.devkey.keyboard.ENABLE_DEBUG_SERVER",
+        "dev.devkey.keyboard.RESET_CIRCUIT_BREAKER",
+        "dev.devkey.keyboard.RESET_KEYBOARD_MODE",
+    }
+    verify.record_action(
+        "driver.broadcast",
+        {"action": action, "extras": extras or {}},
+        requires_verification=requires_verification,
+    )
     return _post("/adb/broadcast", body={"action": action, "extras": extras or {}})
 
 
@@ -128,18 +148,24 @@ def logcat_dump(tags: list) -> str:
     #       Callers that need a clean baseline must call `logcat_clear()` explicitly BEFORE
     #       the action that produces the events they expect to dump.
     result = _get("/adb/logcat", params={"tags": ",".join(tags)})
-    return result.get("stdout", "")
+    stdout = result.get("stdout", "")
+    if stdout.strip():
+        verify.record_evidence("driver.logcat_dump", {"tags": tags, "nonempty": True})
+    return stdout
 
 
 def logcat_clear() -> None:
     _post("/adb/logcat/clear")
+    verify.record_action("driver.logcat_clear", requires_verification=False)
 
 
 # --- Wave lifecycle ---
 
 def wave_start(wave_id: str) -> Dict:
+    verify.record_action("driver.wave_start", {"wave_id": wave_id}, requires_verification=False)
     return _post("/wave/start", params={"id": wave_id})
 
 
 def wave_finish(wave_id: str, status: str = "pass") -> Dict:
+    verify.record_evidence("driver.wave_finish", {"wave_id": wave_id, "status": status})
     return _post("/wave/finish", params={"id": wave_id, "status": status})

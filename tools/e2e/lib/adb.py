@@ -11,6 +11,8 @@ import subprocess
 import time
 from typing import List, Optional
 
+from . import verify
+
 
 def get_device_serial() -> Optional[str]:
     """Get device serial from env var or None for default device."""
@@ -62,12 +64,14 @@ def configure_debug_server_forwarding(
             check=True,
             capture_output=True,
         )
+        verify.record_action("adb.reverse", {"port": port}, requires_verification=False)
         return f"{match.group(1)}127.0.0.1:{port}{match.group(4) or ''}"
     return url
 
 
 def tap(x: int, y: int, serial: Optional[str] = None) -> None:
     """Tap at (x, y) screen coordinates via ADB shell input."""
+    verify.record_action("adb.tap", {"x": x, "y": y})
     cmd = _adb_cmd(["shell", "input", "tap", str(x), str(y)], serial)
     subprocess.run(cmd, check=True, capture_output=True)
 
@@ -75,6 +79,7 @@ def tap(x: int, y: int, serial: Optional[str] = None) -> None:
 def swipe(x1: int, y1: int, x2: int, y2: int, duration_ms: int = 300,
           serial: Optional[str] = None) -> None:
     """Swipe from (x1,y1) to (x2,y2) over given duration."""
+    verify.record_action("adb.swipe", {"x1": x1, "y1": y1, "x2": x2, "y2": y2, "duration_ms": duration_ms})
     cmd = _adb_cmd([
         "shell", "input", "swipe",
         str(x1), str(y1), str(x2), str(y2), str(duration_ms)
@@ -84,6 +89,7 @@ def swipe(x1: int, y1: int, x2: int, y2: int, duration_ms: int = 300,
 
 def input_text(text: str, serial: Optional[str] = None) -> None:
     """Type text via ADB shell input text."""
+    verify.record_action("adb.input_text", {"length": len(text)})
     cmd = _adb_cmd(["shell", "input", "text", text], serial)
     subprocess.run(cmd, check=True, capture_output=True)
 
@@ -96,6 +102,7 @@ def clear_logcat(serial: Optional[str] = None, retries: int = 3) -> None:
     with status 4294967295 (-1) when the buffer is being written to. Retry
     a few times before giving up.
     """
+    verify.record_action("adb.clear_logcat", requires_verification=False)
     cmd = _adb_cmd(["logcat", "-c"], serial)
     last_err: Optional[Exception] = None
     for attempt in range(retries):
@@ -121,7 +128,10 @@ def capture_logcat(tag: str, timeout: float = 2.0,
     result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
     lines = result.stdout.strip().split("\n")
     # Filter out the header line
-    return [line for line in lines if tag in line]
+    filtered = [line for line in lines if tag in line]
+    if filtered:
+        verify.record_evidence("adb.capture_logcat", {"tag": tag, "line_count": len(filtered)})
+    return filtered
 
 
 def get_text_field_content(serial: Optional[str] = None) -> str:
@@ -136,6 +146,7 @@ def get_text_field_content(serial: Optional[str] = None) -> str:
     # Look for "mText=" in the InputConnection section
     match = re.search(r"mText=(.+?)(?:\n|$)", result.stdout)
     if match:
+        verify.record_evidence("adb.text_field_content", {"length": len(match.group(1).strip())})
         return match.group(1).strip()
     return ""
 
@@ -146,6 +157,7 @@ def get_focused_window(serial: Optional[str] = None) -> str:
     result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
     match = re.search(r"mCurrentFocus=Window\{.+?\s+(.+?)\}", result.stdout)
     if match:
+        verify.record_evidence("adb.focused_window", {"window": match.group(1)})
         return match.group(1)
     return ""
 
@@ -154,7 +166,10 @@ def is_keyboard_visible(serial: Optional[str] = None) -> bool:
     """Check if the soft keyboard is currently visible."""
     cmd = _adb_cmd(["shell", "dumpsys", "input_method"], serial)
     result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
-    return "mInputShown=true" in result.stdout
+    visible = "mInputShown=true" in result.stdout
+    if visible:
+        verify.record_evidence("adb.keyboard_visible")
+    return visible
 
 
 TEST_HOST_ACTIVITY = (
@@ -229,6 +244,7 @@ def ensure_keyboard_visible(serial: Optional[str] = None) -> dict:
     # IMPORTANT: This is a no-op on the IME side if the URL is unchanged.
     if visible:
         ime_url = configure_debug_server_forwarding(serial)
+        verify.record_action("adb.enable_debug_server", requires_verification=False)
         subprocess.run(
             _adb_cmd(
                 [
@@ -253,6 +269,11 @@ def ensure_keyboard_visible(serial: Optional[str] = None) -> dict:
             capture_output=True,
         )
 
+    if visible:
+        verify.record_evidence("adb.ensure_keyboard_visible", {
+            "record_audio": _permission_granted("android.permission.RECORD_AUDIO", serial)
+                or grant_result.returncode == 0,
+        })
     return {
         "visible": visible,
         "permissions": {
@@ -273,6 +294,7 @@ def assert_logcat_contains(tag: str, pattern: str, timeout: float = 2.0,
     lines = capture_logcat(tag, timeout, serial)
     for line in lines:
         if re.search(pattern, line):
+            verify.record_evidence("adb.assert_logcat_contains", {"tag": tag, "pattern": pattern})
             return True
     raise AssertionError(
         f"Expected logcat tag '{tag}' to contain pattern '{pattern}', "

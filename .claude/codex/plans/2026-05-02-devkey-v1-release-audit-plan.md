@@ -30,6 +30,11 @@ Created: 2026-05-02
 - [x] Long-press action inventory added from the configured expectation files;
   `--dump-inventory` now fails if a configured long-press action is not tied to
   a visible key in the matching layout/layer.
+- [x] E2E verification state added:
+  - tests now track actions separately from evidence
+  - tests fail if they complete with no evidence
+  - tests fail if meaningful actions occur after the last evidence point
+  - S21 tap smoke was rerun with evidence recorded in JSON
 
 ## Verified Locally
 
@@ -37,11 +42,24 @@ Created: 2026-05-02
 - [x] `python tools/e2e/e2e_runner.py --list`
   - locked full-suite count: 178
 - [x] `./gradlew test assembleDebug lint detekt`
+- [x] S21 `--preflight`
+  - serial: `RFCNC0Y975L`
+  - model: `SM-G996U`
+  - DevKey default IME: yes
+  - key map: 104 normal entries, 86 symbols entries
+  - voice assets: present
+- [x] S21 `--dump-inventory`
+- [x] S21 focused smoke under verified-state harness:
+  - `test_smoke.test_tap_letter_produces_logcat`
+  - evidence included `DevKeyPress` logcat assertion after tap
 
 ## Remaining Implementation Work
 
 - [ ] Add toolbar/dynamic button action inventory, then tie it to release
   validation.
+- [ ] Rerun and repair all feature scopes under the verified-state harness.
+  Earlier E2E results are audit data only; they are not release-green because
+  they were produced before action/evidence ordering was enforced.
 - [ ] Validate toolbar buttons, dynamic panels, mode switches, modifiers, and
   settings workflows against the generated inventory.
 - [ ] Complete AnySoftKeyboard dictionary spike:
@@ -58,7 +76,7 @@ Created: 2026-05-02
 
 ## Remaining Validation Gates
 
-- [ ] Run `--preflight` on an allowed automation target.
+- [x] Run `--preflight` on S21.
 - [ ] Run feature scopes: voice, input, modifiers, modes,
   prediction/autocorrect, punctuation, clipboard, macros, command_mode,
   visual/long-press.
@@ -70,12 +88,11 @@ Created: 2026-05-02
 
 ## Current Blockers
 
-- S21 is connected as `SM_G996U`, but this Windows workspace is governed by the
-  repo rule: use Android emulator only and do not verify on physical Android
-  devices. S21 validation must run from an allowed environment or be performed
-  manually outside this Windows automation rule.
-- No emulator was attached during this audit, so emulator preflight and full
-  E2E execution remain pending.
+- Prior S21 feature-scope results are not trusted as release-green until rerun
+  under the verified-state harness.
+- Voice S21 scope before the verified-state harness produced 15 passes, 2
+  emulator-only skips, and 2 transient errors that passed on `--rerun-failed`.
+  Treat this as diagnostic only, not final release validation.
 
 ## Commit Trail
 

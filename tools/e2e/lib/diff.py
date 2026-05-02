@@ -21,6 +21,8 @@ WHY 0.55 (not 0.92):
 import os
 from typing import Tuple, Optional
 
+from . import verify
+
 DEFAULT_THRESHOLD = float(os.environ.get("DEVKEY_SSIM_THRESHOLD", "0.55"))
 
 
@@ -69,4 +71,5 @@ def assert_ssim(actual_path: str, reference_path: str,
     """
     t = threshold if threshold is not None else DEFAULT_THRESHOLD
     score = ssim(actual_path, reference_path)
+    verify.record_evidence("diff.ssim", {"score": round(score, 4), "threshold": t})
     return (score >= t, score)

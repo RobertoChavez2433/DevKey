@@ -143,9 +143,69 @@ Created: 2026-05-02
   - `--test-timeout-seconds` and `DEVKEY_E2E_TEST_TIMEOUT_SECONDS` override it
   - forced S21 timeout probe produced `TestTimeout` and JSON instead of hanging
   - normal S21 input smoke still passed under child-process isolation
+- [x] jCodeMunch high-level audit refreshed on current DevKey tree:
+  - indexed current DevKey snapshot: 3,996 symbols, 593 files
+  - no dependency cycles detected
+  - highest hotspots include `tools/e2e/e2e_runner.py::main`,
+    `discover_tests`, `_execute_test_inline`, `KeyboardDependencies.
+    rememberKeyboardDependencies`, `KeyView`, `InputHandlers.handleSeparator`,
+    and `SuggestionPipeline.getSuggestions`
+  - largest maintained DevKey files include `tools/e2e/e2e_runner.py`,
+    `tools/e2e/lib/adb.py`, `KeyboardDependencies.kt`,
+    `VoiceInputEngine.kt`, `tools/e2e/lib/keyboard.py`,
+    `InputHandlers.kt`, and `SuggestionCoordinator.kt`
+- [x] Field Guide runtime-isolation repo indexed for validation-system
+  comparison:
+  - `DriverServer` exposes explicit HTTP endpoints for find, tap, text,
+    screenshot, tree, navigation, wait, injection, sync, local records,
+    current route, overlays, and artifacts
+  - `DriverSetup` separates driver-specific dependency overrides from app
+    composition
+  - `HarnessSeedData` separates deterministic data seeding from test flow code
+  - Field Guide has local architecture lint concepts for max file length and
+    max import count that DevKey currently lacks
+- [x] First modularity iteration after the audit:
+  - moved per-test execution, result shaping, skip/error serialization,
+    child-process watchdog, and timeout recovery out of `e2e_runner.py`
+    into `tools/e2e/lib/executor.py`
+  - `e2e_runner.py` dropped from 23 to 15 symbols after extraction
+  - S21 normal smoke still passed:
+    `input.test_smoke.test_backspace_plain --test-timeout-seconds 60`
+  - S21 forced timeout still failed loudly:
+    `input.test_smoke.test_backspace_plain --test-timeout-seconds 1`
 
 ## Remaining Implementation Work
 
+- [ ] Continue E2E runner decomposition:
+  - move discovery/filtering/locked-count logic out of `e2e_runner.py`
+  - move preflight/device metadata out of `e2e_runner.py`
+  - move inventory/action inventory out of `e2e_runner.py`
+  - move JSON result IO out of `e2e_runner.py`
+  - keep `e2e_runner.py` as CLI orchestration only
+- [ ] Add DevKey architecture guardrails modeled after Field Guide:
+  - max file length audit for Kotlin/Python/JS test harness files
+  - max import count audit
+  - hotspot/complexity report in the release checklist
+  - no generated/build-output files in structure reports
+- [ ] Split E2E helper god modules:
+  - `tools/e2e/lib/adb.py` into device, logcat, test-host state, visual, and
+    permission helpers
+  - `tools/e2e/lib/keyboard.py` into key-map loading, inventory generation,
+    coordinate tapping, and layout-mode controls
+- [ ] Split debug/test action receivers out of
+  `KeyboardDependencies.rememberKeyboardDependencies`:
+  - clipboard debug receiver manager
+  - macro debug receiver manager
+  - command/test-mode receiver manager
+  - keep Compose dependency creation free of test-control branching
+- [ ] Refactor production hotspots before release where they affect validation:
+  - `InputHandlers.handleSeparator`
+  - `InputHandlers.handleCharacter`
+  - `SuggestionPipeline.getSuggestions`
+  - `SuggestionCoordinator.onSelectionChanged`
+  - `KeyView`
+  - `DevKeyKeyboard`
+  - `InputViewSetup.onStartInputView`
 - [ ] Add toolbar/dynamic button action inventory, then tie it to release
   validation.
 - [ ] Rerun the full S21 suite under the hardened child-process timeout.
@@ -190,6 +250,10 @@ Created: 2026-05-02
   contents, or credential-adjacent input.
 - [ ] Confirm generated result JSON contains verification evidence for every
   passing test.
+- [ ] Confirm architecture audit output is attached to the release gate:
+  - current top hotspots
+  - god files/classes/functions above thresholds
+  - refactor deferrals with explicit release-risk rationale
 
 ## Current Blockers
 
@@ -201,6 +265,9 @@ Created: 2026-05-02
   voice is fixed or when deliberately collecting the remaining failures.
 - AnySoftKeyboard dictionary spike is still research work; do not integrate new
   dictionary sources before provenance and behavior are proven.
+- DevKey’s test harness still has god modules after the executor extraction:
+  `e2e_runner.py` remains a high-complexity CLI/orchestrator, and `adb.py` /
+  `keyboard.py` still mix unrelated responsibilities.
 
 ## Commit Trail
 

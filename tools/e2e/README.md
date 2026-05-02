@@ -65,7 +65,8 @@ python e2e_runner.py --verbose
 5. **Key Inventory**: `--dump-inventory` writes a privacy-safe JSON artifact
    with visible key labels, keycodes, coordinates, and counts for the full,
    compact, compact_dev, and symbols-layer layouts. It records structure only,
-   not typed text, transcripts, or clipboard contents.
+   not typed text, transcripts, or clipboard contents. The command fails if any
+   visible key record is missing required coverage metadata.
 
 The locked full-suite discovery count is 178 tests for `--suite all`.
 Use `--suite features` or `--suite legacy-flat` when you need one side of the

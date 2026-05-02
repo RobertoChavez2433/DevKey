@@ -608,6 +608,11 @@ def main():
         payload = generate_inventory_payload(serial, preflight)
         inventory_path = _write_inventory(payload, args.inventory_file)
         print(f"Inventory JSON: {inventory_path}")
+        coverage = payload.get("coverage", {})
+        if not coverage.get("ok", False):
+            for failure in coverage.get("failures", [])[:20]:
+                print(f"Inventory coverage failure: {failure}")
+            sys.exit(1)
         sys.exit(0)
 
     # Discover tests

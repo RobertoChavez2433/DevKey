@@ -19,6 +19,7 @@ internal class DebugReceiverManager(
     private var enableDebugServerReceiver: BroadcastReceiver? = null
     private var setLayoutModeReceiver: BroadcastReceiver? = null
     private var setBoolPrefReceiver: BroadcastReceiver? = null
+    private var setStringPrefReceiver: BroadcastReceiver? = null
     private var setAutocorrectLevelReceiver: BroadcastReceiver? = null
     private var voiceProcessFileReceiver: BroadcastReceiver? = null
     private var clearLearnedWordsReceiver: BroadcastReceiver? = null
@@ -87,6 +88,31 @@ internal class DebugReceiverManager(
             context,
             setBoolPrefReceiver,
             IntentFilter("dev.devkey.keyboard.SET_BOOL_PREF"),
+            ContextCompat.RECEIVER_EXPORTED
+        )
+
+        val allowedStringKeys = setOf(
+            SettingsRepository.KEY_CTRL_A_OVERRIDE,
+            SettingsRepository.KEY_CHORDING_CTRL,
+            SettingsRepository.KEY_CHORDING_ALT,
+            SettingsRepository.KEY_CHORDING_META,
+        )
+        setStringPrefReceiver = object : BroadcastReceiver() {
+            override fun onReceive(ctx: Context, intent: Intent) {
+                val key = intent.getStringExtra("key") ?: return
+                if (key !in allowedStringKeys) {
+                    DevKeyLogger.error("set_string_pref_rejected", mapOf("key" to key))
+                    return
+                }
+                val value = intent.getStringExtra("value") ?: return
+                settingsRepository.setString(key, value)
+                DevKeyLogger.ime("string_pref_set", mapOf("key" to key, "value" to value))
+            }
+        }
+        ContextCompat.registerReceiver(
+            context,
+            setStringPrefReceiver,
+            IntentFilter("dev.devkey.keyboard.SET_STRING_PREF"),
             ContextCompat.RECEIVER_EXPORTED
         )
 
@@ -175,7 +201,7 @@ internal class DebugReceiverManager(
     fun unregisterAll() {
         listOf(
             enableDebugServerReceiver, setLayoutModeReceiver, setBoolPrefReceiver,
-            setAutocorrectLevelReceiver, voiceProcessFileReceiver,
+            setStringPrefReceiver, setAutocorrectLevelReceiver, voiceProcessFileReceiver,
             clearLearnedWordsReceiver, resetCircuitBreakerReceiver
         ).forEach { r ->
             try { r?.let { context.unregisterReceiver(it) } } catch (_: IllegalArgumentException) {}
@@ -183,6 +209,7 @@ internal class DebugReceiverManager(
         enableDebugServerReceiver = null
         setLayoutModeReceiver = null
         setBoolPrefReceiver = null
+        setStringPrefReceiver = null
         setAutocorrectLevelReceiver = null
         voiceProcessFileReceiver = null
         clearLearnedWordsReceiver = null

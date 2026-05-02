@@ -20,6 +20,7 @@ from lib import adb, keyboard, driver
 KEYCODE_SHIFT = -1
 KEYCODE_CTRL_LEFT = -113
 KEYCODE_MODE_CHANGE = -2  # Keyboard.KEYCODE_MODE_CHANGE
+CTRL_A_OVERRIDE_PREF = "pref_ctrl_a_override"
 
 
 def _setup():
@@ -57,12 +58,42 @@ def _set_pref(key, value):
             "dev.devkey.keyboard.SET_BOOL_PREF",
             {"key": key, "value": value},
         )
+        driver.wait_for(
+            "DevKey/IME",
+            "bool_pref_set",
+            match={"key": key, "value": value},
+            timeout_ms=3000,
+        )
     elif isinstance(value, int):
         driver.broadcast(
-            "dev.devkey.keyboard.SET_INT_PREF",
+            "dev.devkey.keyboard.SET_STRING_PREF",
             {"key": key, "value": str(value)},
         )
-    time.sleep(0.2)
+        driver.wait_for(
+            "DevKey/IME",
+            "string_pref_set",
+            match={"key": key, "value": str(value)},
+            timeout_ms=3000,
+        )
+
+
+def _assert_host_focused(serial, context):
+    state = adb.query_test_host_state(serial, timeout_ms=2000)
+    assert state.get("focused") is not False, f"{context}: TestHostActivity lost focus"
+    assert adb.is_keyboard_visible(serial), f"{context}: keyboard is not visible"
+    return state
+
+
+def _wait_key_event_or_host_state(serial, context, match=None):
+    try:
+        driver.wait_for(
+            "DevKey/TXT",
+            "key_event",
+            match=match or {},
+            timeout_ms=3000,
+        )
+    except driver.DriverTimeout:
+        _assert_host_focused(serial, context)
 
 
 def test_modifier_press_without_release():
@@ -80,11 +111,16 @@ def test_modifier_press_without_release():
 
     # Type a letter — should consume the orphan modifier
     keyboard.tap_key("x", serial)
-    time.sleep(0.3)
+    driver.wait_for(
+        "DevKey/TXT",
+        "key_event",
+        match={"code": ord("x"), "ctrl": True},
+        timeout_ms=3000,
+    )
 
     # Type another letter — should work normally
     keyboard.tap_key("y", serial)
-    time.sleep(0.3)
+    _assert_host_focused(serial, "orphan modifier consumed")
 
     _assert_pid_alive(serial)
 
@@ -106,14 +142,20 @@ def test_mode_switch_while_modifier_held():
     except KeyError:
         import pytest
         pytest.skip("Mode change key not in current layout")
-    time.sleep(0.5)
+    driver.wait_for(
+        "DevKey/IME",
+        "keyboard_mode_changed",
+        timeout_ms=3000,
+    )
 
     # Switch back
     try:
         keyboard.tap_key_by_code(KEYCODE_MODE_CHANGE, serial)
     except KeyError:
-        pass
-    time.sleep(0.5)
+        driver.broadcast("dev.devkey.keyboard.RESET_KEYBOARD_MODE", {})
+        driver.wait_for("DevKey/IME", "keyboard_mode_reset", timeout_ms=3000)
+    else:
+        _wait_key_event_or_host_state(serial, "mode switch returned from symbols")
 
     _assert_pid_alive(serial)
 
@@ -146,7 +188,10 @@ def test_shift_lock_20_chars():
         keyboard.tap_key(ch, serial)
         time.sleep(0.05)
 
-    time.sleep(0.5)
+    state = adb.query_test_host_state(serial, timeout_ms=2000)
+    assert state["text_length"] >= 20, (
+        f"Shift-lock typing did not reach expected length; got {state['text_length']}"
+    )
     _assert_pid_alive(serial)
 
 
@@ -158,14 +203,22 @@ def test_ctrl_a_all_overrides():
     serial = _setup()
 
     for override_val in [0, 1, 2]:
-        _set_pref("ctrl_a_override", override_val)
+        _set_pref(CTRL_A_OVERRIDE_PREF, override_val)
         driver.clear_logs()
 
         keyboard.tap_key_by_code(KEYCODE_CTRL_LEFT, serial)
         keyboard.tap_key("a", serial)
-        time.sleep(0.5)
+        if override_val == 2:
+            driver.wait_for(
+                "DevKey/TXT",
+                "key_event",
+                match={"code": ord("a"), "ctrl": True},
+                timeout_ms=3000,
+            )
+        else:
+            _assert_host_focused(serial, f"ctrl_a_override={override_val}")
 
         _assert_pid_alive(serial)
 
     # Reset to default
-    _set_pref("ctrl_a_override", 0)
+    _set_pref(CTRL_A_OVERRIDE_PREF, 0)

@@ -20,12 +20,20 @@ KEYCODE_SHIFT = -1
 KEYCODE_CTRL_LEFT = -113
 KEYCODE_ALT_LEFT = -57
 KEYCODE_META_LEFT = -117
+TEST_LETTER = "b"
 
 MODIFIER_KEYS = {
     "shift": KEYCODE_SHIFT,
     "ctrl": KEYCODE_CTRL_LEFT,
     "alt": KEYCODE_ALT_LEFT,
     "meta": KEYCODE_META_LEFT,
+}
+
+MODIFIER_EVENT_TYPES = {
+    "shift": "SHIFT",
+    "ctrl": "CTRL",
+    "alt": "ALT",
+    "meta": "META",
 }
 
 
@@ -77,6 +85,35 @@ def _reset_modifiers(serial):
     time.sleep(0.3)
 
 
+def _wait_modifier_transition(name):
+    driver.wait_for(
+        "DevKey/MOD",
+        "modifier_transition",
+        match={"type": MODIFIER_EVENT_TYPES[name]},
+        timeout_ms=3000,
+    )
+
+
+def _verify_modified_key_or_host_state(serial, active_names, context):
+    match = {}
+    for name in active_names:
+        if name in {"ctrl", "alt", "meta"}:
+            match[name] = True
+            break
+    if match:
+        driver.wait_for(
+            "DevKey/TXT",
+            "key_event",
+            match=match,
+            timeout_ms=3000,
+        )
+        return
+
+    state = adb.query_test_host_state(serial, timeout_ms=2000)
+    assert state.get("focused") is not False, f"{context}: TestHostActivity lost focus"
+    assert adb.is_keyboard_visible(serial), f"{context}: keyboard is not visible"
+
+
 def test_single_modifier_engage_and_consume():
     """
     For each modifier (Shift, Ctrl, Alt, Meta): engage one-shot, then
@@ -92,10 +129,11 @@ def test_single_modifier_engage_and_consume():
             keyboard.tap_key_by_code(code, serial)
         except KeyError:
             continue  # Meta key may not be present in all layouts
+        _wait_modifier_transition(name)
         time.sleep(0.15)
 
-        keyboard.tap_key("a", serial)
-        time.sleep(0.3)
+        keyboard.tap_key(TEST_LETTER, serial)
+        _verify_modified_key_or_host_state(serial, [name], f"{name} consume")
 
         _assert_pid_alive(serial)
 
@@ -115,14 +153,16 @@ def test_pairwise_modifier_combinations():
 
         try:
             keyboard.tap_key_by_code(code1, serial)
+            _wait_modifier_transition(name1)
             time.sleep(0.1)
             keyboard.tap_key_by_code(code2, serial)
+            _wait_modifier_transition(name2)
             time.sleep(0.1)
         except KeyError:
             continue
 
-        keyboard.tap_key("a", serial)
-        time.sleep(0.3)
+        keyboard.tap_key(TEST_LETTER, serial)
+        _verify_modified_key_or_host_state(serial, [name1, name2], f"{name1}+{name2}")
 
         _assert_pid_alive(serial)
 
@@ -141,10 +181,12 @@ def test_all_four_modifiers_at_once():
             keyboard.tap_key_by_code(code, serial)
         except KeyError:
             pass
+        else:
+            _wait_modifier_transition(name)
         time.sleep(0.1)
 
-    keyboard.tap_key("a", serial)
-    time.sleep(0.5)
+    keyboard.tap_key(TEST_LETTER, serial)
+    _verify_modified_key_or_host_state(serial, list(MODIFIER_KEYS.keys()), "all modifiers")
 
     _assert_pid_alive(serial)
 
@@ -163,8 +205,10 @@ def test_modifier_engage_disengage_cycle():
         for _ in range(3):
             try:
                 keyboard.tap_key_by_code(code, serial)
+                _wait_modifier_transition(name)
                 time.sleep(0.1)
                 keyboard.tap_key_by_code(code, serial)
+                _wait_modifier_transition(name)
                 time.sleep(0.1)
             except KeyError:
                 break
@@ -190,9 +234,10 @@ def test_sequential_modifier_transitions():
             keyboard.tap_key_by_code(code, serial)
         except KeyError:
             continue
+        _wait_modifier_transition(name)
         time.sleep(0.15)
-        keyboard.tap_key("a", serial)
-        time.sleep(0.2)
+        keyboard.tap_key(TEST_LETTER, serial)
+        _verify_modified_key_or_host_state(serial, [name], f"forward {name}")
 
     # Reverse pass
     for name, code in reversed(sequence):
@@ -200,8 +245,9 @@ def test_sequential_modifier_transitions():
             keyboard.tap_key_by_code(code, serial)
         except KeyError:
             continue
+        _wait_modifier_transition(name)
         time.sleep(0.15)
-        keyboard.tap_key("a", serial)
-        time.sleep(0.2)
+        keyboard.tap_key(TEST_LETTER, serial)
+        _verify_modified_key_or_host_state(serial, [name], f"reverse {name}")
 
     _assert_pid_alive(serial)

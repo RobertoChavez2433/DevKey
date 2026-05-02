@@ -38,6 +38,15 @@ def _assert_ime_alive(serial):
     assert result.stdout.strip(), "IME process died"
 
 
+def _wait_macro(event, match=None, timeout_ms=3000):
+    return driver.wait_for(
+        category="DevKey/UI",
+        event=event,
+        match=match or {},
+        timeout_ms=timeout_ms,
+    )
+
+
 def test_record_empty_replay():
     """
     Start recording, immediately stop (0 steps), then replay.
@@ -47,12 +56,12 @@ def test_record_empty_replay():
     driver.clear_logs()
 
     driver.broadcast("dev.devkey.keyboard.MACRO_START_RECORD", {"name": "empty"})
-    time.sleep(0.2)
+    _wait_macro("macro_record_start", {"success": True, "recording": True})
     driver.broadcast("dev.devkey.keyboard.MACRO_STOP_RECORD", {})
-    time.sleep(0.5)
+    _wait_macro("macro_record_stop", {"success": True, "step_count": 0, "recording": False})
 
     driver.broadcast("dev.devkey.keyboard.MACRO_REPLAY", {"name": "empty"})
-    time.sleep(0.5)
+    _wait_macro("macro_replay", {"success": True, "step_count": 0})
 
     # Verify IME survives empty replay
     _assert_ime_alive(serial)
@@ -68,17 +77,17 @@ def test_cancel_mid_capture():
     driver.clear_logs()
 
     driver.broadcast("dev.devkey.keyboard.MACRO_START_RECORD", {"name": "cancelled"})
-    time.sleep(0.2)
+    _wait_macro("macro_record_start", {"success": True, "recording": True})
     for ch in "abc":
         keyboard.tap_key(ch, serial)
         time.sleep(0.1)
 
     driver.broadcast("dev.devkey.keyboard.MACRO_CANCEL_RECORD", {})
-    time.sleep(0.3)
+    _wait_macro("macro_record_cancel", {"success": True, "recording": False})
 
     # Attempt to replay the cancelled macro — should fail or produce no event
     driver.broadcast("dev.devkey.keyboard.MACRO_REPLAY", {"name": "cancelled"})
-    time.sleep(0.5)
+    _wait_macro("macro_replay", {"success": False, "step_count": 0})
 
     # Verify IME did not crash
     _assert_ime_alive(serial)
@@ -94,19 +103,19 @@ def test_delete_macro():
 
     # Record a macro to delete
     driver.broadcast("dev.devkey.keyboard.MACRO_START_RECORD", {"name": "todelete"})
-    time.sleep(0.2)
+    _wait_macro("macro_record_start", {"success": True, "recording": True})
     keyboard.tap_key("x", serial)
     time.sleep(0.1)
     driver.broadcast("dev.devkey.keyboard.MACRO_STOP_RECORD", {})
-    time.sleep(0.5)
+    _wait_macro("macro_record_stop", {"success": True, "step_count": 1, "recording": False})
 
     # Delete the macro
     driver.broadcast("dev.devkey.keyboard.MACRO_DELETE", {"name": "todelete"})
-    time.sleep(0.5)
+    _wait_macro("macro_delete", {"success": True})
 
     # Attempt to replay deleted macro — should not crash
     driver.broadcast("dev.devkey.keyboard.MACRO_REPLAY", {"name": "todelete"})
-    time.sleep(0.5)
+    _wait_macro("macro_replay", {"success": False, "step_count": 0})
 
     _assert_ime_alive(serial)
     assert driver.health(), "Driver not responsive after replaying deleted macro"

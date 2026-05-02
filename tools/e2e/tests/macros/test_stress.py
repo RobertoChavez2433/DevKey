@@ -39,6 +39,15 @@ def _assert_ime_alive(serial):
     assert result.stdout.strip(), "IME process died"
 
 
+def _wait_macro(event, match=None, timeout_ms=5000):
+    return driver.wait_for(
+        category="DevKey/UI",
+        event=event,
+        match=match or {},
+        timeout_ms=timeout_ms,
+    )
+
+
 def test_record_20_step_replay():
     """
     Record a macro with 20 key steps, stop recording, replay.
@@ -48,19 +57,19 @@ def test_record_20_step_replay():
     driver.clear_logs()
 
     driver.broadcast("dev.devkey.keyboard.MACRO_START_RECORD", {"name": "stress20"})
-    time.sleep(0.3)
+    _wait_macro("macro_record_start", {"success": True, "recording": True})
 
     for i in range(20):
         keyboard.tap_key(chr(ord("a") + (i % 26)), serial)
         time.sleep(0.1)
 
     driver.broadcast("dev.devkey.keyboard.MACRO_STOP_RECORD", {})
-    time.sleep(0.5)
+    _wait_macro("macro_record_stop", {"success": True, "step_count": 20, "recording": False})
 
     _assert_ime_alive(serial)
 
     driver.broadcast("dev.devkey.keyboard.MACRO_REPLAY", {"name": "stress20"})
-    time.sleep(1.0)
+    _wait_macro("macro_replay", {"success": True, "step_count": 20})
 
     _assert_ime_alive(serial)
     assert driver.health(), "Driver not responsive after 20-step record+replay"
@@ -75,16 +84,16 @@ def test_replay_5x_rapidly():
     driver.clear_logs()
 
     driver.broadcast("dev.devkey.keyboard.MACRO_START_RECORD", {"name": "rapid5"})
-    time.sleep(0.2)
+    _wait_macro("macro_record_start", {"success": True, "recording": True})
     for ch in "abc":
         keyboard.tap_key(ch, serial)
         time.sleep(0.1)
     driver.broadcast("dev.devkey.keyboard.MACRO_STOP_RECORD", {})
-    time.sleep(0.5)
+    _wait_macro("macro_record_stop", {"success": True, "step_count": 3, "recording": False})
 
-    for i in range(5):
+    for _ in range(5):
         driver.broadcast("dev.devkey.keyboard.MACRO_REPLAY", {"name": "rapid5"})
-        time.sleep(0.3)
+        _wait_macro("macro_replay", {"success": True, "step_count": 3})
 
     _assert_ime_alive(serial)
     assert driver.health(), "Driver not responsive after 5 rapid replays"
@@ -99,25 +108,28 @@ def test_record_with_modifiers():
     driver.clear_logs()
 
     driver.broadcast("dev.devkey.keyboard.MACRO_START_RECORD", {"name": "modmacro"})
-    time.sleep(0.2)
+    _wait_macro("macro_record_start", {"success": True, "recording": True})
 
     # Send modifier key events via broadcast
     driver.broadcast(
         "dev.devkey.keyboard.MACRO_INJECT_KEY",
         {"key": "c", "keyCode": 99, "modifiers": "ctrl"},
     )
-    time.sleep(0.1)
+    _wait_macro("macro_inject_key", {"success": True, "step_count": 1, "modifier_count": 1})
     driver.broadcast(
         "dev.devkey.keyboard.MACRO_INJECT_KEY",
         {"key": "v", "keyCode": 118, "modifiers": "ctrl"},
     )
-    time.sleep(0.1)
+    _wait_macro("macro_inject_key", {"success": True, "step_count": 2, "modifier_count": 1})
 
     driver.broadcast("dev.devkey.keyboard.MACRO_STOP_RECORD", {})
-    time.sleep(0.5)
+    _wait_macro("macro_record_stop", {"success": True, "step_count": 2, "recording": False})
+
+    driver.broadcast("dev.devkey.keyboard.MACRO_REPLAY", {"name": "modmacro"})
+    _wait_macro("macro_replay", {"success": True, "step_count": 2})
 
     _assert_ime_alive(serial)
-    assert driver.health(), "Driver not responsive after modifier macro record"
+    assert driver.health(), "Driver not responsive after modifier macro replay"
 
 
 def test_record_rename_replay():
@@ -129,21 +141,21 @@ def test_record_rename_replay():
     driver.clear_logs()
 
     driver.broadcast("dev.devkey.keyboard.MACRO_START_RECORD", {"name": "oldname"})
-    time.sleep(0.2)
+    _wait_macro("macro_record_start", {"success": True, "recording": True})
     for ch in "xy":
         keyboard.tap_key(ch, serial)
         time.sleep(0.1)
     driver.broadcast("dev.devkey.keyboard.MACRO_STOP_RECORD", {})
-    time.sleep(0.5)
+    _wait_macro("macro_record_stop", {"success": True, "step_count": 2, "recording": False})
 
     driver.broadcast(
         "dev.devkey.keyboard.MACRO_RENAME",
         {"old_name": "oldname", "new_name": "newname"},
     )
-    time.sleep(0.3)
+    _wait_macro("macro_rename", {"success": True})
 
     driver.broadcast("dev.devkey.keyboard.MACRO_REPLAY", {"name": "newname"})
-    time.sleep(0.5)
+    _wait_macro("macro_replay", {"success": True, "step_count": 2})
 
     _assert_ime_alive(serial)
     assert driver.health(), "Driver not responsive after rename+replay"

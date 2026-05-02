@@ -30,6 +30,20 @@ class MacroRepository(private val dao: MacroDao) {
         dao.insert(entity)
     }
 
+    suspend fun saveMacroReplacing(name: String, steps: List<MacroStep>): Long {
+        dao.deleteByName(name)
+        return dao.insert(
+            MacroEntity(
+                name = name,
+                keySequence = MacroSerializer.serialize(steps),
+                createdAt = System.currentTimeMillis(),
+                usageCount = 0
+            )
+        )
+    }
+
+    suspend fun getMacroByName(name: String): MacroEntity? = dao.getMacroByName(name)
+
     /**
      * Deletes a macro by its ID.
      */
@@ -37,6 +51,8 @@ class MacroRepository(private val dao: MacroDao) {
         val macro = dao.getMacroById(id) ?: return
         dao.delete(macro)
     }
+
+    suspend fun deleteMacrosByName(name: String): Int = dao.deleteByName(name)
 
     /**
      * Updates the name of a macro.
@@ -46,10 +62,15 @@ class MacroRepository(private val dao: MacroDao) {
         dao.update(macro.copy(name = name))
     }
 
+    suspend fun updateMacroName(oldName: String, newName: String): Int =
+        dao.updateNameByName(oldName, newName)
+
     /**
      * Increments the usage count for a macro.
      */
     suspend fun incrementUsage(id: Long) {
         dao.incrementUsageCount(id)
     }
+
+    suspend fun getCount(): Int = dao.getCount()
 }

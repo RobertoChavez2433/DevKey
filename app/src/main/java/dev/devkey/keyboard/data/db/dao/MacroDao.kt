@@ -18,6 +18,9 @@ interface MacroDao {
     @Query("SELECT * FROM macros WHERE id = :id")
     suspend fun getMacroById(id: Long): MacroEntity?
 
+    @Query("SELECT * FROM macros WHERE name = :name ORDER BY id DESC LIMIT 1")
+    suspend fun getMacroByName(name: String): MacroEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(macro: MacroEntity): Long
 
@@ -32,6 +35,15 @@ interface MacroDao {
 
     @Query("DELETE FROM macros")
     suspend fun deleteAll()
+
+    @Query("DELETE FROM macros WHERE name = :name")
+    suspend fun deleteByName(name: String): Int
+
+    @Query("UPDATE macros SET name = :newName WHERE name = :oldName")
+    suspend fun updateNameByName(oldName: String, newName: String): Int
+
+    @Query("SELECT COUNT(*) FROM macros")
+    suspend fun getCount(): Int
 
     @Query("SELECT * FROM macros ORDER BY usage_count DESC")
     suspend fun getAllMacrosList(): List<MacroEntity>

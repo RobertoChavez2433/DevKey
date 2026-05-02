@@ -23,6 +23,7 @@ import dev.devkey.keyboard.feature.command.CommandModeDetector
 import dev.devkey.keyboard.feature.command.CommandModeRepository
 import dev.devkey.keyboard.feature.macro.MacroEngine
 import dev.devkey.keyboard.feature.macro.MacroRepository
+import dev.devkey.keyboard.feature.macro.MacroSerializer
 import dev.devkey.keyboard.feature.prediction.PredictionResult
 import dev.devkey.keyboard.feature.voice.VoiceInputEngine
 import kotlinx.coroutines.FlowPreview
@@ -62,6 +63,7 @@ fun rememberKeyboardDependencies(
     val macroRepo = remember { MacroRepository(database.macroDao()) }
     val clipboardRepo = remember { ClipboardRepository(database.clipboardHistoryDao()) }
     val macroEngine = remember { MacroEngine() }
+    val debugMacroName = remember { mutableStateOf<String?>(null) }
     val commandModeDetector = remember { CommandModeDetector(CommandModeRepository(database.commandAppDao())) }
     val voiceInputEngine = remember { VoiceInputEngine(context) }
     val modeManager = remember { KeyboardModeManager() }
@@ -217,11 +219,138 @@ fun rememberKeyboardDependencies(
                 androidx.core.content.ContextCompat.RECEIVER_EXPORTED
             )
 
+            val macroR = object : android.content.BroadcastReceiver() {
+                override fun onReceive(c: android.content.Context, i: android.content.Intent) {
+                    coroutineScope.launch {
+                        when (i.action) {
+                            "dev.devkey.keyboard.MACRO_START_RECORD" -> {
+                                val name = macroName(i)
+                                if (name == null) {
+                                    logMacroState("macro_record_start", false)
+                                    return@launch
+                                }
+                                debugMacroName.value = name
+                                macroEngine.startRecording()
+                                modeManager.setMode(KeyboardMode.MacroRecording)
+                                logMacroState("macro_record_start", true, recording = true)
+                            }
+                            "dev.devkey.keyboard.MACRO_INJECT_KEY" -> {
+                                val key = i.getStringExtra("key").orEmpty()
+                                val keyCode = i.getIntExtra("keyCode", key.firstOrNull()?.code ?: 0)
+                                val modifiers = i.getStringExtra("modifiers")
+                                    ?.split(",")
+                                    ?.map { it.trim().lowercase() }
+                                    ?.filter { it.isNotEmpty() }
+                                    ?: emptyList()
+                                macroEngine.captureKey(key, keyCode, modifiers)
+                                logMacroState(
+                                    "macro_inject_key",
+                                    macroEngine.isRecording,
+                                    stepCount = macroEngine.getCapturedSteps().size,
+                                    modifierCount = modifiers.size,
+                                    recording = macroEngine.isRecording
+                                )
+                            }
+                            "dev.devkey.keyboard.MACRO_STOP_RECORD" -> {
+                                val name = debugMacroName.value
+                                val steps = macroEngine.stopRecording()
+                                debugMacroName.value = null
+                                modeManager.setMode(KeyboardMode.Normal)
+                                val saved = name != null
+                                if (name != null) macroRepo.saveMacroReplacing(name, steps)
+                                logMacroState(
+                                    "macro_record_stop",
+                                    saved,
+                                    stepCount = steps.size,
+                                    recording = false
+                                )
+                            }
+                            "dev.devkey.keyboard.MACRO_CANCEL_RECORD" -> {
+                                macroEngine.cancelRecording()
+                                debugMacroName.value = null
+                                modeManager.setMode(KeyboardMode.Normal)
+                                logMacroState("macro_record_cancel", true, recording = false)
+                            }
+                            "dev.devkey.keyboard.MACRO_REPLAY" -> {
+                                val macro = macroName(i)?.let { macroRepo.getMacroByName(it) }
+                                val steps = macro?.let { MacroSerializer.deserialize(it.keySequence) } ?: emptyList()
+                                if (macro != null) {
+                                    macroEngine.replay(steps, bridge, modifierState)
+                                    macroRepo.incrementUsage(macro.id)
+                                    modeManager.setMode(KeyboardMode.Normal)
+                                }
+                                logMacroState(
+                                    "macro_replay",
+                                    macro != null,
+                                    stepCount = steps.size,
+                                    usageCount = if (macro != null) macro.usageCount + 1 else 0
+                                )
+                            }
+                            "dev.devkey.keyboard.MACRO_DELETE" -> {
+                                val deleted = macroName(i)?.let { macroRepo.deleteMacrosByName(it) } ?: 0
+                                logMacroState("macro_delete", deleted > 0, affectedCount = deleted)
+                            }
+                            "dev.devkey.keyboard.MACRO_RENAME" -> {
+                                val oldName = i.getStringExtra("old_name")?.takeIf { it.isNotBlank() }
+                                val newName = i.getStringExtra("new_name")?.takeIf { it.isNotBlank() }
+                                val updated = if (oldName != null && newName != null) {
+                                    macroRepo.updateMacroName(oldName, newName)
+                                } else {
+                                    0
+                                }
+                                logMacroState("macro_rename", updated > 0, affectedCount = updated)
+                            }
+                        }
+                    }
+                }
+
+                private fun macroName(intent: android.content.Intent): String? =
+                    intent.getStringExtra("name")?.take(64)?.takeIf { it.isNotBlank() }
+
+                private suspend fun logMacroState(
+                    event: String,
+                    success: Boolean,
+                    stepCount: Int? = null,
+                    modifierCount: Int? = null,
+                    affectedCount: Int? = null,
+                    usageCount: Int? = null,
+                    recording: Boolean? = null
+                ) {
+                    DevKeyLogger.ui(
+                        event,
+                        buildMap {
+                            put("macro_count", macroRepo.getCount())
+                            put("success", success)
+                            stepCount?.let { put("step_count", it) }
+                            modifierCount?.let { put("modifier_count", it) }
+                            affectedCount?.let { put("affected_count", it) }
+                            usageCount?.let { put("usage_count", it) }
+                            recording?.let { put("recording", it) }
+                        }
+                    )
+                }
+            }
+            androidx.core.content.ContextCompat.registerReceiver(
+                context,
+                macroR,
+                android.content.IntentFilter().apply {
+                    addAction("dev.devkey.keyboard.MACRO_START_RECORD")
+                    addAction("dev.devkey.keyboard.MACRO_INJECT_KEY")
+                    addAction("dev.devkey.keyboard.MACRO_STOP_RECORD")
+                    addAction("dev.devkey.keyboard.MACRO_CANCEL_RECORD")
+                    addAction("dev.devkey.keyboard.MACRO_REPLAY")
+                    addAction("dev.devkey.keyboard.MACRO_DELETE")
+                    addAction("dev.devkey.keyboard.MACRO_RENAME")
+                },
+                androidx.core.content.ContextCompat.RECEIVER_EXPORTED
+            )
+
             onDispose {
                 try { context.unregisterReceiver(resetR) } catch (_: IllegalArgumentException) {}
                 try { context.unregisterReceiver(setR) } catch (_: IllegalArgumentException) {}
                 try { context.unregisterReceiver(cmdR) } catch (_: IllegalArgumentException) {}
                 try { context.unregisterReceiver(clipboardR) } catch (_: IllegalArgumentException) {}
+                try { context.unregisterReceiver(macroR) } catch (_: IllegalArgumentException) {}
             }
         }
     }

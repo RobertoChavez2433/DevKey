@@ -51,6 +51,7 @@ app/src/main/assets/filters_vocab_en.bin
 # Claude Code
 .claude/settings.local.json
 .claude/screenshots/
+.claude/test-results/
 .claude/test-flows/calibration.json
 tools/dictgen/en_us_raw.combined
 

@@ -245,6 +245,23 @@ Created: 2026-05-02
   - the first modes rerun exposed one real false-positive risk in
     `modes.test_stress.test_symbols_type_toggle_back`; the test now proves
     final host text length after returning to normal mode
+- [x] Separator input-handler split:
+  - moved separator acceptance, autocorrect result handling, punctuation
+    heuristics, and next-word triggering out of
+    `InputHandlers.handleSeparator` into `SeparatorHandler`
+  - `InputHandlers.handleSeparator` is now low complexity in jCodeMunch:
+    cyclomatic 1, 3 lines
+  - focused unit validation passed:
+    `./gradlew testDebugUnitTest --tests dev.devkey.keyboard.core.InputHandlersTest`
+  - `./gradlew assembleDebug` passed after the split
+  - separator-adjacent S21 validation on `RFCNC0Y975L`:
+    input 16/16 clean, prediction 12/12 clean
+  - punctuation first rerun exposed verification/device-state problems:
+    11/13 passed, then `--rerun-failed` passed 2/2
+  - autocorrect first rerun exposed one next-word timeout:
+    10/11 passed, then `--rerun-failed` passed 1/1
+  - punctuation setup is now shared, uses verified host clearing, and has a
+    shorter best-effort dictionary wait instead of a 15-second stale-log wait
 
 ## Remaining Implementation Work
 
@@ -253,7 +270,6 @@ Created: 2026-05-02
   - capture jCodeMunch hotspot/complexity report with the release checklist
   - attach explicit deferral rationale for each remaining structure violation
 - [ ] Refactor production hotspots before release where they affect validation:
-  - `InputHandlers.handleSeparator`
   - `InputHandlers.handleCharacter`
   - `SuggestionPipeline.getSuggestions`
   - `SuggestionCoordinator.onSelectionChanged`
@@ -348,3 +364,6 @@ Created: 2026-05-02
 - `5aa8cb3 test(e2e): split keyboard helper responsibilities`
 - `d1717ec refactor(keyboard): extract debug receiver registration`
 - `c641a2c test(e2e): verify symbol mode round trip state`
+- `a34f0d6 docs(e2e): update release audit backlog`
+- `7d43d1a refactor(core): extract separator input handler`
+- `877dfa4 test(e2e): harden separator-adjacent evidence`

@@ -1,3 +1,10 @@
+# Secrets
+.env*
+*.pem
+*.key
+credentials.json
+keystore.jks
+
 # Gradle
 .gradle/
 build/
@@ -46,3 +53,8 @@ app/src/main/assets/filters_vocab_en.bin
 .claude/screenshots/
 .claude/test-flows/calibration.json
 tools/dictgen/en_us_raw.combined
+
+# Codex compatibility runtime artifacts
+.codex/
+.claude/codex/tmp/
+.claude/codex/run-logs/

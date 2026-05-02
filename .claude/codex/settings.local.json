@@ -1,0 +1,17 @@
+{
+  "codex": {
+    "canonicalContext": ".claude",
+    "aliasPath": ".codex",
+    "aliasTarget": ".claude/codex",
+    "debugServerPort": 3950,
+    "defaultBuild": "./gradlew assembleDebug",
+    "windowsDevicePolicy": "emulator-only",
+    "privacy": {
+      "neverLog": [
+        "typed text",
+        "credentials",
+        "credential-adjacent input"
+      ]
+    }
+  }
+}

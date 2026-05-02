@@ -22,8 +22,25 @@ context.
 | `/systematic-debugging` | Run evidence-first debugging without skipping to fixes |
 | `/test` | Run the existing ADB/HTTP-driver test harness and capture artifacts |
 | `/audit-config` | Audit the live `.claude` surface for drift and stale references |
+| `/layered-commit` | Classify dirty-tree files by architectural layer and commit each bucket explicitly |
 | `/resume-session` | Load hot status only |
 | `/end-session` | Compress session state and handoff notes |
+
+## Codex Alias Surface
+
+`.claude/` remains the canonical maintained context system. Root `AGENTS.md`
+is the Codex bootstrap file, and root `.codex/` is a Windows junction alias to
+`.claude/codex`.
+
+Codex startup order:
+
+1. `.codex/AGENTS.md`
+2. `.codex/Context Summary.md`
+3. `.codex/PLAN.md` plus any relevant `.codex/plans/*`
+4. `.codex/CLAUDE_CONTEXT_BRIDGE.md` for targeted `.claude` loads
+
+Codex-facing skill wrappers live in `.claude/codex/skills/` and route back to
+the maintained `.claude/skills/*/SKILL.md` workflows.
 
 ## Live Agents
 

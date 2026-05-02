@@ -300,6 +300,15 @@ Created: 2026-05-02
     `.claude/test-results/e2e-results-20260502T193539Z.json`
   - S21 command-mode smoke still passed:
     `.claude/test-results/e2e-results-20260502T193420Z.json`
+- [x] Plugin loading security gate resolved for v1.0:
+  - `PluginManager` uses compile-time `BuildConfig.DEBUG` gating before
+    scanning or returning foreign-package dictionaries
+  - debug-only `RESCAN_PLUGINS` receiver remains available for validation
+    without exposing the release build
+  - S21 plugin scan smoke passed with structural-only `plugin_count` payload:
+    `.claude/test-results/e2e-results-20260502T193751Z.json`
+  - `./gradlew assembleRelease` passed, confirming the release variant builds
+    with the debug-only plugin gate compiled
 
 ## Remaining Implementation Work
 
@@ -316,9 +325,6 @@ Created: 2026-05-02
 - [ ] Rerun the full S21 suite under the hardened child-process timeout.
   Feature-scope evidence is useful, but the release still needs one complete
   strict run after the voice fix and timeout guard.
-- [ ] Resolve plugin loading security for v1.0:
-  - either gate plugin loading behind debug-only behavior
-  - or add signature/provenance verification before release
 - [ ] Complete AnySoftKeyboard dictionary spike:
   - verify Apache-2.0 compatibility and source provenance
   - compare current DevKey dictionaries against an AnySoft-backed candidate on
@@ -369,8 +375,6 @@ Created: 2026-05-02
   round-trip fix and child-process timeout guard.
 - AnySoftKeyboard dictionary spike is still research work; do not integrate new
   dictionary sources before provenance and behavior are proven.
-- Plugin loading security still needs a v1.0 decision: debug-only gate or
-  signature/provenance verification.
 - The current structure audit still reports 5 files above 400 lines and 1 file
   above 35 imports. These are now visible release-gate findings, not hidden
   cleanup debt.

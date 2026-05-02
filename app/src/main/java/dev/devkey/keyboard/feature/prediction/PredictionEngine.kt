@@ -45,7 +45,7 @@ class PredictionEngine(
         // Check for autocorrect suggestion
         val autocorrectResult = autocorrectEngine.getCorrection(
             currentWord,
-            learningEngine.getLearnedWords()
+            learningEngine.getCustomWords()
         )
         if (autocorrectResult is AutocorrectResult.Suggestion) {
             results.add(

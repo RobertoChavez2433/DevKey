@@ -51,6 +51,7 @@ class LearningEngineTest {
         engine.initialize()
         engine.onWordCommitted("kotlin", isCommand = false, contextApp = null)
         assertTrue(engine.isLearnedWord("kotlin"))
+        assertFalse("committed words are not custom words", "kotlin" in engine.getCustomWords())
     }
 
     @Test
@@ -83,6 +84,34 @@ class LearningEngineTest {
         assertTrue("alpha" in words)
         assertTrue("beta" in words)
         assertEquals(2, words.size)
+    }
+
+    @Test
+    fun `addCustomWord adds learned and custom cache entries`() = runBlocking {
+        engine.initialize()
+        engine.addCustomWord("useState")
+
+        assertTrue(engine.isLearnedWord("useState"))
+        assertTrue("useState" in engine.getCustomWords())
+    }
+
+    @Test
+    fun `initialize loads only user added words into custom cache`() = runBlocking {
+        dao.insert(
+            dev.devkey.keyboard.data.db.entity.LearnedWordEntity(
+                word = "kubectl", frequency = 2, contextApp = null, isUserAdded = true
+            )
+        )
+        dao.insert(
+            dev.devkey.keyboard.data.db.entity.LearnedWordEntity(
+                word = "ordinary", frequency = 2, contextApp = null, isUserAdded = false
+            )
+        )
+
+        engine.initialize()
+
+        assertTrue("kubectl" in engine.getCustomWords())
+        assertFalse("ordinary" in engine.getCustomWords())
     }
 
     // --- isLearnedWord ---

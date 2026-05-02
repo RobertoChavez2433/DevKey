@@ -45,6 +45,31 @@ class PredictionEngineTest {
     }
 
     @Test
+    fun `ordinary learned word does not suppress autocorrect suggestion`() = runBlocking {
+        autocorrectEngine.aggressiveness = AutocorrectEngine.Aggressiveness.MILD
+        fakeDictProvider.fuzzyCorrections = listOf("the")
+
+        learningEngine.initialize()
+        learningEngine.onWordCommitted("teh", isCommand = false, contextApp = null)
+        val results = predictionEngine.predict("teh")
+
+        assertTrue(results.first().isAutocorrect)
+        assertEquals("the", results.first().word)
+    }
+
+    @Test
+    fun `custom word suppresses autocorrect suggestion`() = runBlocking {
+        autocorrectEngine.aggressiveness = AutocorrectEngine.Aggressiveness.MILD
+        fakeDictProvider.fuzzyCorrections = listOf("the")
+
+        learningEngine.initialize()
+        learningEngine.addCustomWord("teh")
+        val results = predictionEngine.predict("teh")
+
+        assertTrue(results.none { it.isAutocorrect })
+    }
+
+    @Test
     fun `dictionary suggestions follow autocorrect`() = runBlocking {
         autocorrectEngine.aggressiveness = AutocorrectEngine.Aggressiveness.MILD
         fakeDictProvider.suggestions = listOf("the", "them", "then")

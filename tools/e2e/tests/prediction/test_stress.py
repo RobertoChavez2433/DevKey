@@ -17,6 +17,13 @@ COMMON_WORDS = [
 ]
 
 
+def _tap_word_stable(word, serial):
+    """Type a word with enough settle time after the first character."""
+    for index, ch in enumerate(word):
+        keyboard.tap_key(ch, serial)
+        time.sleep(0.35 if index == 0 else 0.12)
+
+
 def _setup():
     serial = adb.get_device_serial()
     driver.require_driver()
@@ -35,6 +42,15 @@ def _setup():
         driver.wait_for("DevKey/IME", "bool_pref_set", timeout_ms=3000)
     except Exception:
         pass
+    # Prediction stress is not the auto-cap gate. Disable auto-cap here so
+    # sentence punctuation does not recompose the keyboard between coordinate
+    # taps; auto-cap behavior is validated by the dedicated auto-cap tests.
+    driver.clear_logs()
+    driver.broadcast(
+        "dev.devkey.keyboard.SET_BOOL_PREF",
+        {"key": "auto_cap", "value": False},
+    )
+    driver.wait_for("DevKey/IME", "bool_pref_set", timeout_ms=3000)
     driver.broadcast(
         "dev.devkey.keyboard.SET_AUTOCORRECT_LEVEL",
         {"level": "mild"},
@@ -74,11 +90,12 @@ def test_rapid_20_word_typing():
 def test_suggestion_tap_chain():
     """
     Repeat the 'type word + space' pattern 5 times and verify the prediction
-    event pipeline fires each time.  Does not tap the suggestion bar (coords
-    are unreliable) — only verifies the event signal.
+    event pipeline fires each time. Uses the same known-good common-word set as
+    the rapid typing test so this validates prediction continuity instead of
+    one-letter edge behavior.
     """
     serial = _setup()
-    chain_words = ["i", "am", "at", "the", "end"]
+    chain_words = COMMON_WORDS[:5]
     event_count = 0
 
     for word in chain_words:
@@ -104,18 +121,17 @@ def test_three_sentence_paragraph():
     fires after every space (including after punctuation).
     """
     serial = _setup()
-    # Short sentences; periods typed inline via tap_key.
     sentences = [
-        ["i", "am", "here"],
-        ["you", "are", "there"],
-        ["we", "go", "now"],
+        COMMON_WORDS[0:3],
+        COMMON_WORDS[3:6],
+        COMMON_WORDS[6:9],
     ]
     event_count = 0
 
     for sentence in sentences:
         for word in sentence:
             driver.clear_logs()
-            keyboard.tap_sequence(word, delay=0.08, serial=serial)
+            _tap_word_stable(word, serial)
             keyboard.tap_key_by_code(SPACE_CODE, serial)
 
             entry = driver.wait_for(

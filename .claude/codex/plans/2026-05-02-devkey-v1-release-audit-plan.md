@@ -69,6 +69,17 @@ Created: 2026-05-02
   - JSON: `.claude/test-results/e2e-results-20260502T150911Z.json`
   - all passing tests had verification evidence
   - repeated-`a` composing stress was replaced with varied-key state checks
+- [x] S21 autocorrect feature rerun under verified-state harness:
+  - result: 11 passed, 0 failed, 0 errors, 0 skipped
+  - JSON: `.claude/test-results/e2e-results-20260502T151348Z.json`
+  - all passing tests had verification evidence
+- [x] S21 prediction feature rerun under verified-state harness:
+  - initial result exposed 2 real `next_word_suggestions` timeouts
+  - rerun-failed verified both repaired tests
+  - final result: 12 passed, 0 failed, 0 errors, 0 skipped
+  - JSON: `.claude/test-results/e2e-results-20260502T152013Z.json`
+  - all passing tests had verification evidence
+  - paragraph stress now isolates prediction from auto-cap geometry timing
 - [x] S21 `--dump-inventory`
 - [x] S21 focused smoke under verified-state harness:
   - `test_smoke.test_tap_letter_produces_logcat`

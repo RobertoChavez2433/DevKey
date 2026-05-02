@@ -9,7 +9,7 @@ import multiprocessing as mp
 import os
 import time
 import traceback
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 try:
     from _pytest.outcomes import Skipped as _PytestSkipped
@@ -223,3 +223,67 @@ def run_test_with_timeout(
         return queue.get_nowait()
     except Exception:
         return _child_exit_result(name, retry_status, process.exitcode, elapsed)
+
+
+def run_tests(
+    tests: List[Tuple[str, callable]],
+    *,
+    retry_status: str,
+    test_timeout_seconds: float,
+) -> Tuple[int, int, int, int, List[Dict[str, Any]]]:
+    """
+    Run discovered tests and print result summaries.
+
+    Returns (passed, failed, errors, skipped, per_test_results).
+    """
+    passed = 0
+    failed = 0
+    errors = 0
+    skipped = 0
+    results: List[Dict[str, Any]] = []
+
+    total = len(tests)
+    print(f"\nRunning {total} test(s)...")
+    if test_timeout_seconds > 0:
+        print(f"Hard timeout: {test_timeout_seconds:g}s per test")
+    else:
+        print("Hard timeout: disabled")
+    print()
+    print("=" * 70)
+
+    for index, (name, func) in enumerate(tests, 1):
+        print(f"  [{index}/{total}] {name} ... ", end="", flush=True)
+        result = run_test_with_timeout(
+            name,
+            func,
+            retry_status,
+            test_timeout_seconds,
+        )
+        status = result.get("status")
+        elapsed = float(result.get("duration_seconds", 0.0))
+        results.append(result)
+
+        if status == "PASS":
+            print(f"PASS ({elapsed:.1f}s)")
+            passed += 1
+        elif status == "FAIL":
+            print(f"FAIL ({elapsed:.1f}s)")
+            if result.get("error"):
+                print(f"         {result.get('error')}")
+            failed += 1
+        elif status == "SKIP":
+            print(f"SKIP ({elapsed:.1f}s)")
+            if result.get("reason"):
+                print(f"         {result.get('reason')}")
+            skipped += 1
+        else:
+            label = "TIMEOUT" if result.get("error_type") == "TestTimeout" else "ERROR"
+            print(f"{label} ({elapsed:.1f}s)")
+            print(f"         {result.get('error_type')}: {result.get('error')}")
+            errors += 1
+
+    print("=" * 70)
+    print(f"\nResults: {passed} passed, {failed} failed, {errors} errors, "
+          f"{skipped} skipped (out of {total} tests)")
+
+    return passed, failed, errors, skipped, results

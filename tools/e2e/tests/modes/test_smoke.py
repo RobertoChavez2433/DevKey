@@ -5,7 +5,6 @@ Migrated from tools/e2e/tests/test_modes.py -- same test logic,
 relocated into the modes/ test package for Phase 8 organisation.
 """
 
-import subprocess
 import time
 
 from lib import adb, driver, keyboard
@@ -52,49 +51,34 @@ def test_abc_returns_to_normal():
     driver.require_driver()
 
     # Ensure clean Normal state.
-    subprocess.run(
-        ["adb"] + (["-s", serial] if serial else []) +
-        ["shell", "am", "broadcast", "-a",
-         "dev.devkey.keyboard.RESET_KEYBOARD_MODE"],
-        check=False, capture_output=True,
-    )
-    time.sleep(0.3)
+    driver.clear_logs()
+    driver.broadcast("dev.devkey.keyboard.RESET_KEYBOARD_MODE", {})
+    driver.wait_for("DevKey/IME", "keyboard_mode_reset", timeout_ms=3000)
     keyboard.load_key_map(serial)
 
     try:
         # Enter symbols mode via 123 key
         driver.clear_logs()
         keyboard.tap_key_by_code(-2, serial)
-        time.sleep(0.5)
+        driver.wait_for("DevKey/IME", "keyboard_mode_changed", timeout_ms=3000)
+        keyboard.load_key_map(serial)
 
         # Tap ABC key (KEYCODE_ALPHA = -200) from the symbols-layer key map.
-        adb.clear_logcat(serial)
+        driver.clear_logs()
         keyboard.tap_symbols_key_by_code(-200, serial)
-        time.sleep(0.5)
-
-        try:
-            adb.assert_logcat_contains(
-                "DevKeyMode",
-                r"(setMode|toggleMode).*(Normal|Symbols)",
-                timeout=1.5,
-                serial=serial
-            )
-        except AssertionError:
-            subprocess.run(
-                ["adb"] + (["-s", serial] if serial else []) +
-                ["shell", "am", "broadcast", "-a",
-                 "dev.devkey.keyboard.RESET_KEYBOARD_MODE"],
-                check=False, capture_output=True,
-            )
-            time.sleep(0.3)
-            assert True  # RESET_KEYBOARD_MODE is the authoritative path
-    finally:
-        subprocess.run(
-            ["adb"] + (["-s", serial] if serial else []) +
-            ["shell", "am", "broadcast", "-a",
-             "dev.devkey.keyboard.RESET_KEYBOARD_MODE"],
-            check=False, capture_output=True,
+        entry = driver.wait_for(
+            "DevKey/IME",
+            "keyboard_mode_changed",
+            timeout_ms=3000,
         )
+        assert "Normal" in str(entry.get("data", {}).get("to", "")), (
+            f"Expected ABC to return to Normal, got {entry}"
+        )
+    finally:
+        try:
+            driver.broadcast("dev.devkey.keyboard.RESET_KEYBOARD_MODE", {})
+        except Exception:
+            pass
 
 
 def test_symbols_toggle_back():

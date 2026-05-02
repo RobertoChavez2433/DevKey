@@ -56,16 +56,23 @@ fun computeKeyBounds(
     val availableWidth = keyboardWidthPx - (2 * horizontalPaddingPx)
 
     // Compute per-row heights.
-    // WHY: KeyboardView.computeRowHeights maps ALL weights (even if there are
-    //      more weights than rows) and uses getOrElse for the row indices.
-    //      Match that behavior: take first rowCount weights, fall back to equal.
+    // WHY: KeyboardView.computeRowHeights maps ALL weights and sums all of
+    //      them, even if the active layout has fewer rows and the extra row
+    //      height is not rendered. Symbols mode uses LayoutMode.FULL weights
+    //      with a 5-row layout, so the denominator must include the unused
+    //      sixth FULL weight or bottom-row coordinates land below the actual
+    //      tappable key centers.
     val rowHeights = if (rowWeights != null && rowWeights.isNotEmpty()) {
         val effectiveWeights = if (rowWeights.size >= rowCount) {
             rowWeights.take(rowCount)
         } else {
             rowWeights + List(rowCount - rowWeights.size) { rowWeights.last() }
         }
-        val totalWeight = effectiveWeights.sum()
+        val totalWeight = if (rowWeights.size >= rowCount) {
+            rowWeights.sum()
+        } else {
+            effectiveWeights.sum()
+        }
         effectiveWeights.map { w -> availableHeight * (w / totalWeight) }
     } else {
         List(rowCount) { availableHeight / rowCount }

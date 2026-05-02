@@ -23,6 +23,7 @@ class KeyBoundsCalculatorTest {
 
     private val fullLayout = QwertyLayout.getLayout(LayoutMode.FULL)
     private val compactLayout = QwertyLayout.getLayout(LayoutMode.COMPACT)
+    private val symbolsLayout = SymbolsLayout.layout
 
     private val fullRowWeights = getRowWeightsForMode(LayoutMode.FULL)
     private val compactRowWeights = getRowWeightsForMode(LayoutMode.COMPACT)
@@ -264,5 +265,24 @@ class KeyBoundsCalculatorTest {
         val row0Height = bounds.filter { it.row == 0 }.let { it[0].bottom - it[0].top }
         val row5Height = bounds.filter { it.row == 5 }.let { it[0].bottom - it[0].top }
         assertEquals("Without weights, rows should be equal height", row0Height, row5Height, 0.01f)
+    }
+
+    @Test
+    fun `extra row weights stay in denominator for symbols layout`() {
+        val bounds = computeKeyBounds(
+            layout = symbolsLayout,
+            keyboardWidthPx = screenWidthPx,
+            keyboardHeightPx = keyAreaHeightPx,
+            horizontalPaddingPx = horizontalPaddingPx,
+            rowGapPx = rowGapPx,
+            keyGapPx = keyGapPx,
+            rowWeights = fullRowWeights
+        )
+        val abc = bounds.first { it.code == SymbolsLayout.KEYCODE_ALPHA }
+        val oldBottomEdgeY = 850f
+        assertTrue(
+            "ABC centerY=${abc.centerY} should be above the old bottom-edge coordinate",
+            abc.centerY < oldBottomEdgeY
+        )
     }
 }

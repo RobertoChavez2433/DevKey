@@ -36,15 +36,14 @@ def test_switch_during_modifier_hold():
     serial = _setup()
     _reset_mode()
 
-    # Activate Shift via broadcast (structural, no coordinate dependency).
+    # Activate Shift through the real key path. There is no SET_MODIFIER
+    # receiver in the app, so a broadcast here would be a false positive.
     driver.clear_logs()
-    driver.broadcast(
-        "dev.devkey.keyboard.SET_MODIFIER",
-        {"modifier": "shift", "state": "on"},
-    )
+    keyboard.tap_key_by_code(-1, serial)
     time.sleep(0.2)
 
     # Switch to symbols while modifier is active.
+    driver.clear_logs()
     driver.broadcast(
         "dev.devkey.keyboard.SET_KEYBOARD_MODE",
         {"mode": "symbols"},
@@ -59,12 +58,13 @@ def test_switch_during_modifier_hold():
     )
 
     # Return to Normal and clear modifiers.
+    driver.clear_logs()
     _reset_mode()
-    driver.broadcast(
-        "dev.devkey.keyboard.SET_MODIFIER",
-        {"modifier": "shift", "state": "off"},
+    driver.wait_for(
+        category="DevKey/IME",
+        event="keyboard_mode_reset",
+        timeout_ms=3000,
     )
-    time.sleep(0.2)
 
 
 def test_mode_switch_with_suggestions():

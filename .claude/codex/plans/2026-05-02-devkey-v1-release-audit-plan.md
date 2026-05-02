@@ -80,7 +80,17 @@ Created: 2026-05-02
   - JSON: `.claude/test-results/e2e-results-20260502T152013Z.json`
   - all passing tests had verification evidence
   - paragraph stress now isolates prediction from auto-cap geometry timing
+- [x] S21 modes feature rerun under verified-state harness:
+  - initial result exposed unverified cleanup actions and a stale symbols
+    bottom-row coordinate for ABC
+  - fixed `computeKeyBounds` to match Compose row-weight denominator behavior
+  - final result: 10 passed, 0 failed, 0 errors, 0 skipped
+  - JSON: `.claude/test-results/e2e-results-20260502T153043Z.json`
+  - all passing tests had verification evidence
 - [x] S21 `--dump-inventory`
+  - regenerated after coordinate fix:
+    `.claude/test-results/key-inventory-20260502T153201Z.json`
+  - compact symbols ABC coordinate corrected to `x=66`, `y=2050`
 - [x] S21 focused smoke under verified-state harness:
   - `test_smoke.test_tap_letter_produces_logcat`
   - evidence included `DevKeyPress` logcat assertion after tap

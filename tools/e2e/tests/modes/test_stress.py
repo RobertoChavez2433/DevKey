@@ -114,11 +114,18 @@ def test_compact_full_compact_roundtrip():
         )
 
     # Restore to full
+    driver.clear_logs()
     driver.broadcast(
         "dev.devkey.keyboard.SET_LAYOUT_MODE",
         {"mode": "full"},
     )
-    time.sleep(0.3)
+    driver.wait_for(
+        category="DevKey/IME",
+        event="layout_mode_set",
+        match={"mode": "full"},
+        timeout_ms=3000,
+    )
+    keyboard.load_key_map(serial)
 
 
 def test_symbols_type_toggle_back():

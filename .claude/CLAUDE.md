@@ -26,6 +26,30 @@ test/debug helpers into production behavior.**
 - Keep `.claude` live files lean. Plans, logs, tailor output, and test artifacts
   are support material, not always-on context.
 
+## Git Commits
+
+- Treat commit history as the durable narrative layer for committed decisions.
+- Active state files track in-progress work; git history preserves lasting
+  intent.
+- Follow Conventional Commits: `<type>(<scope>): <subject>`.
+- Valid types: `feat`, `fix`, `refactor`, `perf`, `test`, `docs`, `chore`,
+  `ci`, `build`.
+- Scopes are enforced; see `scripts/git/valid-scopes.txt`.
+- Scope is required for `feat`, `fix`, `refactor`, and `perf` commits.
+- Subject line: imperative mood, no period, and 72 characters or fewer.
+- Body is required for `feat`, `fix`, `refactor`, and `perf`.
+- Body is required for any scoped `test`, `docs`, `chore`, `ci`, or `build`
+  commit.
+- Mechanical-only lightweight commits may stay unscoped and terse only when no
+  meaningful product, architecture, process, or test-strategy decision was made.
+- Body explains why: problem or need, decision or approach, tradeoff, and
+  evidence.
+- `Reason:` trailer is required for narrative commits and must parse as a real
+  git trailer.
+- Optional trailers: `Decision:`, `Tradeoff:`, `Evidence:`, `Follow-up:`,
+  `Refs:`.
+- Wrap body text at 72 characters.
+
 ## Architecture
 
 - Keep the project split intact: `core/`, `data/`, `feature/`, `ui/`, `debug/`.

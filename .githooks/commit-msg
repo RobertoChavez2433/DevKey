@@ -1,0 +1,4 @@
+#!/bin/sh
+# Commit-message hook wrapper for narrative history enforcement.
+scripts/git/commit-msg "$1"
+exit $?

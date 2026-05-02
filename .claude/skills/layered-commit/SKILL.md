@@ -1,6 +1,6 @@
 ---
 name: layered-commit
-description: "Classify dirty-tree files by architectural layer and commit each bucket with a conventional-commit message."
+description: "Classify dirty-tree files by architectural layer and commit each bucket with a scoped conventional-commit message."
 user-invocable: true
 disable-model-invocation: true
 ---
@@ -8,8 +8,8 @@ disable-model-invocation: true
 # Layered Commit
 
 Sort uncommitted changes into architectural-layer buckets and commit each
-bucket sequentially with a `<type>: <description>` message derived from
-the diff context.
+bucket sequentially with a `<type>(<scope>): <description>` message derived
+from the diff context.
 
 ## Workflow
 
@@ -36,6 +36,7 @@ Assign each file to the first matching bucket:
 | ui       | `app/src/main/**/ui/**`             | context-driven |
 | debug    | `app/src/main/**/debug/**`          | context-driven |
 | test     | `app/src/test/**`                   | `test:`        |
+| e2e      | `tools/e2e/**`                      | `test:`        |
 | build    | `*.gradle*`, `gradle/**`, `*.toml`  | `build:`       |
 | docs     | `.claude/**`, `*.md`                | `docs:`        |
 
@@ -60,21 +61,40 @@ test/build/docs buckets.
 ### 5. Commit each bucket
 
 Process buckets in this order: production layers first, then test, then
-build, then docs last.
+e2e, then build, then docs last.
 
 For each bucket:
 
 1. Read the diffs for the bucket's files (`git diff -- <file>` for tracked
    files, read the file content for untracked files).
-2. Generate a one-line commit message in `<type>: <description>` format:
-   - For **context-driven** buckets, pick the type from the diff:
-     `feat:` (new capability), `fix:` (bug fix), `refactor:` (restructure
-     without behavior change), `style:` (formatting / lint fixes).
-   - For **test/build/docs** buckets, use the default type from the table.
-   - The description should be lowercase, imperative, concise, and capture
-     the *why* of the change — not just list file names.
+2. Generate a commit message in `<type>(<scope>): <description>` format:
+   - **Type**: For context-driven buckets, pick from:
+     `feat` (new capability), `fix` (bug fix), `refactor` (restructure
+     without behavior change), `perf` (performance).
+     For test/build/docs buckets, use the default type from the table.
+   - **Scope**: Use the most specific scope from `scripts/git/valid-scopes.txt`
+     that covers the changed files. If files span multiple scopes, use the
+     dominant one. Omit scope only for truly cross-cutting mechanical changes.
+   - **Subject**: lowercase, imperative, concise, captures the *why* not
+     just the *what*. Under 72 characters total.
+   - **Body**: Required for `feat`/`fix`/`refactor`/`perf` commits.
+     Structure as: Problem → Decision → Evidence. Optional for mechanical
+     `test`/`build`/`docs` commits.
+   - **Trailers**: Add `Reason:` for any commit with a body. Optionally add
+     `Evidence:`, `Follow-up:`, or `Refs:` when relevant.
 3. Stage the files by explicit name: `git add <file1> <file2> ...`
-4. Commit: `git commit -m "<message>"`
+4. Commit using a heredoc for multi-line messages:
+   ```
+   git commit -m "$(cat <<'EOF'
+   <type>(<scope>): <subject>
+
+   <body — if required>
+
+   Reason: <one-line forcing function>
+   EOF
+   )"
+   ```
+   For lightweight commits (no body required), a single-line `-m` is fine.
 
 ### 6. Summary
 
@@ -82,7 +102,7 @@ After all commits, print a summary table:
 
 ```
 Commits created:
-  <short-hash>  <type>: <description>   (N files)
+  <short-hash>  <type>(<scope>): <description>   (N files)
   ...
 ```
 
@@ -99,4 +119,6 @@ Commits created:
   dirty tree.
 - If a commit fails (e.g. pre-commit hook), report the error and continue
   with the next bucket rather than aborting the entire run.
-- Keep commit messages under 72 characters.
+- Keep subject line under 72 characters.
+- Valid scopes are listed in `scripts/git/valid-scopes.txt`. Do not invent
+  new scopes without updating that file.

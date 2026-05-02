@@ -102,6 +102,7 @@ class BinaryDictionary : Dictionary, java.io.Closeable {
         val chars = previousWord.toString().toCharArray()
         mOutputCharsBigrams.fill(0.toChar())
         mFrequenciesBigrams.fill(0)
+        if (mNativeDict == 0L) return
         val codesSize = composer.size()
         mInputCodes.fill(-1)
         if (codesSize > 0) {

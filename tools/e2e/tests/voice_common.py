@@ -51,6 +51,7 @@ def process_voice_fixture(
     expect_commit=False,
     expect_speech=True,
     require_release_quality=False,
+    cold_start=False,
     clear_logs=True,
     processing_timeout_ms=10000,
     idle_timeout_ms=60000,
@@ -65,7 +66,7 @@ def process_voice_fixture(
         driver.clear_logs()
     driver.broadcast(
         "dev.devkey.keyboard.VOICE_PROCESS_FILE",
-        {"file_path": file_path},
+        {"file_path": file_path, "cold_start": cold_start},
     )
     driver.wait_for(
         "DevKey/VOX",

@@ -8,6 +8,7 @@ object VoiceLatencyPolicy {
     const val RUNTIME_EVALUATION_NEXT_STEP = "replace_full_window_tiny_with_streaming_subsecond_runtime"
     const val MIN_WARMUP_MEMORY_CLASS_MB = 192
     const val TFLITE_THREAD_COUNT = 4
+    const val TFLITE_USE_NNAPI = false
 
     fun meetsReleaseTarget(durationMs: Long): Boolean =
         durationMs <= RELEASE_STOP_TO_COMMITTED_TARGET_MS

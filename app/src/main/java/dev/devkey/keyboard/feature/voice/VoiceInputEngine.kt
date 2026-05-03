@@ -18,9 +18,11 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.tensorflow.lite.Interpreter
+import java.io.FileInputStream
 import java.io.IOException
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.nio.channels.FileChannel
 
 /**
  * Voice input engine using TF Lite Whisper for on-device speech-to-text.
@@ -37,6 +39,7 @@ class VoiceInputEngine(private val context: Context) {
 
     companion object {
         private const val TAG = "DevKey/VoiceInputEngine"
+        private const val DEFAULT_OUTPUT_TOKEN_COUNT = 449
     }
 
     /** Current voice input state. */
@@ -92,6 +95,12 @@ class VoiceInputEngine(private val context: Context) {
     /** Whether the model was loaded successfully. */
     private var modelLoaded = false
     @Volatile private var modelWarmupStarted = false
+    private val inferenceLock = Any()
+    private var cachedInputShape: IntArray = intArrayOf(1, WhisperProcessor.N_MELS, WhisperProcessor.N_FRAMES)
+    private var cachedOutputLength: Int = 0
+    private var reusableInputBuffer: ByteBuffer? = null
+    private var reusableOutputTokens: Array<IntArray>? = null
+    private var reusableOutputBuffer: HashMap<Int, Any>? = null
 
     fun setTranscriptionListener(listener: ((String) -> Unit)?) {
         transcriptionListener = listener
@@ -176,18 +185,25 @@ class VoiceInputEngine(private val context: Context) {
         if (interpreter != null) return
         val startMs = SystemClock.elapsedRealtime()
         try {
-            val bytes = context.assets.open("whisper-tiny.en.tflite").use { it.readBytes() }
-            val buf = ByteBuffer.allocateDirect(bytes.size).order(ByteOrder.nativeOrder())
-            buf.put(bytes).rewind()
             val options = Interpreter.Options().apply {
                 setNumThreads(VoiceLatencyPolicy.TFLITE_THREAD_COUNT)
                 setUseXNNPACK(true)
+                setUseNNAPI(VoiceLatencyPolicy.TFLITE_USE_NNAPI)
             }
-            interpreter = Interpreter(buf, options)
+            val loadedInterpreter = Interpreter(loadModelBuffer(), options)
+            interpreter = loadedInterpreter
             modelLoaded = true
             processor.loadResources()
+            cacheModelTensors(loadedInterpreter)
             Log.i(TAG, "Whisper model loaded successfully")
-            logLatency("model_load", startMs, mapOf("threads" to VoiceLatencyPolicy.TFLITE_THREAD_COUNT))
+            logLatency(
+                "model_load",
+                startMs,
+                mapOf(
+                    "threads" to VoiceLatencyPolicy.TFLITE_THREAD_COUNT,
+                    "nnapi" to VoiceLatencyPolicy.TFLITE_USE_NNAPI
+                )
+            )
         } catch (e: IOException) {
             Log.w(TAG, "Whisper model not available — voice input will be limited", e)
             DevKeyLogger.voice("error", mapOf("kind" to "model_missing", "source" to "initialize"))
@@ -206,6 +222,43 @@ class VoiceInputEngine(private val context: Context) {
             modelLoaded = false
             // Don't set ERROR state — allow recording to proceed, skip inference
         }
+    }
+
+    private fun loadModelBuffer(): ByteBuffer {
+        return try {
+            context.assets.openFd("whisper-tiny.en.tflite").use { descriptor ->
+                FileInputStream(descriptor.fileDescriptor).channel.use { channel ->
+                    channel.map(
+                        FileChannel.MapMode.READ_ONLY,
+                        descriptor.startOffset,
+                        descriptor.declaredLength
+                    )
+                }
+            }
+        } catch (e: IOException) {
+            Log.w(TAG, "Whisper model memory-map unavailable; falling back to direct asset copy", e)
+            val bytes = context.assets.open("whisper-tiny.en.tflite").use { it.readBytes() }
+            ByteBuffer.allocateDirect(bytes.size).order(ByteOrder.nativeOrder()).apply {
+                put(bytes)
+                rewind()
+            }
+        }
+    }
+
+    private fun cacheModelTensors(interpreter: Interpreter) {
+        val inputTensor = interpreter.getInputTensor(0)
+        val outputTensor = interpreter.getOutputTensor(0)
+        cachedInputShape = inputTensor.shape()
+        val outputShape = outputTensor.shape()
+        cachedOutputLength = if (outputShape.size >= 2) outputShape[1] else outputShape[0]
+        DevKeyLogger.voice(
+            "model_shapes",
+            mapOf(
+                "input" to cachedInputShape.contentToString(),
+                "output" to outputShape.contentToString(),
+                "flatSize" to (cachedInputShape.drop(1).fold(1) { acc, dim -> acc * dim })
+            )
+        )
     }
 
     /**
@@ -329,36 +382,26 @@ class VoiceInputEngine(private val context: Context) {
                     return@withContext "[Audio processing failed]"
                 }
 
-                // Log model input/output tensor shapes for diagnostics
-                val inputTensor = interp.getInputTensor(0)
-                val outputTensor = interp.getOutputTensor(0)
-                DevKeyLogger.voice("model_shapes", mapOf(
-                    "input" to inputTensor.shape().contentToString(),
-                    "output" to outputTensor.shape().contentToString(),
-                    "flatSize" to flatInput.size
-                ))
-
-                // Reshape flat mel array to match model input shape [1, 80, 3000]
-                val inputBuf = ByteBuffer.allocateDirect(flatInput.size * 4).order(ByteOrder.nativeOrder())
-                for (v in flatInput) inputBuf.putFloat(v)
-                inputBuf.rewind()
-
-                // Output shape is [1, 449] — use 2D array to match
-                val outputShape = outputTensor.shape()
-                val outputLen = if (outputShape.size >= 2) outputShape[1] else outputShape[0]
-                val outputTokens2D = Array(1) { IntArray(outputLen) }
-                val outputBuffer = hashMapOf<Int, Any>(0 to outputTokens2D)
                 val inferenceStartMs = SystemClock.elapsedRealtime()
-                interp.runForMultipleInputsOutputs(arrayOf<Any>(inputBuf), outputBuffer)
-                logLatency("inference", inferenceStartMs, mapOf("source" to source))
+                val transcription = synchronized(inferenceLock) {
+                    val inputBuf = prepareInputBuffer(flatInput)
+                    val outputTokens2D = prepareOutputTokens()
+                    val outputBuffer = reusableOutputBuffer ?: hashMapOf<Int, Any>().also {
+                        reusableOutputBuffer = it
+                    }
+                    outputBuffer[0] = outputTokens2D
+                    interp.runForMultipleInputsOutputs(arrayOf<Any>(inputBuf), outputBuffer)
+                    logLatency("inference", inferenceStartMs, mapOf("source" to source))
 
-                val decodeStartMs = SystemClock.elapsedRealtime()
-                val transcription = processor.decodeTokens(outputTokens2D[0])
-                logLatency(
-                    "decode",
-                    decodeStartMs,
-                    mapOf("source" to source, "result_length" to transcription.length)
-                )
+                    val decodeStartMs = SystemClock.elapsedRealtime()
+                    processor.decodeTokens(outputTokens2D[0]).also {
+                        logLatency(
+                            "decode",
+                            decodeStartMs,
+                            mapOf("source" to source, "result_length" to it.length)
+                        )
+                    }
+                }
                 _state.value = VoiceState.IDLE
                 DevKeyLogger.voice("processing_complete", mapOf(
                     "result_length" to transcription.length,
@@ -380,6 +423,30 @@ class VoiceInputEngine(private val context: Context) {
             } catch (e: IllegalStateException) {
                 handleInferenceFailure(source, startMs, e)
             }
+        }
+    }
+
+    private fun prepareInputBuffer(flatInput: FloatArray): ByteBuffer {
+        val requiredBytes = flatInput.size * Float.SIZE_BYTES
+        val buffer = reusableInputBuffer?.takeIf { it.capacity() == requiredBytes }
+            ?: ByteBuffer.allocateDirect(requiredBytes).order(ByteOrder.nativeOrder()).also {
+                reusableInputBuffer = it
+            }
+        buffer.clear()
+        for (value in flatInput) buffer.putFloat(value)
+        buffer.rewind()
+        return buffer
+    }
+
+    private fun prepareOutputTokens(): Array<IntArray> {
+        val outputLength = cachedOutputLength.takeIf { it > 0 } ?: DEFAULT_OUTPUT_TOKEN_COUNT
+        val existing = reusableOutputTokens
+        if (existing != null && existing[0].size == outputLength) {
+            existing[0].fill(0)
+            return existing
+        }
+        return Array(1) { IntArray(outputLength) }.also {
+            reusableOutputTokens = it
         }
     }
 
@@ -443,7 +510,7 @@ class VoiceInputEngine(private val context: Context) {
      * @param filePath Absolute path to a 16kHz mono 16-bit PCM WAV file.
      * @return Transcribed text or an error/status message.
      */
-    suspend fun processFileForTest(filePath: String): String {
+    suspend fun processFileForTest(filePath: String, coldStart: Boolean = false): String {
         if (captureManager.isCapturing()) {
             captureManager.cancel()
             DevKeyLogger.voice(
@@ -451,9 +518,12 @@ class VoiceInputEngine(private val context: Context) {
                 mapOf("source" to "processFileForTest")
             )
         }
-        reloadModelForFileTest()
+        prepareModelForFileTest(coldStart)
         _state.value = VoiceState.PROCESSING
-        DevKeyLogger.voice("state_transition", mapOf("state" to "PROCESSING", "source" to "processFileForTest"))
+        DevKeyLogger.voice(
+            "state_transition",
+            mapOf("state" to "PROCESSING", "source" to "processFileForTest", "cold_start" to coldStart)
+        )
 
         val audioData = readWavPcm(filePath)
         if (audioData == null || audioData.isEmpty()) {
@@ -473,12 +543,20 @@ class VoiceInputEngine(private val context: Context) {
         return runInference(audioData, source = "processFileForTest")
     }
 
-    private fun reloadModelForFileTest() {
-        interpreter?.close()
-        interpreter = null
-        modelLoaded = false
+    private fun prepareModelForFileTest(coldStart: Boolean) {
+        if (coldStart) {
+            interpreter?.close()
+            interpreter = null
+            modelLoaded = false
+            reusableInputBuffer = null
+            reusableOutputTokens = null
+            reusableOutputBuffer = null
+        }
         initialize()
-        DevKeyLogger.voice("model_reloaded_for_file", mapOf("loaded" to modelLoaded))
+        DevKeyLogger.voice(
+            "model_ready_for_file",
+            mapOf("loaded" to modelLoaded, "cold_start" to coldStart)
+        )
     }
 
     /** Read PCM samples from a standard 16-bit mono WAV file. */

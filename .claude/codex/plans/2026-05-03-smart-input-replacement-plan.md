@@ -71,10 +71,13 @@ labeled `offline_delayed`.
 Follow-up optimization started after the first S21 gate showed preprocessing
 dominating latency. The immediate fix replaces the allocating recursive Kotlin
 FFT with JTransforms' optimized real FFT, skips padded mel frames for short
-utterances, and runs the TFLite interpreter with four threads. The remaining
-release blocker is the full-window tiny model/runtime: a 30-second Whisper
-window plus the current TFLite pass still cannot be treated as subsecond until
-fresh S21 numbers prove it.
+utterances, and runs the TFLite interpreter with four threads.
+
+Second-pass optimization removed the debug fixture path's forced model reload,
+memory-mapped the uncompressed `.tflite` asset, cached tensor metadata at model
+load, and reused direct input/output buffers across inference runs. The debug
+file path now measures the normal warmed voice path by default and keeps an
+explicit `cold_start` flag for cold-start profiling.
 
 Post-optimization S21 measurements:
 
@@ -88,11 +91,33 @@ Post-optimization S21 measurements:
   - `process_file_to_committed`: 714 ms
   - release quality: true
 
+Second-pass warmed-path S21 measurements:
+
+- `voice-hello.wav`:
+  - first warmed run: `process_file_to_committed` 696 ms
+  - repeat warmed run: `process_file_to_committed` 583 ms
+  - final verification run: `process_file_to_committed` 579 ms
+  - release quality: true
+- `voice-complex.wav`:
+  - `preprocessing`: 187 ms
+  - `inference`: 1132 ms
+  - `process_file_to_committed`: 1331 ms
+  - final verification run: `process_file_to_committed` 1410 ms
+  - release quality: false
+
+Runtime knob audit:
+
+- TFLite CPU/XNNPACK with 4 threads remains the best measured path.
+- 3 threads regressed to 1629 ms full-window end-to-end.
+- 2 threads regressed to 1675 ms full-window end-to-end.
+- NNAPI failed interpreter initialization on S21 for this model and is disabled.
+
 ## Verification
 
 Local:
 
-- `./gradlew testDebugUnitTest assembleDebug lint detekt --no-daemon` passed.
+- `./gradlew testDebugUnitTest assembleDebug detekt --no-daemon` passed.
+- `./gradlew lint --no-daemon` passed.
 
 S21:
 
@@ -101,7 +126,11 @@ S21:
 - `autocorrect`: 11 passed.
 - `prediction`: 13 passed.
 - `punctuation`: 13 passed.
-- `voice`: 19 passed.
+- `voice`: 20 passed.
+- Final voice short latency gate passed at 579 ms
+  `process_file_to_committed`.
+- Final voice full-window smoke passed at 1410 ms
+  `process_file_to_committed`; release posture remains `offline_delayed`.
 - `modes`: 10 passed.
 - `modifiers`: 22 passed.
 - `command_mode`: 6 passed.
@@ -113,4 +142,8 @@ S21:
 
 ## Remaining To-Do List
 
-None.
+- Replace the full-window Whisper Tiny TFLite path with a streaming,
+  quantized, smaller, or native runtime that can keep real speech
+  `stop-to-committed-text < 1000 ms` on S21.
+- Add a real short speech accuracy fixture; current `voice-hello.wav` is a
+  low-amplitude latency probe and should not be used as an accuracy signal.

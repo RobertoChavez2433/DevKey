@@ -166,15 +166,16 @@ internal class DebugReceiverManager(
             voiceProcessFileReceiver = object : BroadcastReceiver() {
                 override fun onReceive(context: Context, intent: Intent) {
                     val filePath = intent.getStringExtra("file_path") ?: return
+                    val coldStart = intent.getBooleanExtra("cold_start", false)
                     val engine = SessionDependencies.voiceInputEngine
                     if (engine == null) {
                         DevKeyLogger.error("voice_process_file_rejected", mapOf("reason" to "engine_null"))
                         return
                     }
-                    DevKeyLogger.voice("process_file_start")
+                    DevKeyLogger.voice("process_file_start", mapOf("cold_start" to coldStart))
                     scope.launch(Dispatchers.Main) {
                         val startedAt = android.os.SystemClock.elapsedRealtime()
-                        val result = engine.processFileForTest(filePath)
+                        val result = engine.processFileForTest(filePath, coldStart = coldStart)
                         val committed = engine.commitTranscriptionForTest(result)
                         val durationMs = android.os.SystemClock.elapsedRealtime() - startedAt
                         val releaseGate = VoiceLatencyPolicy.stopToCommittedLogData(durationMs)

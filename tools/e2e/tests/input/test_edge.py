@@ -38,6 +38,7 @@ def _setup():
 def _type_word(word, serial):
     """Tap each character with inter-key delay for reliable composing."""
     for ch in word:
+        keyboard.load_key_map(serial)
         keyboard.tap_key(ch, serial)
         time.sleep(0.15)
 
@@ -55,6 +56,7 @@ def _ensure_suggestions(serial):
         {"level": "mild"},
     )
     time.sleep(0.3)
+    keyboard.load_key_map(serial)
 
 
 def test_backspace_in_empty_field():

@@ -1,5 +1,6 @@
 package dev.devkey.keyboard.testutil
 
+import dev.devkey.keyboard.feature.smarttext.SmartTextCorrectionLevel
 import dev.devkey.keyboard.ui.keyboard.SessionDependencies
 
 /**
@@ -14,9 +15,10 @@ fun resetSessionDependencies() {
     SessionDependencies.commandModeDetector = null
     SessionDependencies.currentPackageName = null
     SessionDependencies.dictionaryProvider = null
-    SessionDependencies.autocorrectEngine = null
     SessionDependencies.learningEngine = null
+    SessionDependencies.smartTextEngine = null
     SessionDependencies.predictionEngine = null
+    SessionDependencies.smartTextCorrectionLevel = SmartTextCorrectionLevel.MILD
     SessionDependencies.voiceInputEngine = null
     SessionDependencies.resetPredictionState = null
     SessionDependencies.triggerNextSuggestions = null

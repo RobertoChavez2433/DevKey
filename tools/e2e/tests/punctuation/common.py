@@ -50,7 +50,7 @@ def wait_for_dictionary(serial):
     deadline = time.time() + 2.0
     while time.time() < deadline:
         lines = adb.capture_logcat("DevKey/DictMgr", timeout=0.2, serial=serial)
-        if any("TrieDictionary loaded" in line for line in lines):
+        if any("AnySoftKeyboard dictionary loaded" in line for line in lines):
             return
         time.sleep(0.2)
 

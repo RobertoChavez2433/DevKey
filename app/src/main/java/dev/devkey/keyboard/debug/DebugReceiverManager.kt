@@ -9,6 +9,8 @@ import androidx.core.content.ContextCompat
 import dev.devkey.keyboard.BuildConfig
 import dev.devkey.keyboard.data.db.DevKeyDatabase
 import dev.devkey.keyboard.data.repository.SettingsRepository
+import dev.devkey.keyboard.feature.smarttext.SmartTextCorrectionLevel
+import dev.devkey.keyboard.ui.keyboard.SessionDependencies
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -126,6 +128,7 @@ internal class DebugReceiverManager(
                     DevKeyLogger.error("set_autocorrect_level_rejected", mapOf("level" to level))
                     return
                 }
+                SessionDependencies.smartTextCorrectionLevel = parseSmartTextCorrectionLevel(level)
                 settingsRepository.setString(SettingsRepository.KEY_AUTOCORRECT_LEVEL, level)
                 DevKeyLogger.ime("autocorrect_level_set", mapOf("level" to level))
             }
@@ -141,7 +144,7 @@ internal class DebugReceiverManager(
             voiceProcessFileReceiver = object : BroadcastReceiver() {
                 override fun onReceive(context: Context, intent: Intent) {
                     val filePath = intent.getStringExtra("file_path") ?: return
-                    val engine = dev.devkey.keyboard.ui.keyboard.SessionDependencies.voiceInputEngine
+                    val engine = SessionDependencies.voiceInputEngine
                     if (engine == null) {
                         DevKeyLogger.error("voice_process_file_rejected", mapOf("reason" to "engine_null"))
                         return
@@ -182,7 +185,7 @@ internal class DebugReceiverManager(
 
         clearLearnedWordsReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
-                val engine = dev.devkey.keyboard.ui.keyboard.SessionDependencies.learningEngine
+                val engine = SessionDependencies.learningEngine
                 val requestId = intent.getStringExtra("request_id") ?: ""
                 if (engine == null) {
                     DevKeyLogger.error(
@@ -298,4 +301,11 @@ internal class DebugReceiverManager(
             )
         )
     }
+
+    private fun parseSmartTextCorrectionLevel(level: String): SmartTextCorrectionLevel =
+        when (level) {
+            "aggressive" -> SmartTextCorrectionLevel.AGGRESSIVE
+            "off" -> SmartTextCorrectionLevel.OFF
+            else -> SmartTextCorrectionLevel.MILD
+        }
 }

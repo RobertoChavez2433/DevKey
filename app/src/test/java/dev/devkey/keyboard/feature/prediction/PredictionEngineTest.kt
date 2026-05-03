@@ -1,6 +1,8 @@
 package dev.devkey.keyboard.feature.prediction
 
 import dev.devkey.keyboard.feature.command.InputMode
+import dev.devkey.keyboard.feature.smarttext.AnySoftKeyboardSmartTextEngine
+import dev.devkey.keyboard.feature.smarttext.SmartTextCorrectionLevel
 import dev.devkey.keyboard.testutil.FakeLearnedWordDao
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -12,16 +14,22 @@ import org.junit.Test
 class PredictionEngineTest {
 
     private lateinit var fakeDictProvider: FakeDictionaryProvider
-    private lateinit var autocorrectEngine: AutocorrectEngine
     private lateinit var learningEngine: LearningEngine
     private lateinit var predictionEngine: PredictionEngine
+    private var correctionLevel = SmartTextCorrectionLevel.MILD
 
     @Before
     fun setUp() {
         fakeDictProvider = FakeDictionaryProvider()
-        autocorrectEngine = AutocorrectEngine(fakeDictProvider)
         learningEngine = LearningEngine(FakeLearnedWordDao())
-        predictionEngine = PredictionEngine(fakeDictProvider, autocorrectEngine, learningEngine)
+        correctionLevel = SmartTextCorrectionLevel.MILD
+        predictionEngine = PredictionEngine(
+            AnySoftKeyboardSmartTextEngine(
+                fakeDictProvider,
+                learningEngine,
+                correctionLevel = { correctionLevel },
+            )
+        )
     }
 
     @Test
@@ -32,7 +40,6 @@ class PredictionEngineTest {
 
     @Test
     fun `autocorrect suggestion appears first`() = runBlocking {
-        autocorrectEngine.aggressiveness = AutocorrectEngine.Aggressiveness.MILD
         fakeDictProvider.suggestions = listOf("the", "them", "then")
         fakeDictProvider.fuzzyCorrections = listOf("the")
 
@@ -46,7 +53,6 @@ class PredictionEngineTest {
 
     @Test
     fun `ordinary learned word does not suppress autocorrect suggestion`() = runBlocking {
-        autocorrectEngine.aggressiveness = AutocorrectEngine.Aggressiveness.MILD
         fakeDictProvider.fuzzyCorrections = listOf("the")
 
         learningEngine.initialize()
@@ -59,7 +65,6 @@ class PredictionEngineTest {
 
     @Test
     fun `custom word suppresses autocorrect suggestion`() = runBlocking {
-        autocorrectEngine.aggressiveness = AutocorrectEngine.Aggressiveness.MILD
         fakeDictProvider.fuzzyCorrections = listOf("the")
 
         learningEngine.initialize()
@@ -71,7 +76,6 @@ class PredictionEngineTest {
 
     @Test
     fun `dictionary suggestions follow autocorrect`() = runBlocking {
-        autocorrectEngine.aggressiveness = AutocorrectEngine.Aggressiveness.MILD
         fakeDictProvider.suggestions = listOf("the", "them", "then")
         fakeDictProvider.fuzzyCorrections = listOf("the")
 
@@ -84,7 +88,6 @@ class PredictionEngineTest {
 
     @Test
     fun `no duplicate between autocorrect and dictionary suggestions`() = runBlocking {
-        autocorrectEngine.aggressiveness = AutocorrectEngine.Aggressiveness.MILD
         fakeDictProvider.suggestions = listOf("the", "them")
 
         learningEngine.initialize()
@@ -95,7 +98,7 @@ class PredictionEngineTest {
 
     @Test
     fun `max 3 results returned`() = runBlocking {
-        autocorrectEngine.aggressiveness = AutocorrectEngine.Aggressiveness.OFF
+        correctionLevel = SmartTextCorrectionLevel.OFF
         fakeDictProvider.suggestions = listOf("hello", "help", "held", "helm")
 
         learningEngine.initialize()
@@ -115,7 +118,7 @@ class PredictionEngineTest {
 
     @Test
     fun `OFF aggressiveness still returns dictionary suggestions`() = runBlocking {
-        autocorrectEngine.aggressiveness = AutocorrectEngine.Aggressiveness.OFF
+        correctionLevel = SmartTextCorrectionLevel.OFF
         fakeDictProvider.suggestions = listOf("hello", "help")
 
         learningEngine.initialize()
@@ -124,4 +127,19 @@ class PredictionEngineTest {
         assertTrue(results.isNotEmpty())
         assertFalse(results.any { it.isAutocorrect })
     }
+}
+
+/** Test double that returns canned suggestions without needing Suggest/JNI. */
+class FakeDictionaryProvider : DictionaryProvider(null) {
+    var suggestions: List<String> = emptyList()
+    var fuzzyCorrections: List<String> = emptyList()
+    var validWords: Set<String> = emptySet()
+
+    override fun getSuggestions(word: String, maxResults: Int): List<String> =
+        suggestions.take(maxResults)
+
+    override fun getFuzzyCorrections(word: String, maxResults: Int): List<String> =
+        fuzzyCorrections.take(maxResults)
+
+    override fun isValidWord(word: String): Boolean = word in validWords
 }

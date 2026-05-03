@@ -88,7 +88,7 @@ def test_punctuation_after_number():
     serial = _setup()
     driver.clear_logs()
 
-    _type_word("42", serial)
+    adb.input_text("42", serial)
     keyboard.tap_key_by_code(SPACE_CODE, serial)
     time.sleep(0.4)
     keyboard.tap_key_by_code(PERIOD_CODE, serial)

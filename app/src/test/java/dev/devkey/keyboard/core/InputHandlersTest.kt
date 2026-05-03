@@ -4,10 +4,11 @@ import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
 import dev.devkey.keyboard.DELETE_ACCELERATE_AT
 import dev.devkey.keyboard.core.input.TextEntryState
-import dev.devkey.keyboard.feature.prediction.AutocorrectEngine
 import dev.devkey.keyboard.feature.prediction.AutocorrectResult
 import dev.devkey.keyboard.feature.prediction.DictionaryProvider
 import dev.devkey.keyboard.feature.prediction.LearningEngine
+import dev.devkey.keyboard.feature.smarttext.AnySoftKeyboardSmartTextEngine
+import dev.devkey.keyboard.feature.smarttext.SmartTextCorrectionLevel
 import dev.devkey.keyboard.testutil.FakeLearnedWordDao
 import dev.devkey.keyboard.testutil.MockInputConnection
 import dev.devkey.keyboard.testutil.resetSessionDependencies
@@ -25,7 +26,6 @@ import org.mockito.kotlin.any
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
-import org.mockito.kotlin.verifyNoInteractions
 import org.mockito.kotlin.whenever
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
@@ -243,7 +243,7 @@ class InputHandlersTest {
     // ── handleSeparator autocorrect ─────────────────────────────────
 
     @Test
-    fun `handleSeparator mAutoCorrectOn picks default suggestion`() {
+    fun `handleSeparator mAutoCorrectOn does not use legacy default suggestion`() {
         state.mPredicting = true
         state.mAutoCorrectOn = true
         state.mComposing.append("hel")
@@ -251,11 +251,9 @@ class InputHandlersTest {
         state.mWord.add('e'.code, intArrayOf('e'.code))
         state.mWord.add('l'.code, intArrayOf('l'.code))
 
-        whenever(mockPicker.pickDefaultSuggestion()).thenReturn(true)
-
         handlers.handleSeparator(32)
 
-        verify(mockPicker).pickDefaultSuggestion()
+        verify(mockPicker, never()).pickDefaultSuggestion()
     }
 
     @Test
@@ -263,14 +261,17 @@ class InputHandlersTest {
         val mockDictProvider = mock<DictionaryProvider>()
         whenever(mockDictProvider.isValidWord(any())).thenReturn(false)
         whenever(mockDictProvider.getFuzzyCorrections(any(), any())).thenReturn(listOf("the"))
-        val acEngine = AutocorrectEngine(mockDictProvider)
-        acEngine.aggressiveness = AutocorrectEngine.Aggressiveness.AGGRESSIVE
 
         val learnEngine = LearningEngine(FakeLearnedWordDao())
         kotlinx.coroutines.runBlocking { learnEngine.initialize() }
 
-        SessionDependencies.autocorrectEngine = acEngine
+        SessionDependencies.smartTextCorrectionLevel = SmartTextCorrectionLevel.AGGRESSIVE
         SessionDependencies.learningEngine = learnEngine
+        SessionDependencies.smartTextEngine = AnySoftKeyboardSmartTextEngine(
+            mockDictProvider,
+            learnEngine,
+            correctionLevel = { SessionDependencies.smartTextCorrectionLevel },
+        )
 
         state.mPredicting = true
         state.mAutoCorrectOn = false
@@ -290,14 +291,17 @@ class InputHandlersTest {
         val mockDictProvider = mock<DictionaryProvider>()
         whenever(mockDictProvider.isValidWord(any())).thenReturn(false)
         whenever(mockDictProvider.getFuzzyCorrections(any(), any())).thenReturn(listOf("the"))
-        val acEngine = AutocorrectEngine(mockDictProvider)
-        acEngine.aggressiveness = AutocorrectEngine.Aggressiveness.MILD
 
         val learnEngine = LearningEngine(FakeLearnedWordDao())
         kotlinx.coroutines.runBlocking { learnEngine.initialize() }
 
-        SessionDependencies.autocorrectEngine = acEngine
+        SessionDependencies.smartTextCorrectionLevel = SmartTextCorrectionLevel.MILD
         SessionDependencies.learningEngine = learnEngine
+        SessionDependencies.smartTextEngine = AnySoftKeyboardSmartTextEngine(
+            mockDictProvider,
+            learnEngine,
+            correctionLevel = { SessionDependencies.smartTextCorrectionLevel },
+        )
 
         state.mPredicting = true
         state.mAutoCorrectOn = false
@@ -318,13 +322,11 @@ class InputHandlersTest {
     @Test
     fun `handleSeparator autocorrect OFF path`() {
         val mockDictProvider = mock<DictionaryProvider>()
-        val acEngine = AutocorrectEngine(mockDictProvider)
-        acEngine.aggressiveness = AutocorrectEngine.Aggressiveness.OFF
 
         val learnEngine = LearningEngine(FakeLearnedWordDao())
         kotlinx.coroutines.runBlocking { learnEngine.initialize() }
 
-        SessionDependencies.autocorrectEngine = acEngine
+        SessionDependencies.smartTextCorrectionLevel = SmartTextCorrectionLevel.OFF
         SessionDependencies.learningEngine = learnEngine
 
         state.mPredicting = true
@@ -333,8 +335,6 @@ class InputHandlersTest {
         state.mWord.add('t'.code, intArrayOf('t'.code))
         state.mWord.add('e'.code, intArrayOf('e'.code))
         state.mWord.add('h'.code, intArrayOf('h'.code))
-
-        val commitCountBefore = mockIc.commitTextCount
 
         handlers.handleSeparator(32)
 
@@ -350,13 +350,11 @@ class InputHandlersTest {
         val mockDictProvider = mock<DictionaryProvider>()
         whenever(mockDictProvider.isValidWord(any())).thenReturn(false)
         whenever(mockDictProvider.getFuzzyCorrections(any(), any())).thenReturn(listOf("hell"))
-        val acEngine = AutocorrectEngine(mockDictProvider)
-        acEngine.aggressiveness = AutocorrectEngine.Aggressiveness.AGGRESSIVE
 
         val learnEngine = LearningEngine(FakeLearnedWordDao())
         kotlinx.coroutines.runBlocking { learnEngine.initialize() }
 
-        SessionDependencies.autocorrectEngine = acEngine
+        SessionDependencies.smartTextCorrectionLevel = SmartTextCorrectionLevel.AGGRESSIVE
         SessionDependencies.learningEngine = learnEngine
 
         state.mPredicting = true

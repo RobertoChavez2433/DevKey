@@ -22,7 +22,7 @@ _dictionary_ready = False
 
 
 def _wait_for_dictionary(serial):
-    """Poll logcat until TrieDictionary reports loaded, or timeout after 15s."""
+    """Poll logcat until the donor dictionary reports loaded, or timeout after 15s."""
     global _dictionary_ready
     if _dictionary_ready:
         return
@@ -30,7 +30,7 @@ def _wait_for_dictionary(serial):
     while time.time() < deadline:
         lines = adb.capture_logcat("DevKey/DictMgr", timeout=0.5, serial=serial)
         for line in lines:
-            if "TrieDictionary loaded" in line:
+            if "AnySoftKeyboard dictionary loaded" in line:
                 _dictionary_ready = True
                 return
         time.sleep(1.0)

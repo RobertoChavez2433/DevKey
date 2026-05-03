@@ -7,14 +7,15 @@ import dev.devkey.keyboard.core.ImeState
 import dev.devkey.keyboard.core.InputConnectionProvider
 import dev.devkey.keyboard.core.SuggestionCoordinator
 import dev.devkey.keyboard.core.input.TextEntryState
-import dev.devkey.keyboard.feature.prediction.AutocorrectEngine
 import dev.devkey.keyboard.feature.prediction.DictionaryProvider
 import dev.devkey.keyboard.feature.prediction.LearningEngine
 import dev.devkey.keyboard.feature.prediction.PredictionEngine
-import dev.devkey.keyboard.feature.prediction.TrieDictionary
+import dev.devkey.keyboard.feature.smarttext.AnySoftKeyboardDictionary
+import dev.devkey.keyboard.feature.smarttext.AnySoftKeyboardSmartTextEngine
 import dev.devkey.keyboard.suggestion.engine.Suggest
 import dev.devkey.keyboard.testutil.FakeLearnedWordDao
 import dev.devkey.keyboard.testutil.MockInputConnection
+import dev.devkey.keyboard.testutil.loadAnySoftKeyboardDictionaryWithWords
 import dev.devkey.keyboard.testutil.resetSessionDependencies
 import dev.devkey.keyboard.testutil.testImeState
 import dev.devkey.keyboard.ui.keyboard.SessionDependencies
@@ -30,15 +31,11 @@ import org.mockito.kotlin.any
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.whenever
 import org.robolectric.RobolectricTestRunner
-import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
-import java.io.ByteArrayInputStream
-import java.io.ByteArrayOutputStream
-import java.util.zip.GZIPOutputStream
 
 /**
  * Integration test wiring real [SuggestionCoordinator] + [PredictionEngine] +
- * [TrieDictionary]. Only [InputConnection] and [Suggest] (JNI boundary) are
+ * donor-backed dictionary. Only [InputConnection] and [Suggest] (JNI boundary) are
  * stubbed.
  */
 @RunWith(RobolectricTestRunner::class)
@@ -52,10 +49,9 @@ class PredictionPipelineTest {
     private lateinit var coordinator: SuggestionCoordinator
     private lateinit var suggest: Suggest
     private lateinit var dictionaryProvider: DictionaryProvider
-    private lateinit var autocorrectEngine: AutocorrectEngine
     private lateinit var learningEngine: LearningEngine
     private lateinit var predictionEngine: PredictionEngine
-    private lateinit var trieDictionary: TrieDictionary
+    private lateinit var donorDictionary: AnySoftKeyboardDictionary
 
     @Before
     fun setUp() = runBlocking {
@@ -71,8 +67,7 @@ class PredictionPipelineTest {
         state.mSuggestPuncList = mutableListOf(".", ",", "!")
         resetSessionDependencies()
 
-        // Build a real TrieDictionary with test words
-        trieDictionary = loadTestDictionary()
+        donorDictionary = loadTestDictionary()
 
         // Mock Suggest to avoid JNI native library loading
         suggest = mock<Suggest>()
@@ -85,17 +80,21 @@ class PredictionPipelineTest {
 
         // Real prediction pipeline
         dictionaryProvider = DictionaryProvider(suggest)
-        dictionaryProvider.trieDictionary = trieDictionary
-        autocorrectEngine = AutocorrectEngine(dictionaryProvider)
+        dictionaryProvider.donorDictionary = donorDictionary
         learningEngine = LearningEngine(FakeLearnedWordDao())
         learningEngine.initialize()
-        predictionEngine = PredictionEngine(dictionaryProvider, autocorrectEngine, learningEngine)
+        val smartTextEngine = AnySoftKeyboardSmartTextEngine(
+            dictionaryProvider,
+            learningEngine,
+            correctionLevel = { SessionDependencies.smartTextCorrectionLevel },
+        )
+        predictionEngine = PredictionEngine(smartTextEngine)
 
         // Wire SessionDependencies
         SessionDependencies.suggest = suggest
         SessionDependencies.dictionaryProvider = dictionaryProvider
-        SessionDependencies.autocorrectEngine = autocorrectEngine
         SessionDependencies.learningEngine = learningEngine
+        SessionDependencies.smartTextEngine = smartTextEngine
         SessionDependencies.predictionEngine = predictionEngine
 
         // Default IC with a word before cursor
@@ -186,8 +185,8 @@ class PredictionPipelineTest {
         org.junit.Assert.assertNotNull(value)
     }
 
-    private fun loadTestDictionary(): TrieDictionary {
-        val words = listOf(
+    private fun loadTestDictionary(): AnySoftKeyboardDictionary =
+        loadAnySoftKeyboardDictionaryWithWords(
             "hello" to 1000,
             "help" to 900,
             "world" to 800,
@@ -196,36 +195,8 @@ class PredictionPipelineTest {
             "then" to 1400,
             "there" to 1300,
             "test" to 700,
-            "testing" to 600
+            "testing" to 600,
         )
-        val tsv = words.joinToString("\n") { "${it.first}\t${it.second}" } + "\n"
-        val gzipped = gzipBytes(tsv)
-        val context = StubRawResourceContext(gzipped)
-        val dict = TrieDictionary()
-        dict.load(context, 0)
-        return dict
-    }
-
-    private fun gzipBytes(content: String): ByteArray {
-        val bos = ByteArrayOutputStream()
-        GZIPOutputStream(bos).use { it.write(content.toByteArray(Charsets.UTF_8)) }
-        return bos.toByteArray()
-    }
-
-    private class StubRawResourceContext(
-        private val rawData: ByteArray
-    ) : android.content.ContextWrapper(RuntimeEnvironment.getApplication()) {
-        override fun getResources(): android.content.res.Resources {
-            val real = super.getResources()
-            return object : android.content.res.Resources(
-                real.assets, real.displayMetrics, real.configuration
-            ) {
-                override fun openRawResource(id: Int): java.io.InputStream {
-                    return ByteArrayInputStream(rawData)
-                }
-            }
-        }
-    }
 
     private class TestInputConnectionProvider(
         private val ic: InputConnection?

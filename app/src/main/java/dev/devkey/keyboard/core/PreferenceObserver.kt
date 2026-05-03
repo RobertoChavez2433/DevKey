@@ -7,8 +7,7 @@ import dev.devkey.keyboard.*
 import dev.devkey.keyboard.core.prefs.ImePrefsUtil
 import dev.devkey.keyboard.suggestion.engine.Suggest
 import dev.devkey.keyboard.data.repository.SettingsRepository
-import dev.devkey.keyboard.feature.prediction.AutocorrectEngine
-import dev.devkey.keyboard.debug.DevKeyLogger
+import dev.devkey.keyboard.feature.smarttext.SmartTextCorrectionLevel
 import dev.devkey.keyboard.ui.keyboard.SessionDependencies
 import java.util.Locale
 
@@ -131,11 +130,7 @@ internal class PreferenceObserver(
             }
             SettingsRepository.KEY_AUTOCORRECT_LEVEL -> {
                 val level = settings.getString(SettingsRepository.KEY_AUTOCORRECT_LEVEL, "mild")
-                SessionDependencies.autocorrectEngine?.aggressiveness = when (level) {
-                    "aggressive" -> AutocorrectEngine.Aggressiveness.AGGRESSIVE
-                    "off" -> AutocorrectEngine.Aggressiveness.OFF
-                    else -> AutocorrectEngine.Aggressiveness.MILD
-                }
+                SessionDependencies.smartTextCorrectionLevel = parseSmartTextCorrectionLevel(level)
             }
             PREF_AUTO_CAP -> {
                 state.mAutoCapPref = settings.getBoolean(
@@ -177,11 +172,7 @@ internal class PreferenceObserver(
         updateCorrectionMode()
 
         val autocorrectLevel = settings.getString(SettingsRepository.KEY_AUTOCORRECT_LEVEL, "mild")
-        SessionDependencies.autocorrectEngine?.aggressiveness = when (autocorrectLevel) {
-            "aggressive" -> AutocorrectEngine.Aggressiveness.AGGRESSIVE
-            "off" -> AutocorrectEngine.Aggressiveness.OFF
-            else -> AutocorrectEngine.Aggressiveness.MILD
-        }
+        SessionDependencies.smartTextCorrectionLevel = parseSmartTextCorrectionLevel(autocorrectLevel)
         updateAutoTextEnabled(res.configuration.locales[0])
         state.mLanguageSwitcher!!.loadLocales(settings)
         state.mAutoCapActive = state.mAutoCapPref && state.mLanguageSwitcher!!.allowAutoCap()
@@ -189,7 +180,8 @@ internal class PreferenceObserver(
     }
 
     fun updateCorrectionMode() {
-        state.mHasDictionary = state.mSuggest?.hasMainDictionary() ?: false
+        state.mHasDictionary = state.mSuggest?.hasMainDictionary() == true ||
+            SessionDependencies.dictionaryProvider?.hasDictionary() == true
         state.mAutoCorrectOn = (state.mAutoCorrectEnabled || state.mQuickFixes)
             && !state.mInputTypeNoAutoCorrect && state.mHasDictionary
         state.mCorrectionMode = when {
@@ -223,5 +215,12 @@ internal class PreferenceObserver(
 
     companion object {
         private const val TAG = "DevKey/PrefObserver"
+
+        private fun parseSmartTextCorrectionLevel(level: String): SmartTextCorrectionLevel =
+            when (level) {
+                "aggressive" -> SmartTextCorrectionLevel.AGGRESSIVE
+                "off" -> SmartTextCorrectionLevel.OFF
+                else -> SmartTextCorrectionLevel.MILD
+            }
     }
 }

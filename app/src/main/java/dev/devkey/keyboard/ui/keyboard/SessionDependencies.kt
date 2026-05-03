@@ -3,11 +3,12 @@ package dev.devkey.keyboard.ui.keyboard
 import dev.devkey.keyboard.suggestion.engine.Suggest
 import dev.devkey.keyboard.feature.command.CommandModeDetector
 import dev.devkey.keyboard.debug.DevKeyLogger
-import dev.devkey.keyboard.feature.prediction.AutocorrectEngine
 import dev.devkey.keyboard.feature.prediction.AutocorrectResult
 import dev.devkey.keyboard.feature.prediction.DictionaryProvider
 import dev.devkey.keyboard.feature.prediction.LearningEngine
 import dev.devkey.keyboard.feature.prediction.PredictionEngine
+import dev.devkey.keyboard.feature.smarttext.SmartTextCorrectionLevel
+import dev.devkey.keyboard.feature.smarttext.SmartTextEngine
 import dev.devkey.keyboard.feature.voice.VoiceInputEngine
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -41,11 +42,13 @@ object SessionDependencies {
     @Volatile
     var dictionaryProvider: DictionaryProvider? = null
     @Volatile
-    var autocorrectEngine: AutocorrectEngine? = null
-    @Volatile
     var learningEngine: LearningEngine? = null
     @Volatile
+    var smartTextEngine: SmartTextEngine? = null
+    @Volatile
     var predictionEngine: PredictionEngine? = null
+    @Volatile
+    var smartTextCorrectionLevel: SmartTextCorrectionLevel = SmartTextCorrectionLevel.MILD
 
     /** The word currently being composed, updated from LatinIME key handlers. */
     val composingWord = MutableStateFlow("")
@@ -93,13 +96,14 @@ object SessionDependencies {
      */
     fun commitWord(word: String, scope: CoroutineScope) {
         val le = learningEngine ?: return
+        DevKeyLogger.text("word_committed", mapOf("word_length" to word.length))
         scope.launch(Dispatchers.IO) {
             le.onWordCommitted(
                 word,
                 isCommand = commandModeDetector?.isCommandMode() == true,
                 contextApp = currentPackageName
             )
-            DevKeyLogger.text("word_committed", mapOf("word_length" to word.length))
+            DevKeyLogger.text("word_learning_recorded", mapOf("word_length" to word.length))
         }
     }
 }

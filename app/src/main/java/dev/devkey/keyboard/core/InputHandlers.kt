@@ -29,7 +29,6 @@ internal class InputHandlers(
         state = state,
         icProvider = icProvider,
         suggestionCoordinator = suggestionCoordinator,
-        suggestionPicker = suggestionPicker,
         modifierHandler = modifierHandler,
         keyEventSender = keyEventSender,
         puncHeuristics = puncHeuristics,

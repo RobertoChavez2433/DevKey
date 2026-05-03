@@ -6,15 +6,17 @@ import dev.devkey.keyboard.ASCII_PERIOD
 import dev.devkey.keyboard.ASCII_SPACE
 import dev.devkey.keyboard.core.input.TextEntryState
 import dev.devkey.keyboard.debug.DevKeyLogger
-import dev.devkey.keyboard.feature.prediction.AutocorrectEngine
 import dev.devkey.keyboard.feature.prediction.AutocorrectResult
+import dev.devkey.keyboard.feature.smarttext.SmartTextCorrection
+import dev.devkey.keyboard.feature.smarttext.SmartTextCorrectionRequest
+import dev.devkey.keyboard.feature.smarttext.SmartTextCorrectionLevel
+import dev.devkey.keyboard.feature.smarttext.SmartTextInputKind
 import dev.devkey.keyboard.ui.keyboard.SessionDependencies
 
 internal class SeparatorHandler(
     private val state: ImeState,
     private val icProvider: InputConnectionProvider,
     private val suggestionCoordinator: SuggestionCoordinator,
-    private val suggestionPicker: SuggestionPicker,
     private val modifierHandler: ModifierHandler,
     private val keyEventSender: KeyEventSender,
     private val puncHeuristics: PunctuationHeuristics,
@@ -46,32 +48,7 @@ internal class SeparatorHandler(
 
     private fun acceptCurrentPrediction(primaryCode: Int, ic: InputConnection?): Boolean {
         if (!state.mPredicting) return false
-        return if (shouldPickDefaultSuggestion(primaryCode)) {
-            pickDefaultSuggestion(primaryCode)
-        } else {
-            acceptTypedOrCorrectedWord(primaryCode, ic)
-        }
-    }
-
-    private fun shouldPickDefaultSuggestion(primaryCode: Int): Boolean =
-        state.mAutoCorrectOn &&
-            primaryCode != '\''.code &&
-            (
-                state.mJustRevertedSeparator == null ||
-                    state.mJustRevertedSeparator!!.isEmpty() ||
-                    state.mJustRevertedSeparator!![0].code != primaryCode
-                )
-
-    private fun pickDefaultSuggestion(primaryCode: Int): Boolean {
-        val pickedDefault = suggestionPicker.pickDefaultSuggestion()
-        if (primaryCode == ASCII_SPACE) {
-            if (state.mAutoCorrectEnabled) {
-                state.mJustAddedAutoSpace = true
-            } else {
-                TextEntryState.manualTyped("")
-            }
-        }
-        return pickedDefault
+        return acceptTypedOrCorrectedWord(primaryCode, ic)
     }
 
     private fun acceptTypedOrCorrectedWord(primaryCode: Int, ic: InputConnection?): Boolean {
@@ -91,17 +68,38 @@ internal class SeparatorHandler(
     }
 
     private fun findAutocorrectResult(typedWord: String, primaryCode: Int): AutocorrectResult? {
-        val acEngine = SessionDependencies.autocorrectEngine ?: return null
         val learnEngine = SessionDependencies.learningEngine ?: return null
-        if (acEngine.aggressiveness == AutocorrectEngine.Aggressiveness.OFF || state.mComposing.isEmpty()) {
+        if (!shouldEvaluateAutocorrect(primaryCode)) {
             return null
+        }
+        val customWords = learnEngine.getCustomWords()
+        val smartTextEngine = SessionDependencies.smartTextEngine ?: return null
+        return smartTextEngine.correction(
+            SmartTextCorrectionRequest(
+                typedWord = typedWord,
+                customWords = customWords,
+                inputKind = SmartTextInputKind.NORMAL,
+            )
+        ).toAutocorrectResult()
+    }
+
+    private fun shouldEvaluateAutocorrect(primaryCode: Int): Boolean {
+        if (SessionDependencies.smartTextCorrectionLevel == SmartTextCorrectionLevel.OFF ||
+            state.mComposing.isEmpty()
+        ) {
+            return false
         }
         val revertedSeparator = state.mJustRevertedSeparator
-        if (!revertedSeparator.isNullOrEmpty() && revertedSeparator[0].code == primaryCode) {
-            return null
-        }
-        return acEngine.getCorrection(typedWord, learnEngine.getCustomWords())
+        return revertedSeparator.isNullOrEmpty() || revertedSeparator[0].code != primaryCode
     }
+
+    private fun SmartTextCorrection?.toAutocorrectResult(): AutocorrectResult? =
+        this?.let {
+            AutocorrectResult.Suggestion(
+                correction = it.word,
+                autoApply = it.autoApply,
+            )
+        }
 
     private fun applyAutocorrect(
         ic: InputConnection?,
@@ -138,7 +136,7 @@ internal class SeparatorHandler(
     }
 
     private fun currentAutocorrectLevel(): String =
-        SessionDependencies.autocorrectEngine?.aggressiveness?.name?.lowercase() ?: "unknown"
+        SessionDependencies.smartTextCorrectionLevel.name.lowercase()
 
     private fun removeAutoSpaceBeforeEnter(primaryCode: Int) {
         if (state.mJustAddedAutoSpace && primaryCode == ASCII_ENTER) {

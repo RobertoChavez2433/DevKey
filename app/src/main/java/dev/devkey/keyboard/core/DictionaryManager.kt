@@ -1,6 +1,7 @@
 package dev.devkey.keyboard.core
 
 import android.content.Context
+import android.os.SystemClock
 import android.util.Log
 import dev.devkey.keyboard.dictionary.user.AutoDictionary
 import dev.devkey.keyboard.PREF_QUICK_FIXES
@@ -10,17 +11,18 @@ import dev.devkey.keyboard.dictionary.bigram.UserBigramDictionary
 import dev.devkey.keyboard.dictionary.user.UserDictionary
 import dev.devkey.keyboard.data.db.DevKeyDatabase
 import dev.devkey.keyboard.data.repository.SettingsRepository
-import dev.devkey.keyboard.feature.prediction.AutocorrectEngine
 import dev.devkey.keyboard.feature.prediction.DictionaryProvider
 import dev.devkey.keyboard.feature.prediction.LearningEngine
 import dev.devkey.keyboard.feature.prediction.PredictionEngine
-import dev.devkey.keyboard.feature.prediction.TrieDictionary
+import dev.devkey.keyboard.feature.smarttext.AnySoftKeyboardDictionary
+import dev.devkey.keyboard.feature.smarttext.AnySoftKeyboardSmartTextEngine
 import dev.devkey.keyboard.core.prefs.ImePrefsUtil
 import dev.devkey.keyboard.debug.DevKeyLogger
 import dev.devkey.keyboard.suggestion.engine.WordPromotionDelegate
 import dev.devkey.keyboard.ui.keyboard.SessionDependencies
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * Initializes and reloads dictionaries and the prediction pipeline.
@@ -77,20 +79,52 @@ internal class DictionaryManager(
         // Initialize the modern prediction pipeline
         val db = DevKeyDatabase.getInstance(context)
         val dictProvider = DictionaryProvider(state.mSuggest)
-        val acEngine = AutocorrectEngine(dictProvider)
         val learnEngine = LearningEngine(db.learnedWordDao())
-        val predEngine = PredictionEngine(dictProvider, acEngine, learnEngine)
+        val smartTextEngine = AnySoftKeyboardSmartTextEngine(
+            dictProvider,
+            learnEngine,
+            correctionLevel = { SessionDependencies.smartTextCorrectionLevel },
+        )
+        val predEngine = PredictionEngine(smartTextEngine)
         SessionDependencies.dictionaryProvider = dictProvider
-        SessionDependencies.autocorrectEngine = acEngine
         SessionDependencies.learningEngine = learnEngine
+        SessionDependencies.smartTextEngine = smartTextEngine
         SessionDependencies.predictionEngine = predEngine
         state.serviceScope.launch(Dispatchers.IO) {
             learnEngine.initialize()
-            val trie = TrieDictionary()
-            trie.load(context, R.raw.en_us_wordfreq)
-            dictProvider.trieDictionary = trie
-            Log.i(TAG, "TrieDictionary loaded: ${trie.size} words")
-            DevKeyLogger.ime("dictionary_ready", mapOf("words" to trie.size))
+            val startedAt = SystemClock.elapsedRealtime()
+            val memoryBefore = usedMemoryKb()
+            val donorDictionary = AnySoftKeyboardDictionary()
+            val stats = donorDictionary.load(
+                context,
+                R.raw.ask_english_wordlist_combined,
+                AnySoftKeyboardDictionary.DEFAULT_ARTIFACT,
+            )
+            dictProvider.donorDictionary = donorDictionary
+            val loadDurationMs = SystemClock.elapsedRealtime() - startedAt
+            val memoryDeltaKb = usedMemoryKb() - memoryBefore
+            Log.i(
+                TAG,
+                "AnySoftKeyboard dictionary loaded: ${stats.wordCount} words, " +
+                    "locale=${stats.metadata.locale}, version=${stats.metadata.version}"
+            )
+            DevKeyLogger.ime(
+                "dictionary_ready",
+                mapOf(
+                    "source" to stats.metadata.sourceName,
+                    "artifact" to stats.metadata.sourceArtifact,
+                    "locale" to (stats.metadata.locale ?: "unknown"),
+                    "version" to (stats.metadata.version ?: -1),
+                    "word_count" to stats.wordCount,
+                    "artifact_bytes" to stats.sourceBytesRead,
+                    "load_duration_ms" to loadDurationMs,
+                    "memory_delta_kb" to memoryDeltaKb,
+                )
+            )
+            withContext(Dispatchers.Main) {
+                preferenceObserver.updateCorrectionMode()
+                candidateViewHost.setCandidatesViewShown(isPredictionOn())
+            }
         }
 
         preferenceObserver.updateCorrectionMode()
@@ -122,5 +156,10 @@ internal class DictionaryManager(
 
     companion object {
         private const val TAG = "DevKey/DictMgr"
+
+        private fun usedMemoryKb(): Long {
+            val runtime = Runtime.getRuntime()
+            return (runtime.totalMemory() - runtime.freeMemory()) / 1024L
+        }
     }
 }

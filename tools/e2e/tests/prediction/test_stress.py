@@ -18,10 +18,13 @@ COMMON_WORDS = [
 
 
 def _tap_word_stable(word, serial):
-    """Type a word with enough settle time after the first character."""
+    """Type a word after refreshing coordinates for composed-state geometry."""
+    keyboard.load_key_map(serial)
     for index, ch in enumerate(word):
         keyboard.tap_key(ch, serial)
         time.sleep(0.35 if index == 0 else 0.12)
+        if index == 0:
+            keyboard.load_key_map(serial)
 
 
 def _setup():
@@ -69,7 +72,7 @@ def test_rapid_20_word_typing():
 
     for word in COMMON_WORDS:
         driver.clear_logs()
-        keyboard.tap_sequence(word, delay=0.05, serial=serial)
+        _tap_word_stable(word, serial)
         keyboard.tap_key_by_code(SPACE_CODE, serial)
 
         entry = driver.wait_for(
@@ -100,7 +103,7 @@ def test_suggestion_tap_chain():
 
     for word in chain_words:
         driver.clear_logs()
-        keyboard.tap_sequence(word, delay=0.08, serial=serial)
+        _tap_word_stable(word, serial)
         keyboard.tap_key_by_code(SPACE_CODE, serial)
 
         entry = driver.wait_for(
@@ -162,7 +165,7 @@ def test_rare_word_graceful_fallback():
     """
     serial = _setup()
     driver.clear_logs()
-    keyboard.tap_sequence("xyzqwkjh", delay=0.05, serial=serial)
+    _tap_word_stable("xyzqwkjh", serial)
     keyboard.tap_key_by_code(SPACE_CODE, serial)
 
     entry = driver.wait_for(

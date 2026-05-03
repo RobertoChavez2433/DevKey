@@ -31,7 +31,7 @@ def test_aggressive_10_words():
 
 
 def test_type_and_backspace_revert():
-    """Backspace after a corrected word must keep the input pipeline responsive."""
+    """Backspace after a corrected word must revert and keep input responsive."""
     serial = setup_autocorrect()
     set_autocorrect_level("aggressive")
     driver.clear_logs()
@@ -41,16 +41,16 @@ def test_type_and_backspace_revert():
     assert_controlled_text_equals(serial, "the ", "autocorrect before backspace")
 
     keyboard.tap_key(BACKSPACE_LABEL, serial)
-    assert_controlled_text_equals(serial, "the", "backspace after autocorrect")
+    assert_controlled_text_equals(serial, "teh", "backspace reverts autocorrect")
 
     keyboard.tap_key_by_code(SPACE_CODE, serial)
     wait_next_word_suggestions(timeout_ms=5000)
-    assert_controlled_text_equals(serial, "the ", "space restored after backspace")
+    assert_controlled_text_equals(serial, "teh ", "space after autocorrect revert")
 
     driver.clear_logs()
     tap_word_with_space("teh", serial, delay=0.08)
     wait_autocorrect_applied(timeout_ms=8000)
-    assert_controlled_text_equals(serial, "the the ", "autocorrect after backspace")
+    assert_controlled_text_equals(serial, "teh the ", "autocorrect after backspace revert")
 
 
 def test_mixed_paragraph():

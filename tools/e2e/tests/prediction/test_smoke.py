@@ -4,6 +4,7 @@ Prediction smoke tests (subdirectory format).
 Migrated from tools/e2e/tests/test_next_word.py — same test logic,
 relocated into the prediction/ test package for Phase 2 organisation.
 """
+import time
 from lib import adb, keyboard, driver
 
 SPACE_CODE = 32
@@ -17,6 +18,15 @@ def _setup():
     return serial
 
 
+def _tap_word_stable(word, serial):
+    keyboard.load_key_map(serial)
+    for index, ch in enumerate(word):
+        keyboard.tap_key(ch, serial)
+        time.sleep(0.12)
+        if index == 0:
+            keyboard.load_key_map(serial)
+
+
 def test_next_word_fires_after_space():
     """
     Typing a known word then space must emit at least one next_word_suggestions event.
@@ -27,8 +37,7 @@ def test_next_word_fires_after_space():
     """
     serial = _setup()
     driver.clear_logs()
-    for ch in "the":
-        keyboard.tap_key(ch, serial)
+    _tap_word_stable("the", serial)
     keyboard.tap_key_by_code(SPACE_CODE, serial)
 
     entry = driver.wait_for(
@@ -65,8 +74,7 @@ def test_next_word_bigram_hit_for_common_word():
     """
     serial = _setup()
     driver.clear_logs()
-    for ch in "the":
-        keyboard.tap_key(ch, serial)
+    _tap_word_stable("the", serial)
     keyboard.tap_key_by_code(SPACE_CODE, serial)
 
     entry = driver.wait_for(
@@ -94,8 +102,7 @@ def test_next_word_privacy_payload_is_structural_only():
     """
     serial = _setup()
     driver.clear_logs()
-    for ch in "hi":
-        keyboard.tap_key(ch, serial)
+    _tap_word_stable("hi", serial)
     keyboard.tap_key_by_code(SPACE_CODE, serial)
 
     entry = driver.wait_for("DevKey/TXT", "next_word_suggestions", timeout_ms=3000)

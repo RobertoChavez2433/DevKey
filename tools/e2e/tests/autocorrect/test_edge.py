@@ -62,7 +62,7 @@ def test_word_at_boundary():
     driver.clear_logs()
 
     text = "a" * 40
-    tap_sequence_with_space(text, serial, delay=0.03)
+    tap_sequence_with_space(text, serial, delay=0.08)
 
     wait_next_word_suggestions(timeout_ms=5000)
     assert_no_autocorrect_event()

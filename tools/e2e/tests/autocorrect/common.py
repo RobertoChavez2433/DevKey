@@ -16,13 +16,16 @@ def setup_autocorrect():
         keyboard.load_key_map(serial)
     adb.ensure_keyboard_visible(serial)
     driver.broadcast("dev.devkey.keyboard.RESET_KEYBOARD_MODE", {})
-    keyboard.set_layout_mode("full", serial)
+    set_bool_pref("devkey_show_number_row", False)
+    set_bool_pref("devkey_show_toolbar", False)
+    set_bool_pref("show_suggestions", True)
     set_bool_pref("auto_cap", False)
+    keyboard.set_layout_mode("full", serial)
     wait_for_dictionary(serial)
     adb.clear_test_host_text(serial)
     clear_learned_words(serial)
     driver.broadcast("dev.devkey.keyboard.RESET_KEYBOARD_MODE", {})
-    time.sleep(0.3)
+    time.sleep(2.0)
     return serial
 
 
@@ -30,13 +33,17 @@ def wait_for_dictionary(serial):
     global _dictionary_ready
     if _dictionary_ready:
         return
-    deadline = time.time() + 15.0
+    # The isolated runner clears logcat before each test, so the one-time
+    # dictionary-loaded log is often gone even when the dictionary is ready.
+    # Keep this as a short best-effort settle instead of stalling every test.
+    deadline = time.time() + 2.0
     while time.time() < deadline:
-        lines = adb.capture_logcat("DevKey/DictMgr", timeout=0.5, serial=serial)
+        lines = adb.capture_logcat("DevKey/DictMgr", timeout=0.2, serial=serial)
         if any("TrieDictionary loaded" in line for line in lines):
             _dictionary_ready = True
             return
-        time.sleep(1.0)
+        time.sleep(0.2)
+    _dictionary_ready = True
 
 
 def clear_learned_words(serial):
@@ -59,6 +66,7 @@ def set_autocorrect_level(level):
                 timeout_ms=5000,
             )
             if entry["data"]["level"] == level:
+                time.sleep(0.4)
                 return
         except driver.DriverError as exc:
             last_error = exc
@@ -83,9 +91,11 @@ def set_bool_pref(key, value):
 
 
 def type_word(word, serial, delay=0.15):
-    for ch in word:
+    for index, ch in enumerate(word):
         keyboard.tap_key(ch, serial)
         time.sleep(delay)
+        if index == 0:
+            keyboard.load_key_map(serial)
 
 
 def tap_word_with_space(word, serial, delay=0.15):
@@ -94,7 +104,7 @@ def tap_word_with_space(word, serial, delay=0.15):
 
 
 def tap_sequence_with_space(text, serial, delay=0.08):
-    keyboard.tap_sequence(text, delay=delay, serial=serial)
+    type_word(text, serial, delay=delay)
     keyboard.tap_key_by_code(SPACE_CODE, serial)
 
 

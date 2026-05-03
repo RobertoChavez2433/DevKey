@@ -178,4 +178,24 @@ class LearningEngine(private val dao: LearnedWordDao) {
             emptyList()
         }
     }
+
+    /**
+     * Get normal-mode learned suggestions matching a prefix, sorted by frequency.
+     */
+    suspend fun getNormalSuggestions(prefix: String, limit: Int = 3): List<String> {
+        if (prefix.isBlank()) return emptyList()
+        return try {
+            val normalWords = dao.getNormalWords().first()
+            normalWords
+                .filter { it.word.startsWith(prefix, ignoreCase = true) }
+                .sortedWith(
+                    compareByDescending<LearnedWordEntity> { it.frequency }
+                        .thenBy { it.word.lowercase() }
+                )
+                .take(limit)
+                .map { it.word }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
 }

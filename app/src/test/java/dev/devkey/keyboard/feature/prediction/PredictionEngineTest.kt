@@ -127,6 +127,19 @@ class PredictionEngineTest {
         assertTrue(results.isNotEmpty())
         assertFalse(results.any { it.isAutocorrect })
     }
+
+    @Test
+    fun `learned words are ranked by smart text adapter`() = runBlocking {
+        correctionLevel = SmartTextCorrectionLevel.OFF
+        fakeDictProvider.suggestions = listOf("hello", "help")
+        learningEngine.initialize()
+        learningEngine.onWordCommitted("helium", isCommand = false, contextApp = null)
+
+        val results = predictionEngine.predict("he")
+
+        assertEquals("helium", results.first().word)
+        assertFalse(results.first().isAutocorrect)
+    }
 }
 
 /** Test double that returns canned suggestions without needing Suggest/JNI. */

@@ -16,6 +16,7 @@ import dev.devkey.keyboard.feature.prediction.LearningEngine
 import dev.devkey.keyboard.feature.prediction.PredictionEngine
 import dev.devkey.keyboard.feature.smarttext.AnySoftKeyboardDictionary
 import dev.devkey.keyboard.feature.smarttext.AnySoftKeyboardSmartTextEngine
+import dev.devkey.keyboard.feature.smarttext.SmartTextImportMetrics
 import dev.devkey.keyboard.core.prefs.ImePrefsUtil
 import dev.devkey.keyboard.debug.DevKeyLogger
 import dev.devkey.keyboard.suggestion.engine.WordPromotionDelegate
@@ -103,24 +104,24 @@ internal class DictionaryManager(
             dictProvider.donorDictionary = donorDictionary
             val loadDurationMs = SystemClock.elapsedRealtime() - startedAt
             val memoryDeltaKb = usedMemoryKb() - memoryBefore
+            val metrics = SmartTextImportMetrics(
+                source = stats.metadata.sourceName,
+                artifact = stats.metadata.sourceArtifact,
+                locale = stats.metadata.locale ?: "unknown",
+                version = stats.metadata.version ?: -1,
+                wordCount = stats.wordCount,
+                artifactBytes = stats.sourceBytesRead,
+                loadDurationMs = loadDurationMs,
+                memoryDeltaKb = memoryDeltaKb,
+                loadedAtUptimeMs = SystemClock.elapsedRealtime(),
+            )
+            SessionDependencies.smartTextImportMetrics = metrics
             Log.i(
                 TAG,
                 "AnySoftKeyboard dictionary loaded: ${stats.wordCount} words, " +
                     "locale=${stats.metadata.locale}, version=${stats.metadata.version}"
             )
-            DevKeyLogger.ime(
-                "dictionary_ready",
-                mapOf(
-                    "source" to stats.metadata.sourceName,
-                    "artifact" to stats.metadata.sourceArtifact,
-                    "locale" to (stats.metadata.locale ?: "unknown"),
-                    "version" to (stats.metadata.version ?: -1),
-                    "word_count" to stats.wordCount,
-                    "artifact_bytes" to stats.sourceBytesRead,
-                    "load_duration_ms" to loadDurationMs,
-                    "memory_delta_kb" to memoryDeltaKb,
-                )
-            )
+            DevKeyLogger.ime("dictionary_ready", metrics.toLogData())
             withContext(Dispatchers.Main) {
                 preferenceObserver.updateCorrectionMode()
                 candidateViewHost.setCandidatesViewShown(isPredictionOn())

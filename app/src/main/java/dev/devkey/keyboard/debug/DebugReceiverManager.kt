@@ -26,6 +26,7 @@ internal class DebugReceiverManager(
     private var setStringPrefReceiver: BroadcastReceiver? = null
     private var setAutocorrectLevelReceiver: BroadcastReceiver? = null
     private var voiceProcessFileReceiver: BroadcastReceiver? = null
+    private var smartTextMetricsReceiver: BroadcastReceiver? = null
     private var clearLearnedWordsReceiver: BroadcastReceiver? = null
     private var assertLearnedWordReceiver: BroadcastReceiver? = null
     private var resetCircuitBreakerReceiver: BroadcastReceiver? = null
@@ -141,6 +142,26 @@ internal class DebugReceiverManager(
         )
 
         if (BuildConfig.DEBUG) {
+            smartTextMetricsReceiver = object : BroadcastReceiver() {
+                override fun onReceive(context: Context, intent: Intent) {
+                    val metrics = SessionDependencies.smartTextImportMetrics
+                    if (metrics == null) {
+                        DevKeyLogger.error(
+                            "smart_text_import_metrics_unavailable",
+                            mapOf("reason" to "dictionary_not_ready")
+                        )
+                        return
+                    }
+                    DevKeyLogger.ime("smart_text_import_metrics", metrics.toLogData())
+                }
+            }
+            ContextCompat.registerReceiver(
+                context,
+                smartTextMetricsReceiver,
+                IntentFilter("dev.devkey.keyboard.debug.DUMP_SMART_TEXT_IMPORT_METRICS"),
+                ContextCompat.RECEIVER_EXPORTED
+            )
+
             voiceProcessFileReceiver = object : BroadcastReceiver() {
                 override fun onReceive(context: Context, intent: Intent) {
                     val filePath = intent.getStringExtra("file_path") ?: return
@@ -255,7 +276,8 @@ internal class DebugReceiverManager(
         listOf(
             enableDebugServerReceiver, setLayoutModeReceiver, setBoolPrefReceiver,
             setStringPrefReceiver, setAutocorrectLevelReceiver, voiceProcessFileReceiver,
-            clearLearnedWordsReceiver, assertLearnedWordReceiver, resetCircuitBreakerReceiver
+            smartTextMetricsReceiver, clearLearnedWordsReceiver, assertLearnedWordReceiver,
+            resetCircuitBreakerReceiver
         ).forEach { r ->
             try { r?.let { context.unregisterReceiver(it) } } catch (_: IllegalArgumentException) {}
         }
@@ -265,6 +287,7 @@ internal class DebugReceiverManager(
         setStringPrefReceiver = null
         setAutocorrectLevelReceiver = null
         voiceProcessFileReceiver = null
+        smartTextMetricsReceiver = null
         clearLearnedWordsReceiver = null
         assertLearnedWordReceiver = null
         resetCircuitBreakerReceiver = null

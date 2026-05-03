@@ -1,18 +1,27 @@
 package dev.devkey.keyboard.core
 
-import android.content.Context
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
 import dev.devkey.keyboard.compose.ComposeSequence
 import dev.devkey.keyboard.data.repository.SettingsRepository
+import dev.devkey.keyboard.feature.smarttext.SmartTextCapitalizationDecision
+import dev.devkey.keyboard.feature.smarttext.SmartTextCapitalizationReason
+import dev.devkey.keyboard.feature.smarttext.SmartTextCapitalizationRequest
+import dev.devkey.keyboard.feature.smarttext.SmartTextCorrection
+import dev.devkey.keyboard.feature.smarttext.SmartTextCorrectionRequest
+import dev.devkey.keyboard.feature.smarttext.SmartTextEngine
+import dev.devkey.keyboard.feature.smarttext.SmartTextSuggestion
+import dev.devkey.keyboard.feature.smarttext.SmartTextSuggestionRequest
 import dev.devkey.keyboard.keyboard.model.Keyboard
 import dev.devkey.keyboard.keyboard.switcher.KeyboardSwitcher
 import dev.devkey.keyboard.testutil.MockInputConnection
 import dev.devkey.keyboard.testutil.testImeState
 import dev.devkey.keyboard.ui.keyboard.KeyCodes
+import dev.devkey.keyboard.ui.keyboard.SessionDependencies
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.After
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -43,13 +52,13 @@ class ModifierHandlerTest {
     @Before
     fun setUp() {
         val context = RuntimeEnvironment.getApplication()
-        val prefs = context.getSharedPreferences("test_prefs", Context.MODE_PRIVATE)
-        prefs.edit().clear().commit()
-        settings = SettingsRepository(prefs)
+        settings = SettingsRepository.from(context)
+        settings.legacyPrefs().edit().clear().commit()
 
         state = testImeState(mOrientation = 1)
         state.mComposeBuffer = ComposeSequence({}, {}, { null })
         state.mDeadAccentBuffer = ComposeSequence({}, {}, { null })
+        SessionDependencies.smartTextEngine = null
 
         mockIc = MockInputConnection()
 
@@ -74,6 +83,11 @@ class ModifierHandlerTest {
         keyEventSender = mock()
 
         handler = ModifierHandler(state, icProvider, feedbackManager, keyEventSender, settings)
+    }
+
+    @After
+    fun tearDown() {
+        SessionDependencies.smartTextEngine = null
     }
 
     @Test
@@ -233,6 +247,47 @@ class ModifierHandlerTest {
             "Shift state should be SHIFT_ON when chording (not auto-capped)",
             Keyboard.SHIFT_ON,
             currentShiftState
+        )
+    }
+
+    @Test
+    fun `updateShiftKeyState uses smart text capitalization decision`() {
+        state.mAutoCapActive = true
+        val editorInfo = EditorInfo().apply {
+            inputType = EditorInfo.TYPE_CLASS_TEXT or EditorInfo.TYPE_TEXT_FLAG_CAP_SENTENCES
+        }
+        val capsIc = object : MockInputConnection() {
+            override fun getCursorCapsMode(reqModes: Int): Int = EditorInfo.TYPE_TEXT_FLAG_CAP_SENTENCES
+        }
+        val capsProvider = object : InputConnectionProvider {
+            override val inputConnection: InputConnection get() = capsIc
+            override val editorInfo: EditorInfo get() = editorInfo
+            override fun sendDownUpKeyEvents(keyEventCode: Int) {}
+            override fun sendKeyChar(c: Char) {}
+        }
+        SessionDependencies.smartTextEngine = object : SmartTextEngine {
+            override fun correction(request: SmartTextCorrectionRequest): SmartTextCorrection? = null
+            override suspend fun suggestions(
+                request: SmartTextSuggestionRequest,
+            ): List<SmartTextSuggestion> = emptyList()
+
+            override fun capitalization(
+                request: SmartTextCapitalizationRequest,
+            ): SmartTextCapitalizationDecision =
+                SmartTextCapitalizationDecision(
+                    apply = false,
+                    reason = SmartTextCapitalizationReason.AUTO_CAP_DISABLED,
+                )
+        }
+
+        val capsHandler = ModifierHandler(state, capsProvider, feedbackManager, keyEventSender, settings)
+        currentShiftState = Keyboard.SHIFT_OFF
+        capsHandler.updateShiftKeyState(editorInfo)
+
+        assertEquals(
+            "Smart text decision should suppress auto-cap",
+            Keyboard.SHIFT_OFF,
+            currentShiftState,
         )
     }
 }

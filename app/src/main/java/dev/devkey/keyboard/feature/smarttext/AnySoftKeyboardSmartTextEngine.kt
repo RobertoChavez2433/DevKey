@@ -60,12 +60,19 @@ class AnySoftKeyboardSmartTextEngine(
     }
 
     override fun candidateSuggestions(request: SmartTextSuggestionRequest): List<SmartTextSuggestion> {
+        return buildCandidateSuggestions(request, logResult = true)
+    }
+
+    private fun buildCandidateSuggestions(
+        request: SmartTextSuggestionRequest,
+        logResult: Boolean,
+    ): List<SmartTextSuggestion> {
         if (request.currentWord.isEmpty()) {
-            logSuggestions(request, emptyList(), reason = "empty")
+            if (logResult) logSuggestions(request, emptyList(), reason = "empty")
             return emptyList()
         }
         if (request.inputKind != SmartTextInputKind.NORMAL) {
-            logSuggestions(request, emptyList(), reason = "input_kind")
+            if (logResult) logSuggestions(request, emptyList(), reason = "input_kind")
             return emptyList()
         }
 
@@ -99,7 +106,7 @@ class AnySoftKeyboardSmartTextEngine(
         }
 
         val limitedResults = results.take(request.maxResults)
-        logSuggestions(request, limitedResults, reason = "normal")
+        if (logResult) logSuggestions(request, limitedResults, reason = "normal")
         return limitedResults
     }
 
@@ -114,7 +121,51 @@ class AnySoftKeyboardSmartTextEngine(
             logSuggestions(request, suggestions, reason = "command")
             return suggestions
         }
-        return candidateSuggestions(request)
+        if (request.currentWord.isEmpty() || request.inputKind != SmartTextInputKind.NORMAL) {
+            return buildCandidateSuggestions(request, logResult = true)
+        }
+
+        val candidateResults = buildCandidateSuggestions(request, logResult = false)
+        val learnedResults = learningEngine.getNormalSuggestions(
+            request.currentWord,
+            request.maxResults,
+        ).map {
+            SmartTextSuggestion(word = it, kind = SmartTextSuggestionKind.LEARNED)
+        }
+        val rankedResults = mergeRankedSuggestions(
+            candidateResults = candidateResults,
+            learnedResults = learnedResults,
+            maxResults = request.maxResults,
+        )
+        logSuggestions(
+            request,
+            rankedResults,
+            reason = "normal_ranked",
+            learnedResultCount = learnedResults.size,
+        )
+        return rankedResults
+    }
+
+    private fun mergeRankedSuggestions(
+        candidateResults: List<SmartTextSuggestion>,
+        learnedResults: List<SmartTextSuggestion>,
+        maxResults: Int,
+    ): List<SmartTextSuggestion> {
+        val ranked = mutableListOf<SmartTextSuggestion>()
+        fun addUnique(suggestion: SmartTextSuggestion) {
+            if (ranked.none { it.word.equals(suggestion.word, ignoreCase = true) }) {
+                ranked.add(suggestion)
+            }
+        }
+
+        candidateResults
+            .filter { it.kind == SmartTextSuggestionKind.AUTOCORRECT }
+            .forEach(::addUnique)
+        learnedResults.forEach(::addUnique)
+        candidateResults
+            .filterNot { it.kind == SmartTextSuggestionKind.AUTOCORRECT }
+            .forEach(::addUnique)
+        return ranked.take(maxResults)
     }
 
     override fun nextWordSuggestions(request: SmartTextNextWordRequest): SmartTextNextWordResult {
@@ -146,6 +197,41 @@ class AnySoftKeyboardSmartTextEngine(
         return result
     }
 
+    override fun capitalization(
+        request: SmartTextCapitalizationRequest,
+    ): SmartTextCapitalizationDecision {
+        val decision = when {
+            !request.autoCapEnabled -> SmartTextCapitalizationDecision(
+                apply = false,
+                reason = SmartTextCapitalizationReason.AUTO_CAP_DISABLED,
+            )
+            !request.editorAcceptsText -> SmartTextCapitalizationDecision(
+                apply = false,
+                reason = SmartTextCapitalizationReason.EDITOR_INACTIVE,
+            )
+            request.cursorCapsMode == 0 -> SmartTextCapitalizationDecision(
+                apply = false,
+                reason = SmartTextCapitalizationReason.NO_SENTENCE_CONTEXT,
+            )
+            else -> SmartTextCapitalizationDecision(
+                apply = true,
+                reason = SmartTextCapitalizationReason.CURSOR_CAPS_MODE,
+            )
+        }
+        if (decision.apply) {
+            DevKeyLogger.text(
+                "smart_text_capitalization",
+                mapOf(
+                    "engine" to "anysoftkeyboard",
+                    "applied" to true,
+                    "reason" to decision.reason.wireName,
+                    "cursor_caps_mode" to request.cursorCapsMode,
+                )
+            )
+        }
+        return decision
+    }
+
     private fun logCorrection(
         request: SmartTextCorrectionRequest,
         corrected: Boolean,
@@ -173,6 +259,7 @@ class AnySoftKeyboardSmartTextEngine(
         request: SmartTextSuggestionRequest,
         suggestions: List<SmartTextSuggestion>,
         reason: String,
+        learnedResultCount: Int = 0,
     ) {
         DevKeyLogger.text(
             "smart_text_suggestions",
@@ -181,6 +268,7 @@ class AnySoftKeyboardSmartTextEngine(
                 "input_kind" to request.inputKind.name.lowercase(),
                 "word_length" to request.currentWord.length,
                 "result_count" to suggestions.size,
+                "learned_result_count" to learnedResultCount,
                 "has_autocorrect" to suggestions.any {
                     it.kind == SmartTextSuggestionKind.AUTOCORRECT
                 },

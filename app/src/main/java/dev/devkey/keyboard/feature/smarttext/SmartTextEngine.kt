@@ -21,6 +21,14 @@ interface SmartTextEngine {
             suggestions = emptyList(),
             source = SmartTextNextWordSource.UNAVAILABLE,
         )
+
+    fun capitalization(request: SmartTextCapitalizationRequest): SmartTextCapitalizationDecision =
+        SmartTextCapitalizationDecision(
+            apply = request.autoCapEnabled &&
+                request.editorAcceptsText &&
+                request.cursorCapsMode != 0,
+            reason = SmartTextCapitalizationReason.DEFAULT_RULE,
+        )
 }
 
 data class SmartTextCorrectionRequest(
@@ -56,9 +64,21 @@ data class SmartTextNextWordResult(
     val source: SmartTextNextWordSource,
 )
 
+data class SmartTextCapitalizationRequest(
+    val autoCapEnabled: Boolean,
+    val editorAcceptsText: Boolean,
+    val cursorCapsMode: Int,
+)
+
+data class SmartTextCapitalizationDecision(
+    val apply: Boolean,
+    val reason: SmartTextCapitalizationReason,
+)
+
 enum class SmartTextSuggestionKind {
     AUTOCORRECT,
     COMPLETION,
+    LEARNED,
     COMMAND,
 }
 
@@ -68,6 +88,14 @@ enum class SmartTextNextWordSource(val wireName: String) {
     UNAVAILABLE("smart_text_pending"),
     INPUT_KIND("input_kind"),
     EMPTY_PREVIOUS_WORD("no_prev_word"),
+}
+
+enum class SmartTextCapitalizationReason(val wireName: String) {
+    DEFAULT_RULE("default_rule"),
+    AUTO_CAP_DISABLED("auto_cap_disabled"),
+    EDITOR_INACTIVE("editor_inactive"),
+    NO_SENTENCE_CONTEXT("no_sentence_context"),
+    CURSOR_CAPS_MODE("cursor_caps_mode"),
 }
 
 enum class SmartTextCorrectionLevel {

@@ -9,6 +9,7 @@ import dev.devkey.keyboard.feature.prediction.LearningEngine
 import dev.devkey.keyboard.feature.prediction.PredictionEngine
 import dev.devkey.keyboard.feature.smarttext.SmartTextCorrectionLevel
 import dev.devkey.keyboard.feature.smarttext.SmartTextEngine
+import dev.devkey.keyboard.feature.smarttext.SmartTextImportMetrics
 import dev.devkey.keyboard.feature.voice.VoiceInputEngine
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -49,6 +50,8 @@ object SessionDependencies {
     var predictionEngine: PredictionEngine? = null
     @Volatile
     var smartTextCorrectionLevel: SmartTextCorrectionLevel = SmartTextCorrectionLevel.MILD
+    @Volatile
+    var smartTextImportMetrics: SmartTextImportMetrics? = null
 
     /** The word currently being composed, updated from LatinIME key handlers. */
     val composingWord = MutableStateFlow("")

@@ -6,7 +6,8 @@ Updated: 2026-05-03
 This file tracks only remaining implementation work. Completed audit, boundary,
 logging, AnySoftKeyboard English dictionary import, production removal of
 DevKey's trie/autocorrect engine, candidate-strip donor routing, temporary
-donor-boundary next-word routing, local verification, and S21 verification items
+donor-boundary next-word routing, source-spike metrics, learned-word ranking,
+capitalization adapter routing, local verification, and S21 verification items
 were removed.
 
 ## Direction
@@ -18,6 +19,11 @@ The smart-text system is replaced. Do not grow DevKey's in-house autocorrect,
 prediction, auto-capitalization, grammar, punctuation, or dictionary engine.
 Current in-house code may exist only behind `SmartTextEngine` until the donor
 adapter lands, then it should be deleted or retired.
+
+DevKey continues to own keyboard rendering, modifier state, toolbar modes,
+command mode, macros, clipboard, voice flow, and privacy rules. The adapter
+must keep credential-sensitive fields, command mode, URLs, emails, code-like
+tokens, and mixed alphanumeric tokens excluded from correction.
 
 ## Donor And Dictionary Decision
 
@@ -50,6 +56,24 @@ Rejected for now:
 - FlorisBoard as the first dictionary source; keep it as a fallback donor only
   if the AnySoftKeyboard spike fails.
 
+Source-spike decision:
+
+- Continue with the thin in-app AnySoftKeyboard language-pack wordlist adapter.
+- Do not vendor the full ASK app or split a packaged ASK language-pack module
+  yet; revisit only if upcoming capitalization or punctuation adapter work needs
+  deeper ASK runtime APIs.
+
+Latest S21 measurement:
+
+- Device: S21 `RFCNC0Y975L`, Android 15.
+- E2E evidence:
+  `.claude/test-results/e2e-results-20260503T142812Z.json`.
+- Debug APK size: 72,141,155 bytes.
+- Release APK size: 61,051,628 bytes.
+- ASK raw dictionary artifact: 914,050 bytes.
+- Runtime dictionary metrics: 160,533 words, 3,135 ms load duration, 86,792 KB
+  memory delta.
+
 Sources checked:
 
 - AnySoftKeyboard repo: https://github.com/AnySoftKeyboard/AnySoftKeyboard
@@ -61,23 +85,11 @@ Sources checked:
 
 ## Remaining To-Do List
 
-### 1. AnySoftKeyboard Source Spike
+### 1. Donor SmartText Adapter
 
-- [ ] Measure APK size, memory, and startup cost for the selected import path.
-- [ ] Record whether source vendoring or a packaged ASK language-pack module is
-  needed after the thin dictionary adapter is exercised in release-like typing.
-
-### 2. Donor SmartText Adapter
-
-- [ ] Move capitalization decisions to the donor adapter.
 - [ ] Move punctuation transforms to the donor adapter.
-- [ ] Move learned-word ranking to the donor adapter.
-- [ ] Preserve DevKey ownership of rendering, modifiers, toolbar modes, command
-  mode, macros, clipboard, voice flow, and privacy rules.
-- [ ] Keep credential-sensitive fields, command mode, URLs, emails, code-like
-  tokens, and mixed alphanumeric tokens excluded from correction.
 
-### 3. Retire Remaining Current Smart-Text Code
+### 2. Retire Remaining Current Smart-Text Code
 
 - [ ] Delete or quarantine remaining legacy `Suggest`, `SuggestionPipeline`,
   `NextWordSuggester`, and dictionary-ref classes once lifecycle dependencies
@@ -85,7 +97,7 @@ Sources checked:
 - [ ] Leave compatibility shims only where needed for staged deletion, with clear
   delete-by markers.
 
-### 4. Product-Quality Tests
+### 3. Product-Quality Tests
 
 - [ ] Add committed-behavior tests for auto-capitalization after sentence endings.
 - [ ] Add committed-behavior tests for double-space period and punctuation-space
@@ -98,7 +110,7 @@ Sources checked:
 - [ ] Keep privacy tests proving no typed text, credentials, transcripts, clipboard
   contents, or dictionary words are logged.
 
-### 5. Voice Release Gate
+### 4. Voice Release Gate
 
 - [ ] Benchmark current Whisper Tiny latency on S21 using the existing latency logs.
 - [ ] Define a hard stop-to-committed-text latency target before calling voice

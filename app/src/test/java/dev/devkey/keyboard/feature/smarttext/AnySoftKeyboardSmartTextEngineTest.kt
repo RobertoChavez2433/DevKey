@@ -9,6 +9,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -183,6 +184,65 @@ class AnySoftKeyboardSmartTextEngineTest {
                 SmartTextSuggestion("help", SmartTextSuggestionKind.COMPLETION),
             ),
             suggestions,
+        )
+    }
+
+    @Test
+    fun `normal suggestions rank learned words inside smart text adapter`() = runBlocking {
+        correctionLevel = SmartTextCorrectionLevel.OFF
+        val engine = createEngine()
+        learningEngine.onWordCommitted("helium", isCommand = false, contextApp = null)
+        learningEngine.onWordCommitted("hero", isCommand = false, contextApp = null)
+        learningEngine.onWordCommitted("helium", isCommand = false, contextApp = null)
+
+        val suggestions = engine.suggestions(
+            SmartTextSuggestionRequest(
+                currentWord = "he",
+                maxResults = 4,
+            )
+        )
+
+        assertEquals(
+            SmartTextSuggestion("helium", SmartTextSuggestionKind.LEARNED),
+            suggestions.first(),
+        )
+        assertTrue(suggestions.any { it.word == "hello" })
+    }
+
+    @Test
+    fun `capitalization decisions are owned by smart text adapter`() {
+        val engine = createEngine()
+
+        val apply = engine.capitalization(
+            SmartTextCapitalizationRequest(
+                autoCapEnabled = true,
+                editorAcceptsText = true,
+                cursorCapsMode = 1,
+            )
+        )
+        val disabled = engine.capitalization(
+            SmartTextCapitalizationRequest(
+                autoCapEnabled = false,
+                editorAcceptsText = true,
+                cursorCapsMode = 1,
+            )
+        )
+        val noSentenceContext = engine.capitalization(
+            SmartTextCapitalizationRequest(
+                autoCapEnabled = true,
+                editorAcceptsText = true,
+                cursorCapsMode = 0,
+            )
+        )
+
+        assertEquals(true, apply.apply)
+        assertEquals(SmartTextCapitalizationReason.CURSOR_CAPS_MODE, apply.reason)
+        assertFalse(disabled.apply)
+        assertEquals(SmartTextCapitalizationReason.AUTO_CAP_DISABLED, disabled.reason)
+        assertFalse(noSentenceContext.apply)
+        assertEquals(
+            SmartTextCapitalizationReason.NO_SENTENCE_CONTEXT,
+            noSentenceContext.reason,
         )
     }
 

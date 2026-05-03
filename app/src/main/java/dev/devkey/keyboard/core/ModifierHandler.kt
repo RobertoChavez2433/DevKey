@@ -5,8 +5,12 @@ import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
 import dev.devkey.keyboard.data.repository.SettingsRepository
 import dev.devkey.keyboard.debug.DevKeyLogger
+import dev.devkey.keyboard.feature.smarttext.SmartTextCapitalizationDecision
+import dev.devkey.keyboard.feature.smarttext.SmartTextCapitalizationRequest
+import dev.devkey.keyboard.feature.smarttext.SmartTextCapitalizationReason
 import dev.devkey.keyboard.keyboard.model.Keyboard
 import dev.devkey.keyboard.ui.keyboard.KeyCodes
+import dev.devkey.keyboard.ui.keyboard.SessionDependencies
 
 /**
  * Manages modifier key state (Shift, Ctrl, Alt, Meta, Fn) and the
@@ -144,12 +148,31 @@ internal class ModifierHandler(
 
     fun getCursorCapsMode(ic: InputConnection, attr: EditorInfo): Int {
         val ei = icProvider.editorInfo
-        return if (state.mAutoCapActive && ei != null && ei.inputType != EditorInfo.TYPE_NULL) {
-            ic.getCursorCapsMode(attr.inputType)
-        } else {
-            0
-        }
+        val editorAcceptsText = ei != null && ei.inputType != EditorInfo.TYPE_NULL
+        val cursorCapsMode = if (editorAcceptsText) ic.getCursorCapsMode(attr.inputType) else 0
+        val decision = SessionDependencies.smartTextEngine?.capitalization(
+            SmartTextCapitalizationRequest(
+                autoCapEnabled = state.mAutoCapActive,
+                editorAcceptsText = editorAcceptsText,
+                cursorCapsMode = cursorCapsMode,
+            )
+        ) ?: defaultCapitalizationDecision(
+            autoCapEnabled = state.mAutoCapActive,
+            editorAcceptsText = editorAcceptsText,
+            cursorCapsMode = cursorCapsMode,
+        )
+        return if (decision.apply) cursorCapsMode else 0
     }
+
+    private fun defaultCapitalizationDecision(
+        autoCapEnabled: Boolean,
+        editorAcceptsText: Boolean,
+        cursorCapsMode: Int,
+    ): SmartTextCapitalizationDecision =
+        SmartTextCapitalizationDecision(
+            apply = autoCapEnabled && editorAcceptsText && cursorCapsMode != 0,
+            reason = SmartTextCapitalizationReason.DEFAULT_RULE,
+        )
 
     fun isShiftMod(): Boolean {
         if (state.mShiftKeyState.isChording()) return true

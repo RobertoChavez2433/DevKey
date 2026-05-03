@@ -5,6 +5,9 @@
 - `2026-05-02-devkey-v1-release-audit-plan.md`: current v1.0 release audit
   status, completed commits, remaining implementation work, and validation
   blockers.
+- `2026-05-03-smart-input-replacement-plan.md`: remaining smart-text donor
+  replacement work, including the AnySoftKeyboard language-pack dictionary
+  import and donor adapter milestones.
 
 Save new Codex-authored plans here using:
 

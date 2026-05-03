@@ -3,7 +3,15 @@ package dev.devkey.keyboard.core
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
 import dev.devkey.keyboard.core.input.TextEntryState
-import dev.devkey.keyboard.suggestion.engine.Suggest
+import dev.devkey.keyboard.feature.smarttext.SmartTextCorrection
+import dev.devkey.keyboard.feature.smarttext.SmartTextCorrectionRequest
+import dev.devkey.keyboard.feature.smarttext.SmartTextEngine
+import dev.devkey.keyboard.feature.smarttext.SmartTextNextWordRequest
+import dev.devkey.keyboard.feature.smarttext.SmartTextNextWordResult
+import dev.devkey.keyboard.feature.smarttext.SmartTextNextWordSource
+import dev.devkey.keyboard.feature.smarttext.SmartTextSuggestion
+import dev.devkey.keyboard.feature.smarttext.SmartTextSuggestionKind
+import dev.devkey.keyboard.feature.smarttext.SmartTextSuggestionRequest
 import dev.devkey.keyboard.suggestion.word.WordComposer
 import dev.devkey.keyboard.testutil.MockInputConnection
 import dev.devkey.keyboard.testutil.resetSessionDependencies
@@ -18,10 +26,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.mockito.kotlin.any
-import org.mockito.kotlin.anyOrNull
-import org.mockito.kotlin.mock
-import org.mockito.kotlin.whenever
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
@@ -34,6 +38,7 @@ class SuggestionCoordinatorTest {
     private lateinit var icProvider: StubInputConnectionProvider
     private lateinit var candidateHost: StubCandidateViewHost
     private lateinit var coordinator: SuggestionCoordinator
+    private lateinit var smartTextEngine: FakeSmartTextEngine
 
     @Before
     fun setUp() {
@@ -50,8 +55,10 @@ class SuggestionCoordinatorTest {
         mockIc = MockInputConnection(textBeforeCursor = "hello ")
         icProvider = StubInputConnectionProvider(mockIc)
         candidateHost = StubCandidateViewHost()
-        coordinator = SuggestionCoordinator(state, icProvider, candidateHost)
         resetSessionDependencies()
+        smartTextEngine = FakeSmartTextEngine()
+        SessionDependencies.smartTextEngine = smartTextEngine
+        coordinator = SuggestionCoordinator(state, icProvider, candidateHost)
     }
 
     @After
@@ -61,15 +68,15 @@ class SuggestionCoordinatorTest {
     }
 
     // -------------------------------------------------------------------------
-    // setNextSuggestions — bigram hit, bigram miss, no prev word, disabled
+    // setNextSuggestions — smart-text hit, pending, no prev word, disabled
     // -------------------------------------------------------------------------
 
     @Test
-    fun `setNextSuggestions with null Suggest sets punctuation list`() {
-        state.mSuggest = null
+    fun `setNextSuggestions with null smart text engine sets punctuation list`() {
+        SessionDependencies.smartTextEngine = null
         coordinator.setNextSuggestions()
         assertTrue(
-            "Next-word suggestions should be empty when Suggest is null",
+            "Next-word suggestions should be empty when smart text is unavailable",
             SessionDependencies.nextWordSuggestions.value.isEmpty()
         )
     }
@@ -77,7 +84,6 @@ class SuggestionCoordinatorTest {
     @Test
     fun `setNextSuggestions disabled when prediction off`() {
         state.mPredictionOnForMode = false
-        state.mSuggest = createMinimalSuggest()
         coordinator.setNextSuggestions()
         assertTrue(
             "Next-word suggestions should be empty when prediction is off",
@@ -87,7 +93,6 @@ class SuggestionCoordinatorTest {
 
     @Test
     fun `setNextSuggestions no prev word sets punctuation`() {
-        state.mSuggest = createMinimalSuggest()
         mockIc = MockInputConnection(textBeforeCursor = "")
         icProvider = StubInputConnectionProvider(mockIc)
         coordinator = SuggestionCoordinator(state, icProvider, candidateHost)
@@ -99,25 +104,27 @@ class SuggestionCoordinatorTest {
     }
 
     @Test
-    fun `setNextSuggestions bigram hit updates SessionDependencies`() {
-        val mockSuggest = createMinimalSuggest()
-        // Configure mock to return non-empty bigram suggestions
-        whenever(mockSuggest.getNextWordSuggestions(any()))
-            .thenReturn(listOf<CharSequence>("a", "b", "c"))
-        state.mSuggest = mockSuggest
+    fun `setNextSuggestions smart text hit updates SessionDependencies`() {
+        smartTextEngine.nextWordResult = SmartTextNextWordResult(
+            suggestions = listOf("a", "b", "c"),
+            source = SmartTextNextWordSource.HIT,
+        )
         coordinator.setNextSuggestions()
         assertEquals(
-            "Bigram hit should populate next-word suggestions",
+            "Smart-text hit should populate next-word suggestions",
             3, SessionDependencies.nextWordSuggestions.value.size
         )
     }
 
     @Test
-    fun `setNextSuggestions bigram miss clears next-word suggestions`() {
-        state.mSuggest = createMinimalSuggest()
+    fun `setNextSuggestions smart text pending clears next-word suggestions`() {
+        smartTextEngine.nextWordResult = SmartTextNextWordResult(
+            suggestions = emptyList(),
+            source = SmartTextNextWordSource.UNAVAILABLE,
+        )
         coordinator.setNextSuggestions()
         assertTrue(
-            "Bigram miss should result in empty next-word suggestions",
+            "Smart-text pending should result in empty next-word suggestions",
             SessionDependencies.nextWordSuggestions.value.isEmpty()
         )
     }
@@ -169,66 +176,55 @@ class SuggestionCoordinatorTest {
 
     @Test
     fun `updateSuggestions not predicting calls setNextSuggestions`() {
-        val mockSuggest = createMinimalSuggest()
-        // Configure bigram hit to prove setNextSuggestions actually ran
-        whenever(mockSuggest.getNextWordSuggestions(any()))
-            .thenReturn(listOf<CharSequence>("x", "y"))
-        state.mSuggest = mockSuggest
+        smartTextEngine.nextWordResult = SmartTextNextWordResult(
+            suggestions = listOf("x", "y"),
+            source = SmartTextNextWordSource.HIT,
+        )
         state.mPredicting = false
         coordinator.updateSuggestions()
         assertEquals(
-            "setNextSuggestions should populate bigram suggestions",
+            "setNextSuggestions should populate smart-text suggestions",
             2, SessionDependencies.nextWordSuggestions.value.size
         )
     }
 
     @Test
-    fun `updateSuggestions returns early when Suggest is null`() {
-        state.mSuggest = null
+    fun `updateSuggestions tolerates missing smart text engine`() {
+        SessionDependencies.smartTextEngine = null
         state.mPredicting = true
         // Should not throw
         coordinator.updateSuggestions()
     }
 
     // -------------------------------------------------------------------------
-    // showSuggestions(WordComposer) — FULL, FULL_BIGRAM correction modes
+    // showSuggestions(WordComposer) — donor candidate strip
     // -------------------------------------------------------------------------
 
     @Test
-    fun `showSuggestions with CORRECTION_FULL picks correction as bestWord`() {
-        val mockSuggest = createMinimalSuggest()
-        // Make correction logic meaningful: hasMinimalCorrection=true, provide a suggestion
-        whenever(mockSuggest.hasMinimalCorrection()).thenReturn(true)
-        whenever(mockSuggest.isValidWord(any())).thenReturn(false)
-        whenever(mockSuggest.getSuggestions(anyOrNull(), any(), any(), anyOrNull()))
-            .thenReturn(listOf<CharSequence>("hel", "help", "hello"))
-        whenever(mockSuggest.getNextLettersFrequencies()).thenReturn(IntArray(0))
-        state.mSuggest = mockSuggest
-        state.mCorrectionMode = Suggest.CORRECTION_FULL
+    fun `showSuggestions with autocorrect candidate picks correction as bestWord`() {
+        smartTextEngine.candidateResults = listOf(
+            SmartTextSuggestion("help", SmartTextSuggestionKind.AUTOCORRECT),
+            SmartTextSuggestion("hello", SmartTextSuggestionKind.COMPLETION),
+        )
         val word = WordComposer()
         word.add('h'.code, intArrayOf('h'.code))
         word.add('e'.code, intArrayOf('e'.code))
         word.add('l'.code, intArrayOf('l'.code))
         coordinator.showSuggestions(word)
-        // With correctionAvailable=true and !typedWordValid, bestWord should be stringList[1]
-        assertEquals("bestWord should be the correction (index 1)", "help", state.mBestWord)
+        assertEquals("bestWord should be the correction", "help", state.mBestWord)
     }
 
     @Test
-    fun `showSuggestions with CORRECTION_FULL_BIGRAM picks correction`() {
-        val mockSuggest = createMinimalSuggest()
-        whenever(mockSuggest.hasMinimalCorrection()).thenReturn(true)
-        whenever(mockSuggest.isValidWord(any())).thenReturn(false)
-        whenever(mockSuggest.getSuggestions(anyOrNull(), any(), any(), anyOrNull()))
-            .thenReturn(listOf<CharSequence>("te", "test", "ten"))
-        whenever(mockSuggest.getNextLettersFrequencies()).thenReturn(IntArray(0))
-        state.mSuggest = mockSuggest
-        state.mCorrectionMode = Suggest.CORRECTION_FULL_BIGRAM
+    fun `showSuggestions with completion only keeps typed word as bestWord`() {
+        smartTextEngine.candidateResults = listOf(
+            SmartTextSuggestion("test", SmartTextSuggestionKind.COMPLETION),
+            SmartTextSuggestion("ten", SmartTextSuggestionKind.COMPLETION),
+        )
         val word = WordComposer()
         word.add('t'.code, intArrayOf('t'.code))
         word.add('e'.code, intArrayOf('e'.code))
         coordinator.showSuggestions(word)
-        assertEquals("bestWord should be the correction (index 1)", "test", state.mBestWord)
+        assertEquals("bestWord should be the typed word", "te", state.mBestWord)
     }
 
     // -------------------------------------------------------------------------
@@ -237,15 +233,10 @@ class SuggestionCoordinatorTest {
 
     @Test
     fun `showSuggestions suppresses correction for mostly caps`() {
-        val mockSuggest = createMinimalSuggest()
-        // Same setup as CORRECTION_FULL, but with mostly-caps input
-        whenever(mockSuggest.hasMinimalCorrection()).thenReturn(true)
-        whenever(mockSuggest.isValidWord(any())).thenReturn(false)
-        whenever(mockSuggest.getSuggestions(anyOrNull(), any(), any(), anyOrNull()))
-            .thenReturn(listOf<CharSequence>("HEL", "help", "hello"))
-        whenever(mockSuggest.getNextLettersFrequencies()).thenReturn(IntArray(0))
-        state.mSuggest = mockSuggest
-        state.mCorrectionMode = Suggest.CORRECTION_FULL
+        smartTextEngine.candidateResults = listOf(
+            SmartTextSuggestion("help", SmartTextSuggestionKind.AUTOCORRECT),
+            SmartTextSuggestion("hello", SmartTextSuggestionKind.COMPLETION),
+        )
         val word = WordComposer()
         // Uppercase letters trigger isMostlyCaps
         word.add('H'.code, intArrayOf('H'.code))
@@ -293,22 +284,6 @@ class SuggestionCoordinatorTest {
     // Test doubles
     // -------------------------------------------------------------------------
 
-    /**
-     * Creates a mock Suggest that avoids JNI native library loading.
-     * Returns empty suggestions by default.
-     */
-    private fun createMinimalSuggest(): Suggest {
-        val mockSuggest = mock<Suggest>()
-        whenever(mockSuggest.getSuggestions(any(), any(), any(), any()))
-            .thenReturn(emptyList())
-        whenever(mockSuggest.getNextWordSuggestions(any()))
-            .thenReturn(emptyList())
-        whenever(mockSuggest.hasMinimalCorrection()).thenReturn(false)
-        whenever(mockSuggest.isValidWord(any())).thenReturn(false)
-        whenever(mockSuggest.getNextLettersFrequencies()).thenReturn(IntArray(0))
-        return mockSuggest
-    }
-
     private class StubInputConnectionProvider(
         private val ic: InputConnection?
     ) : InputConnectionProvider {
@@ -334,5 +309,27 @@ class SuggestionCoordinatorTest {
         override fun isKeyboardVisible(): Boolean = isKeyboardVisibleValue
         override fun isInFullscreenMode(): Boolean = false
         override fun requestHideSelf(flags: Int) {}
+    }
+
+    private class FakeSmartTextEngine : SmartTextEngine {
+        var candidateResults: List<SmartTextSuggestion> = emptyList()
+        var nextWordResult = SmartTextNextWordResult(
+            suggestions = emptyList(),
+            source = SmartTextNextWordSource.UNAVAILABLE,
+        )
+
+        override fun correction(request: SmartTextCorrectionRequest): SmartTextCorrection? = null
+
+        override fun candidateSuggestions(
+            request: SmartTextSuggestionRequest,
+        ): List<SmartTextSuggestion> = candidateResults.take(request.maxResults)
+
+        override suspend fun suggestions(
+            request: SmartTextSuggestionRequest,
+        ): List<SmartTextSuggestion> = candidateSuggestions(request)
+
+        override fun nextWordSuggestions(
+            request: SmartTextNextWordRequest,
+        ): SmartTextNextWordResult = nextWordResult
     }
 }

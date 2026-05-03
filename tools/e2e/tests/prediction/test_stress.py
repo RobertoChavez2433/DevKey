@@ -85,6 +85,7 @@ def test_rapid_20_word_typing():
         assert entry["data"]["source"] in {
             "bigram_hit", "bigram_miss", "no_prev_word",
             "space_only", "picked_default",
+            "smart_text_hit", "smart_text_miss", "smart_text_pending",
         }
         event_count += 1
 
@@ -163,7 +164,7 @@ def test_three_sentence_paragraph():
 def test_rare_word_graceful_fallback():
     """
     Typing a nonsense word + space must still produce a next_word_suggestions
-    event without crashing.  The source must NOT be 'bigram_hit' since the
+    event without crashing.  The source must NOT be a hit since the
     word has no dictionary entry.
     """
     serial = _setup()
@@ -176,9 +177,10 @@ def test_rare_word_graceful_fallback():
         timeout_ms=3000,
     )
     data = entry["data"]
-    assert data["source"] != "bigram_hit", (
-        f"Nonsense word should not produce bigram_hit, got source={data['source']}"
+    assert data["source"] not in {"bigram_hit", "smart_text_hit"}, (
+        f"Nonsense word should not produce a next-word hit, got source={data['source']}"
     )
     assert data["source"] in {
         "bigram_miss", "no_prev_word", "space_only", "picked_default",
+        "smart_text_miss", "smart_text_pending",
     }, f"Unexpected source for nonsense word: {data['source']}"

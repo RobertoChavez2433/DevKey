@@ -128,10 +128,10 @@ class PredictionPipelineTest {
 
         coordinator.setNextSuggestions()
 
-        // The Suggest instance (with empty native dict) won't produce bigrams,
-        // but the pipeline was invoked — verify SessionDependencies was written
+        // The ASK wordlist import does not yet expose donor next-word ranking,
+        // but the boundary should still run without crashing.
         assertNotNull(SessionDependencies.nextWordSuggestions.value)
-        // The coordinator sets punctuation list on bigram miss, which is still valid
+        // The coordinator sets punctuation list on smart-text pending, which is still valid.
         assertTrue(
             "Pipeline should have completed without error",
             candidateHost.setCandidatesShownCalls >= 0

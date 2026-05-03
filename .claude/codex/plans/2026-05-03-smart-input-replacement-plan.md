@@ -5,7 +5,8 @@ Updated: 2026-05-03
 
 This file tracks only remaining implementation work. Completed audit, boundary,
 logging, AnySoftKeyboard English dictionary import, production removal of
-DevKey's trie/autocorrect engine, local verification, and S21 verification items
+DevKey's trie/autocorrect engine, candidate-strip donor routing, temporary
+donor-boundary next-word routing, local verification, and S21 verification items
 were removed.
 
 ## Direction
@@ -78,11 +79,9 @@ Sources checked:
 
 ### 3. Retire Remaining Current Smart-Text Code
 
-- [ ] Remove direct production use of `SuggestionPipeline` for donor-owned behavior.
-- [ ] Replace legacy candidate-strip lookups in `SuggestionCoordinator` with
-  `SmartTextEngine` results.
-- [ ] Replace legacy next-word/bigram path with donor-owned ranking or an explicit
-  temporary adapter boundary.
+- [ ] Delete or quarantine remaining legacy `Suggest`, `SuggestionPipeline`,
+  `NextWordSuggester`, and dictionary-ref classes once lifecycle dependencies
+  are confirmed unused outside the donor adapter.
 - [ ] Leave compatibility shims only where needed for staged deletion, with clear
   delete-by markers.
 

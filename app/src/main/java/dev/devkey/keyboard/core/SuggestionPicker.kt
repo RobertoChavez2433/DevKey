@@ -88,8 +88,8 @@ internal class SuggestionPicker(
             state.mJustAddedAutoSpace = true
         }
         val showingAddToDictionaryHint = index == 0
-            && state.mCorrectionMode > 0 && !state.mSuggest!!.isValidWord(suggestion)
-            && !state.mSuggest!!.isValidWord(suggestion.toString().lowercase())
+            && state.mCorrectionMode > 0 && !isKnownWord(suggestion)
+            && !isKnownWord(suggestion.toString().lowercase())
         if (!correcting) {
             TextEntryState.typedCharacter(ASCII_SPACE.toChar(), true)
             coordinator.setNextSuggestions()
@@ -135,8 +135,8 @@ internal class SuggestionPicker(
         }
         val touchingWord = touching.word
         if (foundWord == null && touchingWord != null
-            && (state.mSuggest!!.isValidWord(touchingWord)
-                || state.mSuggest!!.isValidWord(touchingWord.toString().lowercase()))
+            && (isKnownWord(touchingWord)
+                || isKnownWord(touchingWord.toString().lowercase()))
         ) {
             foundWord = WordComposer()
             for (i in touchingWord.indices) {
@@ -166,8 +166,8 @@ internal class SuggestionPicker(
         if (state.mCorrectionMode != Suggest.CORRECTION_FULL && state.mCorrectionMode != Suggest.CORRECTION_FULL_BIGRAM) return
         if (!addToBigramDictionary
             && state.mAutoDictionary!!.isValidWord(suggestion)
-            || (!state.mSuggest!!.isValidWord(suggestion.toString())
-                && !state.mSuggest!!.isValidWord(suggestion.toString().lowercase()))
+            || (!isKnownWord(suggestion.toString())
+                && !isKnownWord(suggestion.toString().lowercase()))
         ) {
             state.mAutoDictionary!!.addWord(suggestion.toString(), frequencyDelta)
         }
@@ -177,5 +177,16 @@ internal class SuggestionPicker(
                 state.mUserBigramDictionary!!.addBigrams(prevWord.toString(), suggestion.toString())
             }
         }
+    }
+
+    private fun isKnownWord(word: CharSequence?): Boolean {
+        val text = word?.toString() ?: return false
+        if (text.isEmpty()) return false
+        val dictionaryProvider = SessionDependencies.dictionaryProvider
+        if (dictionaryProvider?.isValidWord(text) == true) return true
+        return SessionDependencies.learningEngine
+            ?.getCustomWords()
+            ?.any { it.equals(text, ignoreCase = true) }
+            ?: false
     }
 }

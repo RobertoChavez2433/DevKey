@@ -165,6 +165,42 @@ class AnySoftKeyboardSmartTextEngineTest {
         )
     }
 
+    @Test
+    fun `candidate suggestions use non suspend donor path`() {
+        correctionLevel = SmartTextCorrectionLevel.OFF
+        val engine = createEngine()
+
+        val suggestions = engine.candidateSuggestions(
+            SmartTextSuggestionRequest(
+                currentWord = "hel",
+                maxResults = 3,
+            )
+        )
+
+        assertEquals(
+            listOf(
+                SmartTextSuggestion("hello", SmartTextSuggestionKind.COMPLETION),
+                SmartTextSuggestion("help", SmartTextSuggestionKind.COMPLETION),
+            ),
+            suggestions,
+        )
+    }
+
+    @Test
+    fun `next word reports explicit temporary boundary`() {
+        val engine = createEngine()
+
+        val result = engine.nextWordSuggestions(
+            SmartTextNextWordRequest(
+                previousWord = "hello",
+                maxResults = 3,
+            )
+        )
+
+        assertEquals(emptyList<String>(), result.suggestions)
+        assertEquals(SmartTextNextWordSource.UNAVAILABLE, result.source)
+    }
+
     private fun createEngine(): AnySoftKeyboardSmartTextEngine {
         val dictionaryProvider = DictionaryProvider(null)
         dictionaryProvider.donorDictionary = loadAnySoftKeyboardDictionaryWithWords(

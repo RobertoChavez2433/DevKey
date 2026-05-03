@@ -11,7 +11,16 @@ package dev.devkey.keyboard.feature.smarttext
 interface SmartTextEngine {
     fun correction(request: SmartTextCorrectionRequest): SmartTextCorrection?
 
+    fun candidateSuggestions(request: SmartTextSuggestionRequest): List<SmartTextSuggestion> =
+        emptyList()
+
     suspend fun suggestions(request: SmartTextSuggestionRequest): List<SmartTextSuggestion>
+
+    fun nextWordSuggestions(request: SmartTextNextWordRequest): SmartTextNextWordResult =
+        SmartTextNextWordResult(
+            suggestions = emptyList(),
+            source = SmartTextNextWordSource.UNAVAILABLE,
+        )
 }
 
 data class SmartTextCorrectionRequest(
@@ -26,6 +35,12 @@ data class SmartTextSuggestionRequest(
     val maxResults: Int = 3,
 )
 
+data class SmartTextNextWordRequest(
+    val previousWord: String,
+    val inputKind: SmartTextInputKind = SmartTextInputKind.NORMAL,
+    val maxResults: Int = 3,
+)
+
 data class SmartTextCorrection(
     val word: String,
     val autoApply: Boolean,
@@ -36,10 +51,23 @@ data class SmartTextSuggestion(
     val kind: SmartTextSuggestionKind,
 )
 
+data class SmartTextNextWordResult(
+    val suggestions: List<String>,
+    val source: SmartTextNextWordSource,
+)
+
 enum class SmartTextSuggestionKind {
     AUTOCORRECT,
     COMPLETION,
     COMMAND,
+}
+
+enum class SmartTextNextWordSource(val wireName: String) {
+    HIT("smart_text_hit"),
+    MISS("smart_text_miss"),
+    UNAVAILABLE("smart_text_pending"),
+    INPUT_KIND("input_kind"),
+    EMPTY_PREVIOUS_WORD("no_prev_word"),
 }
 
 enum class SmartTextCorrectionLevel {

@@ -59,20 +59,10 @@ class AnySoftKeyboardSmartTextEngine(
         return customWords.any { it.equals(typedLower, ignoreCase = true) }
     }
 
-    override suspend fun suggestions(request: SmartTextSuggestionRequest): List<SmartTextSuggestion> {
+    override fun candidateSuggestions(request: SmartTextSuggestionRequest): List<SmartTextSuggestion> {
         if (request.currentWord.isEmpty()) {
             logSuggestions(request, emptyList(), reason = "empty")
             return emptyList()
-        }
-        if (request.inputKind == SmartTextInputKind.COMMAND) {
-            val suggestions = learningEngine.getCommandSuggestions(
-                request.currentWord,
-                request.maxResults,
-            ).map {
-                SmartTextSuggestion(word = it, kind = SmartTextSuggestionKind.COMMAND)
-            }
-            logSuggestions(request, suggestions, reason = "command")
-            return suggestions
         }
         if (request.inputKind != SmartTextInputKind.NORMAL) {
             logSuggestions(request, emptyList(), reason = "input_kind")
@@ -111,6 +101,49 @@ class AnySoftKeyboardSmartTextEngine(
         val limitedResults = results.take(request.maxResults)
         logSuggestions(request, limitedResults, reason = "normal")
         return limitedResults
+    }
+
+    override suspend fun suggestions(request: SmartTextSuggestionRequest): List<SmartTextSuggestion> {
+        if (request.inputKind == SmartTextInputKind.COMMAND) {
+            val suggestions = learningEngine.getCommandSuggestions(
+                request.currentWord,
+                request.maxResults,
+            ).map {
+                SmartTextSuggestion(word = it, kind = SmartTextSuggestionKind.COMMAND)
+            }
+            logSuggestions(request, suggestions, reason = "command")
+            return suggestions
+        }
+        return candidateSuggestions(request)
+    }
+
+    override fun nextWordSuggestions(request: SmartTextNextWordRequest): SmartTextNextWordResult {
+        val result = when {
+            request.previousWord.isBlank() -> SmartTextNextWordResult(
+                suggestions = emptyList(),
+                source = SmartTextNextWordSource.EMPTY_PREVIOUS_WORD,
+            )
+            request.inputKind != SmartTextInputKind.NORMAL -> SmartTextNextWordResult(
+                suggestions = emptyList(),
+                source = SmartTextNextWordSource.INPUT_KIND,
+            )
+            else -> SmartTextNextWordResult(
+                suggestions = emptyList(),
+                source = SmartTextNextWordSource.UNAVAILABLE,
+            )
+        }
+        DevKeyLogger.text(
+            "smart_text_next_word",
+            mapOf(
+                "engine" to "anysoftkeyboard",
+                "input_kind" to request.inputKind.name.lowercase(),
+                "prev_word_length" to request.previousWord.length,
+                "result_count" to result.suggestions.size,
+                "source" to result.source.wireName,
+                "dictionary_source" to dictionaryProvider.activeDictionarySource(),
+            )
+        )
+        return result
     }
 
     private fun logCorrection(

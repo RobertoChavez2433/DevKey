@@ -82,7 +82,7 @@ fun rememberKeyboardDependencies(
 /**
  * Observes the composing word via [SessionDependencies], debounces it, and
  * drives the prediction pipeline. When composing is empty, falls back to
- * next-word suggestions from the bigram/legacy pipeline.
+ * next-word suggestions from the smart-text boundary.
  */
 @Composable
 fun rememberPredictions(): List<PredictionResult> {

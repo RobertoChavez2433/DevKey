@@ -89,6 +89,9 @@ def test_autocorrect_then_suggestion():
         "no_prev_word",
         "space_only",
         "picked_default",
+        "smart_text_hit",
+        "smart_text_miss",
+        "smart_text_pending",
     }
     assert data["source"] in valid_sources, (
         f"Unexpected source after autocorrect: {data['source']}"

@@ -34,6 +34,7 @@ def test_empty_field_space():
     )
     assert entry["data"]["source"] in {
         "no_prev_word", "bigram_miss", "space_only", "picked_default",
+        "smart_text_miss", "smart_text_pending",
     }, f"Empty-field space produced unexpected source: {entry['data']['source']}"
 
 

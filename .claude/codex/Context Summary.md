@@ -31,8 +31,9 @@
 - Directory map: `.claude/docs/INDEX.md`.
 - Current state from the live handoff: v1.0 pre-release stress-test QA is in
   E2E stabilization after stress-test implementation and a test-quality audit.
-- Current next work from the live handoff: stabilize the remaining emulator E2E
-  failures, then handle accumulated local commits.
+- Current release validation target: S21 `RFCNC0Y975L`; use `Pixel_7_API_36`
+  only as a fallback when the S21 is unavailable or reproducibility evidence is
+  needed.
 
 ## Verification Defaults
 
@@ -42,7 +43,9 @@
 - Use `./gradlew test` only when the change needs unit-test coverage.
 - Avoid routine `./gradlew connectedAndroidTest`; it disrupts installed IME
   state.
-- On Windows, use the Android emulator only.
+- Prefer the S21 release target (`RFCNC0Y975L`) for on-device verification.
+  Use the Android emulator only when the S21 is unavailable or a
+  reproducibility fallback is needed.
 - E2E harness: `tools/e2e/e2e_runner.py`.
 - Debug/log server: `tools/debug-server/`, port `3950`.
 

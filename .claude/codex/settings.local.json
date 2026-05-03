@@ -5,7 +5,7 @@
     "aliasTarget": ".claude/codex",
     "debugServerPort": 3950,
     "defaultBuild": "./gradlew assembleDebug",
-    "windowsDevicePolicy": "emulator-only",
+    "windowsDevicePolicy": "s21-preferred-emulator-fallback",
     "privacy": {
       "neverLog": [
         "typed text",

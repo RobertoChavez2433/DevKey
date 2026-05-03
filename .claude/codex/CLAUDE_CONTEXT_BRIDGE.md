@@ -92,8 +92,10 @@ Load only when the task needs them:
 - E2E: `python tools/e2e/e2e_runner.py`
 - Debug/log server: `tools/debug-server/`, port `3950`
 
-Do not use `./gradlew connectedAndroidTest` as routine verification on
-Windows. Use the Android emulator only.
+Do not use `./gradlew connectedAndroidTest` as routine verification. Prefer the
+S21 release target (`RFCNC0Y975L`) for on-device E2E verification; use the
+Android emulator only when the S21 is unavailable or a reproducibility fallback
+is needed.
 
 ## High-Noise Areas
 

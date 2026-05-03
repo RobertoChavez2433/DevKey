@@ -47,8 +47,9 @@ find the right context, not to duplicate the `.claude/` knowledge base.
   static checks.
 - Use `./gradlew test` only when unit-test coverage is relevant to the change.
 - Do not use `./gradlew connectedAndroidTest` as routine verification.
-- On Windows, use the Android emulator only; do not verify on physical Android
-  devices.
+- Prefer the S21 release target (`RFCNC0Y975L`) for on-device verification.
+  Use the Android emulator only when the S21 is unavailable or when a
+  reproducibility fallback is explicitly needed.
 - Use the existing E2E harness under `tools/e2e/`.
 - Use the existing debug/log server under `tools/debug-server/`.
 - Start the debug/log server with port `3950`.
@@ -104,7 +105,7 @@ library:
 ## Testing Non-Negotiables
 
 - Test real IME behavior through production seams.
-- Prefer the existing emulator, ADB, debug-server, and E2E harnesses over
+- Prefer the existing S21/ADB/debug-server/E2E harness flow over
   one-off ADB scripts.
 - Do not add test-only hooks, lifecycle APIs, or production bypasses.
 - Do not log typed content, fixture text that resembles secrets, credentials,

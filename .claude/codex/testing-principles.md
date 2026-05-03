@@ -10,10 +10,11 @@
 - Do not use `./gradlew connectedAndroidTest` as normal verification; it
   disrupts the installed IME state.
 
-## Windows Device Policy
+## Device Policy
 
-- Use the Android emulator only.
-- Do not verify on physical Android devices from Windows.
+- Prefer the S21 release target (`RFCNC0Y975L`) for on-device E2E verification.
+- Use the Android emulator only when the S21 is unavailable or when a
+  reproducibility fallback is explicitly needed.
 - Re-establish IME state intentionally after installs because `adb install -r`
   does not guarantee a fresh IME process.
 

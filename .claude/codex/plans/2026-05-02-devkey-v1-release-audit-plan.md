@@ -351,6 +351,23 @@ Created: 2026-05-02
     `SuggestionPipeline.getSuggestions`, `InputViewSetup.onStartInputView`,
     `DevKeyKeyboard`, `SuggestionCoordinator.onSelectionChanged`, and
     `InputHandlers.handleCharacter`
+- [x] S21 autocorrect/prediction/learning verification after exact-output
+  hardening:
+  - active device policy now matches the release plan: S21 `RFCNC0Y975L` is
+    preferred, `Pixel_7_API_36` is fallback-only
+  - exact controlled-host autocorrect assertions now prove committed text
+    without logging typed content
+  - autocorrect blocks mixed alphanumeric tokens from correction
+  - autocorrect respects backspace-revert + repeated separator intent
+  - S21 preflight passed:
+    `.claude/test-results/visual-baseline-20260503T015223Z.png`
+  - S21 autocorrect scope passed 11/11:
+    `.claude/test-results/e2e-results-20260503T015706Z.json`
+  - S21 prediction scope passed 12/12:
+    `.claude/test-results/e2e-results-20260503T021359Z.json`
+  - S21 input scope passed 16/16, including learned-word frequency assertion:
+    `.claude/test-results/e2e-results-20260503T020910Z.json`
+  - current locked full-suite discovery count: 180
 
 ## Remaining Implementation Work
 
@@ -373,7 +390,7 @@ Created: 2026-05-02
   - `app/src/main/cpp/dictionary.cpp` at 608 lines
   - `ModifierStateManagerTest.kt` at 552 lines
   - `KeyEventSenderTest.kt` at 527 lines
-  - `InputHandlersTest.kt` at 410 lines
+  - `InputHandlersTest.kt` at 423 lines
   - `AutocorrectPipelineTest.kt` at 43 imports
 
 ## Remaining Validation Gates

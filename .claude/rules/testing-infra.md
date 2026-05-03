@@ -13,12 +13,15 @@ paths:
 
 The shared test harness lives in `tools/e2e/` and `tools/debug-server/`.
 
-- On Windows, always use the Android emulator for verification; never use physical Android devices.
+- Prefer the S21 release target (`RFCNC0Y975L`) for on-device E2E verification.
+  Use the Android emulator only when the S21 is unavailable or when a
+  reproducibility fallback is explicitly needed.
 - Prefer the existing Python and Node helpers over ad-hoc shell workflows.
 - Keep coordinate lookup, driver communication, and artifact writing in the
   harness libraries when possible.
 - Do not duplicate protocol or navigation logic across multiple scripts.
-- The emulator IME reaches the host debug server via `10.0.2.2`, not `127.0.0.1`; the harness translates automatically — never send a `127.0.0.1` URL to the IME.
+- Physical devices use `adb reverse` for the host debug server. Emulators reach
+  the host loopback through `10.0.2.2`; the harness translates automatically.
 
 ## Artifact Rules
 

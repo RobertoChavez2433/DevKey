@@ -43,5 +43,6 @@ paths:
 
 - Compose/Espresso UI tests are unreliable on API 36 with the current
   dependency stack.
-- Prefer the S21 release target or an API 34/36 emulator for Compose test work
-  until the deps move. On Windows, use the emulator only.
+- Prefer the S21 release target for Compose and E2E work. Use an API 34/36
+  emulator only when the S21 is unavailable or fallback reproducibility is
+  needed.

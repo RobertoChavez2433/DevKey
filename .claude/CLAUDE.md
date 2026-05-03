@@ -67,7 +67,9 @@ test/debug helpers into production behavior.**
 ## Build, Test, And Debug
 
 - Build and install commands live in Gradle plus the existing ADB/E2E harnesses.
-- On Windows, always use the Android emulator for verification; never use physical Android devices.
+- Prefer the S21 release target (`RFCNC0Y975L`) for on-device verification.
+  Use the Android emulator only when the S21 is unavailable or when a
+  reproducibility fallback is explicitly needed.
 - `adb install -r` does not reliably restart the IME process. Re-establish IME
   state intentionally after installs.
 - The shared E2E harness lives under `tools/e2e/`; the HTTP debug/log server

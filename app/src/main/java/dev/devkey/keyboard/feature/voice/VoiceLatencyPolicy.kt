@@ -9,6 +9,9 @@ object VoiceLatencyPolicy {
     const val MIN_WARMUP_MEMORY_CLASS_MB = 192
     const val TFLITE_THREAD_COUNT = 4
     const val TFLITE_USE_NNAPI = false
+    const val RUNTIME_ANDROID_ON_DEVICE = "android_on_device_speech_recognizer"
+    const val RUNTIME_TFLITE_WHISPER = "tflite_whisper_tiny_full_window"
+    const val ON_DEVICE_RECOGNIZER_RESULT_TIMEOUT_MS = 5_000L
 
     fun meetsReleaseTarget(durationMs: Long): Boolean =
         durationMs <= RELEASE_STOP_TO_COMMITTED_TARGET_MS

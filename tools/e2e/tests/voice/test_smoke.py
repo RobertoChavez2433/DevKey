@@ -13,8 +13,12 @@ Strategy:
 """
 import os
 
+import pytest
+
 from lib import adb, keyboard, driver
 from tests.voice_common import process_voice_fixture
+
+ANDROID_ON_DEVICE_RUNTIME = "android_on_device_speech_recognizer"
 
 
 def _setup_voice():
@@ -49,6 +53,35 @@ def test_voice_state_machine_to_listening():
     serial = _setup_voice()
     _enter_voice_mode(serial)
     driver.broadcast("dev.devkey.keyboard.RESET_KEYBOARD_MODE", {})
+
+
+def test_voice_live_prefers_streaming_on_device_runtime():
+    """
+    Live voice should avoid the full-window Whisper path when Android exposes
+    an on-device streaming recognizer.
+    """
+    serial = _setup_voice()
+    driver.clear_logs()
+    driver.broadcast(
+        "dev.devkey.keyboard.SET_KEYBOARD_MODE",
+        {"mode": "voice"},
+    )
+    runtime = driver.wait_for(
+        "DevKey/VOX",
+        "runtime_selected",
+        timeout_ms=5000,
+    )
+    driver.wait_for(
+        category="DevKey/VOX",
+        event="state_transition",
+        match={"state": "LISTENING"},
+        timeout_ms=5000,
+    )
+    driver.broadcast("dev.devkey.keyboard.RESET_KEYBOARD_MODE", {})
+
+    selected = runtime.get("data", {}).get("runtime")
+    if selected != ANDROID_ON_DEVICE_RUNTIME:
+        pytest.skip(f"Android on-device recognizer unavailable; selected={selected}")
 
 
 def test_voice_cancel_returns_to_idle():
@@ -101,4 +134,22 @@ def test_voice_short_fixture_hits_subsecond_gate():
         "voice-hello.wav",
         expect_speech=False,
         require_release_quality=True,
+    )
+
+
+def test_voice_short_speech_accuracy_fixture():
+    """
+    Short real speech fixture: verifies a known phrase through the file path
+    without exposing the transcript in logs.
+    """
+    serial = _setup_voice()
+
+    process_voice_fixture(
+        serial,
+        "voice-jfk.wav",
+        expect_speech=True,
+        expected_text=(
+            "and so my fellow americans ask not what your country can do for you "
+            "ask what you can do for your country"
+        ),
     )

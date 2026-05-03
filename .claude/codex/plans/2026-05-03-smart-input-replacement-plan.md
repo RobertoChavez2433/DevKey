@@ -55,6 +55,18 @@ Rejected:
 Hard target before calling offline voice release-quality:
 `stop-to-committed-text < 1000 ms`.
 
+Live dictation runtime decision:
+
+- Primary live runtime: Android on-device streaming `SpeechRecognizer` via
+  `createOnDeviceSpeechRecognizer` when available.
+- Fallback and deterministic fixture runtime: Whisper Tiny TFLite full-window
+  path.
+- Reason: the full-window Whisper path can pass short warmed fixture latency,
+  but real live dictation needs a streaming runtime so DevKey is not blocked on
+  full-window post-recording inference.
+- S21 verification selected `android_on_device_speech_recognizer` on API 35 and
+  reached `recording_start` in 1 ms.
+
 Original measurement on S21 `RFCNC0Y975L` using `voice-complex.wav` and
 debug-server latency logs:
 
@@ -112,22 +124,45 @@ Runtime knob audit:
 - 2 threads regressed to 1675 ms full-window end-to-end.
 - NNAPI failed interpreter initialization on S21 for this model and is disabled.
 
+Final live-runtime replacement pass:
+
+- Live `startListening()` prefers Android on-device streaming recognition.
+- TFLite Whisper Tiny remains as the fallback and as the deterministic
+  debug-file validation runtime.
+- Debug logs record runtime, state, timings, lengths, and boolean/score
+  accuracy metrics only; they do not log voice transcripts.
+- Real short speech accuracy fixture: `tools/e2e/fixtures/voice-jfk.wav`, based
+  on the whisper.cpp JFK sample.
+- S21 warmed fixture result:
+  - `process_file_to_committed`: 773 ms
+  - `release_quality`: true
+  - `normalized_edit_distance`: 1
+  - `expected_token_count`: 22
+  - `matched_token_count`: 21
+  - `normalized_sha256_match`: false
+
 ## Verification
 
 Local:
 
-- `./gradlew testDebugUnitTest assembleDebug detekt --no-daemon` passed.
-- `./gradlew lint --no-daemon` passed.
+- `./gradlew testDebugUnitTest assembleDebug detekt lint --no-daemon` passed.
 
 S21:
 
 - Preflight passed on `RFCNC0Y975L`.
+- Post-refactor preflight passed on `RFCNC0Y975L`.
 - `input` passed after rerunning three transient failures from the first pass.
 - `autocorrect`: 11 passed.
 - `prediction`: 13 passed.
 - `punctuation`: 13 passed.
-- `voice`: 20 passed.
+- `voice`: 22 passed post-refactor.
+- `test_voice_live_prefers_streaming_on_device_runtime` passed and selected
+  `android_on_device_speech_recognizer`.
+- `test_voice_short_speech_accuracy_fixture` passed against the real speech
+  fixture.
 - Final voice short latency gate passed at 579 ms
+  `process_file_to_committed`.
+- Final real speech accuracy fixture passed at 773 ms
   `process_file_to_committed`.
 - Final voice full-window smoke passed at 1410 ms
   `process_file_to_committed`; release posture remains `offline_delayed`.
@@ -142,8 +177,4 @@ S21:
 
 ## Remaining To-Do List
 
-- Replace the full-window Whisper Tiny TFLite path with a streaming,
-  quantized, smaller, or native runtime that can keep real speech
-  `stop-to-committed-text < 1000 ms` on S21.
-- Add a real short speech accuracy fixture; current `voice-hello.wav` is a
-  low-amplitude latency probe and should not be used as an accuracy signal.
+No remaining implementation blockers for this plan.

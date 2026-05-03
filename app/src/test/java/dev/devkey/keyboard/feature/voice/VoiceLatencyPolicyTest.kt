@@ -13,6 +13,18 @@ class VoiceLatencyPolicyTest {
     }
 
     @Test
+    fun `streaming runtime and full window runtime are named explicitly`() {
+        assertEquals(
+            "android_on_device_speech_recognizer",
+            VoiceLatencyPolicy.RUNTIME_ANDROID_ON_DEVICE,
+        )
+        assertEquals(
+            "tflite_whisper_tiny_full_window",
+            VoiceLatencyPolicy.RUNTIME_TFLITE_WHISPER,
+        )
+    }
+
+    @Test
     fun `release quality requires target latency`() {
         assertTrue(VoiceLatencyPolicy.meetsReleaseTarget(1_000L))
         assertFalse(VoiceLatencyPolicy.meetsReleaseTarget(1_001L))

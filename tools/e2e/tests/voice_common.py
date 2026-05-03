@@ -7,6 +7,9 @@ transitions, and TestHost text length. They never read or log transcripts.
 
 import os
 import subprocess
+import base64
+import hashlib
+import re
 
 import pytest
 
@@ -21,6 +24,15 @@ FIXTURE_DIR = os.path.join(
 STOP_TO_COMMITTED_TARGET_MS = 1000
 OFFLINE_DELAYED_POSTURE = "offline_delayed"
 VOICE_RUNTIME_NEXT_STEP = "replace_full_window_tiny_with_streaming_subsecond_runtime"
+
+
+def normalize_voice_text(text):
+    return re.sub(r"[^a-z0-9]+", " ", text.lower()).strip()
+
+
+def expected_voice_hash(text):
+    normalized = normalize_voice_text(text)
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest(), len(normalized)
 
 
 def push_voice_fixture(serial, fixture_name):
@@ -52,6 +64,7 @@ def process_voice_fixture(
     expect_speech=True,
     require_release_quality=False,
     cold_start=False,
+    expected_text=None,
     clear_logs=True,
     processing_timeout_ms=10000,
     idle_timeout_ms=60000,
@@ -64,9 +77,17 @@ def process_voice_fixture(
 
     if clear_logs:
         driver.clear_logs()
+    extras = {"file_path": file_path, "cold_start": cold_start}
+    if expected_text is not None:
+        expected_hash, expected_length = expected_voice_hash(expected_text)
+        extras["expected_normalized_sha256"] = expected_hash
+        extras["expected_normalized_length"] = expected_length
+        extras["expected_text_base64"] = base64.b64encode(
+            expected_text.encode("utf-8")
+        ).decode("ascii")
     driver.broadcast(
         "dev.devkey.keyboard.VOICE_PROCESS_FILE",
-        {"file_path": file_path, "cold_start": cold_start},
+        extras,
     )
     driver.wait_for(
         "DevKey/VOX",
@@ -112,6 +133,28 @@ def process_voice_fixture(
             f"Expected release-quality voice latency <= {target_ms}ms, got {duration_ms}ms"
         )
         assert latency_data.get("release_quality") is True
+    if expected_text is not None:
+        expected_normalized = normalize_voice_text(expected_text)
+        expected_tokens = expected_normalized.split()
+        max_edit_distance = max(8, len(expected_normalized) // 10)
+        assert data.get("accuracy_checked") is True, "Expected voice accuracy check to run"
+        assert data.get("expected_length") == len(expected_normalized), (
+            "Expected normalized fixture length did not round-trip"
+        )
+        exact_match = data.get("normalized_sha256_match") is True
+        edit_distance = int(data.get("normalized_edit_distance", 9999))
+        matched_tokens = int(data.get("matched_token_count", -1))
+        expected_token_count = int(data.get("expected_token_count", -1))
+        approximate_match = (
+            edit_distance <= max_edit_distance
+            and expected_token_count == len(expected_tokens)
+            and matched_tokens >= max(1, len(expected_tokens) - 2)
+        )
+        assert exact_match or approximate_match, (
+            "Voice fixture transcript metrics did not match expected normalized text; "
+            f"edit_distance={edit_distance}, matched_tokens={matched_tokens}, "
+            f"expected_tokens={expected_token_count}"
+        )
     if expect_speech:
         assert data.get("committed") is True, (
             "Expected voice fixture to produce committable speech, but committed=false"

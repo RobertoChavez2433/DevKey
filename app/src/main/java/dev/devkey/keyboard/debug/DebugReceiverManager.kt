@@ -15,6 +15,8 @@ import dev.devkey.keyboard.ui.keyboard.SessionDependencies
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import java.security.MessageDigest
+import java.util.Locale
 
 internal class DebugReceiverManager(
     private val context: Context,
@@ -167,6 +169,11 @@ internal class DebugReceiverManager(
                 override fun onReceive(context: Context, intent: Intent) {
                     val filePath = intent.getStringExtra("file_path") ?: return
                     val coldStart = intent.getBooleanExtra("cold_start", false)
+                    val expectedNormalizedSha256 =
+                        intent.getStringExtra("expected_normalized_sha256")
+                    val expectedNormalizedLength =
+                        intent.getIntExtra("expected_normalized_length", -1)
+                    val expectedText = decodeBase64Extra(intent, "expected_text_base64")
                     val engine = SessionDependencies.voiceInputEngine
                     if (engine == null) {
                         DevKeyLogger.error("voice_process_file_rejected", mapOf("reason" to "engine_null"))
@@ -179,6 +186,12 @@ internal class DebugReceiverManager(
                         val committed = engine.commitTranscriptionForTest(result)
                         val durationMs = android.os.SystemClock.elapsedRealtime() - startedAt
                         val releaseGate = VoiceLatencyPolicy.stopToCommittedLogData(durationMs)
+                        val accuracyData = voiceAccuracyLogData(
+                            result = result,
+                            expectedNormalizedSha256 = expectedNormalizedSha256,
+                            expectedNormalizedLength = expectedNormalizedLength,
+                            expectedText = expectedText,
+                        )
                         DevKeyLogger.voice(
                             "latency",
                             mapOf(
@@ -191,7 +204,7 @@ internal class DebugReceiverManager(
                             mapOf(
                                 "length" to result.length,
                                 "committed" to committed
-                            ) + releaseGate + mapOf("duration_ms" to durationMs)
+                            ) + releaseGate + mapOf("duration_ms" to durationMs) + accuracyData
                         )
                     }
                 }
@@ -306,7 +319,11 @@ internal class DebugReceiverManager(
     }
 
     private fun decodeExpectedWord(intent: Intent): String? {
-        val encoded = intent.getStringExtra("word_base64") ?: return null
+        return decodeBase64Extra(intent, "word_base64")
+    }
+
+    private fun decodeBase64Extra(intent: Intent, key: String): String? {
+        val encoded = intent.getStringExtra(key) ?: return null
         return try {
             String(Base64.decode(encoded, Base64.NO_WRAP), Charsets.UTF_8)
         } catch (_: IllegalArgumentException) {
@@ -343,4 +360,87 @@ internal class DebugReceiverManager(
             "off" -> SmartTextCorrectionLevel.OFF
             else -> SmartTextCorrectionLevel.MILD
         }
+
+    private fun voiceAccuracyLogData(
+        result: String,
+        expectedNormalizedSha256: String?,
+        expectedNormalizedLength: Int,
+        expectedText: String?
+    ): Map<String, Any?> {
+        if (expectedNormalizedSha256.isNullOrBlank()) {
+            return emptyMap()
+        }
+        val normalized = normalizeVoiceResult(result)
+        val expectedNormalized = expectedText?.let(::normalizeVoiceResult).orEmpty()
+        return mapOf(
+            "accuracy_checked" to true,
+            "normalized_length" to normalized.length,
+            "expected_length" to expectedNormalizedLength,
+            "normalized_edit_distance" to normalizedEditDistance(normalized, expectedNormalized),
+            "expected_token_count" to expectedNormalized.splitToTokens().size,
+            "matched_token_count" to matchedTokenCount(normalized, expectedNormalized),
+            "normalized_sha256_match" to (
+                sha256Hex(normalized) == expectedNormalizedSha256.lowercase(Locale.US)
+            )
+        )
+    }
+
+    private fun normalizeVoiceResult(text: String): String =
+        text
+            .lowercase(Locale.US)
+            .replace(Regex("[^a-z0-9]+"), " ")
+            .trim()
+
+    private fun sha256Hex(text: String): String {
+        val digest = MessageDigest.getInstance("SHA-256").digest(text.toByteArray(Charsets.UTF_8))
+        return digest.joinToString("") { "%02x".format(it) }
+    }
+
+    private fun normalizedEditDistance(actual: String, expected: String): Int {
+        if (expected.isEmpty()) return actual.length
+        if (actual.isEmpty()) return expected.length
+        val previous = IntArray(expected.length + 1) { it }
+        val current = IntArray(expected.length + 1)
+        var i = 1
+        while (i <= actual.length) {
+            current[0] = i
+            var j = 1
+            while (j <= expected.length) {
+                val substitution = if (actual[i - 1] == expected[j - 1]) 0 else 1
+                current[j] = minOf(
+                    previous[j] + 1,
+                    current[j - 1] + 1,
+                    previous[j - 1] + substitution
+                )
+                j++
+            }
+            var copy = 0
+            while (copy <= expected.length) {
+                previous[copy] = current[copy]
+                copy++
+            }
+            i++
+        }
+        return previous[expected.length]
+    }
+
+    private fun String.splitToTokens(): List<String> =
+        split(" ").filter { it.isNotBlank() }
+
+    private fun matchedTokenCount(actual: String, expected: String): Int {
+        val actualCounts = actual
+            .splitToTokens()
+            .groupingBy { it }
+            .eachCount()
+            .toMutableMap()
+        var matched = 0
+        for (token in expected.splitToTokens()) {
+            val count = actualCounts[token] ?: 0
+            if (count > 0) {
+                actualCounts[token] = count - 1
+                matched++
+            }
+        }
+        return matched
+    }
 }

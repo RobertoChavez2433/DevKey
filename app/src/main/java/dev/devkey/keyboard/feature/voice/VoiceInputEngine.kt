@@ -25,10 +25,11 @@ import java.nio.ByteOrder
 import java.nio.channels.FileChannel
 
 /**
- * Voice input engine using TF Lite Whisper for on-device speech-to-text.
+ * Voice input engine using Android's on-device streaming recognizer for live
+ * speech and TF Lite Whisper for deterministic file-fixture validation/fallback.
  *
  * Manages the full voice input lifecycle: audio recording, silence detection,
- * speech recognition via Whisper, and state management.
+ * speech recognition, and state management.
  *
  * Audio capture is delegated to [AudioCaptureManager].
  * Falls back gracefully when model files are not available.
@@ -40,6 +41,12 @@ class VoiceInputEngine(private val context: Context) {
     companion object {
         private const val TAG = "DevKey/VoiceInputEngine"
         private const val DEFAULT_OUTPUT_TOKEN_COUNT = 449
+    }
+
+    private enum class ActiveRuntime {
+        NONE,
+        ANDROID_ON_DEVICE,
+        TFLITE_WHISPER,
     }
 
     /** Current voice input state. */
@@ -74,6 +81,15 @@ class VoiceInputEngine(private val context: Context) {
     @Volatile
     private var transcriptionListener: ((String) -> Unit)? = null
 
+    private val onDeviceRuntime = AndroidOnDeviceSpeechRecognizerRuntime(
+        context = context,
+        setState = { _state.value = it },
+        shouldCommit = ::shouldCommitTranscription,
+        onAutoTranscription = { transcription -> transcriptionListener?.invoke(transcription) },
+        onComplete = { activeRuntime = ActiveRuntime.NONE },
+        logLatency = ::logLatency,
+    )
+
     /** Audio capture manager — owns AudioRecord lifecycle and amplitude tracking. */
     private val captureManager = AudioCaptureManager(
         context = context,
@@ -95,6 +111,7 @@ class VoiceInputEngine(private val context: Context) {
     /** Whether the model was loaded successfully. */
     private var modelLoaded = false
     @Volatile private var modelWarmupStarted = false
+    @Volatile private var activeRuntime = ActiveRuntime.NONE
     private val inferenceLock = Any()
     private var cachedInputShape: IntArray = intArrayOf(1, WhisperProcessor.N_MELS, WhisperProcessor.N_FRAMES)
     private var cachedOutputLength: Int = 0
@@ -113,6 +130,16 @@ class VoiceInputEngine(private val context: Context) {
     fun hasPermission(): Boolean = captureManager.hasPermission()
 
     fun warmOfflineModelIfAllowed() {
+        if (onDeviceRuntime.isAvailable()) {
+            DevKeyLogger.voice(
+                "model_warmup_skipped",
+                mapOf(
+                    "reason" to "android_on_device_runtime_primary",
+                    "runtime" to VoiceLatencyPolicy.RUNTIME_ANDROID_ON_DEVICE,
+                )
+            )
+            return
+        }
         if (modelWarmupStarted || interpreter != null) return
         modelWarmupStarted = true
         val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
@@ -293,16 +320,42 @@ class VoiceInputEngine(private val context: Context) {
             return false
         }
 
+        if (onDeviceRuntime.start(startMs)) {
+            activeRuntime = ActiveRuntime.ANDROID_ON_DEVICE
+            return true
+        }
+
         if (interpreter == null) initialize()
 
+        activeRuntime = ActiveRuntime.TFLITE_WHISPER
         _state.value = VoiceState.LISTENING
-        DevKeyLogger.voice("state_transition", mapOf("state" to "LISTENING", "source" to "startListening"))
+        DevKeyLogger.voice(
+            "runtime_selected",
+            mapOf(
+                "runtime" to VoiceLatencyPolicy.RUNTIME_TFLITE_WHISPER,
+                "source" to "startListening",
+                "reason" to "on_device_unavailable"
+            )
+        )
+        DevKeyLogger.voice(
+            "state_transition",
+            mapOf(
+                "state" to "LISTENING",
+                "source" to "startListening",
+                "runtime" to VoiceLatencyPolicy.RUNTIME_TFLITE_WHISPER
+            )
+        )
 
         val started = captureManager.startCapture(engineScope)
         if (started) {
-            logLatency("recording_start", startMs)
+            logLatency(
+                "recording_start",
+                startMs,
+                mapOf("runtime" to VoiceLatencyPolicy.RUNTIME_TFLITE_WHISPER)
+            )
         }
         if (!started) {
+            activeRuntime = ActiveRuntime.NONE
             _state.value = VoiceState.ERROR
             DevKeyLogger.voice(
                 "state_transition",
@@ -323,6 +376,11 @@ class VoiceInputEngine(private val context: Context) {
      */
     suspend fun stopListening(source: String = "stopListening"): String {
         val stopStartMs = SystemClock.elapsedRealtime()
+        if (activeRuntime == ActiveRuntime.ANDROID_ON_DEVICE) {
+            return onDeviceRuntime.stop(source, stopStartMs).also {
+                activeRuntime = ActiveRuntime.NONE
+            }
+        }
         if (!captureManager.isCapturing() && _state.value == VoiceState.IDLE) {
             return ""
         }
@@ -339,6 +397,7 @@ class VoiceInputEngine(private val context: Context) {
             mapOf("samples" to audioData.size, "source" to source)
         )
         if (audioData.isEmpty()) {
+            activeRuntime = ActiveRuntime.NONE
             _state.value = VoiceState.IDLE
             DevKeyLogger.voice(
                 "state_transition",
@@ -358,6 +417,7 @@ class VoiceInputEngine(private val context: Context) {
             try {
                 val interp = interpreter
                 if (interp == null || !modelLoaded) {
+                    activeRuntime = ActiveRuntime.NONE
                     _state.value = VoiceState.IDLE
                     DevKeyLogger.voice(
                         "state_transition",
@@ -374,6 +434,7 @@ class VoiceInputEngine(private val context: Context) {
                 val flatInput = processor.processAudio(audioData)
                 logLatency("preprocessing", preprocessingStartMs, mapOf("source" to source))
                 if (flatInput == null) {
+                    activeRuntime = ActiveRuntime.NONE
                     _state.value = VoiceState.IDLE
                     DevKeyLogger.voice("state_transition", mapOf(
                         "state" to "IDLE", "source" to source,
@@ -402,6 +463,7 @@ class VoiceInputEngine(private val context: Context) {
                         )
                     }
                 }
+                activeRuntime = ActiveRuntime.NONE
                 _state.value = VoiceState.IDLE
                 DevKeyLogger.voice("processing_complete", mapOf(
                     "result_length" to transcription.length,
@@ -452,6 +514,7 @@ class VoiceInputEngine(private val context: Context) {
 
     private fun handleInferenceFailure(source: String, startMs: Long, error: Throwable): String {
         Log.e(TAG, "Whisper inference failed", error)
+        activeRuntime = ActiveRuntime.NONE
         _state.value = VoiceState.IDLE
         DevKeyLogger.voice("error", mapOf("kind" to "inference_failed", "source" to source))
         DevKeyLogger.voice("state_transition", mapOf(
@@ -486,7 +549,13 @@ class VoiceInputEngine(private val context: Context) {
      * Cancel recording without processing.
      */
     fun cancelListening() {
+        if (activeRuntime == ActiveRuntime.ANDROID_ON_DEVICE) {
+            onDeviceRuntime.cancel("cancelListening")
+            activeRuntime = ActiveRuntime.NONE
+            return
+        }
         captureManager.cancel()
+        activeRuntime = ActiveRuntime.NONE
         _state.value = VoiceState.IDLE
         DevKeyLogger.voice("state_transition", mapOf("state" to "IDLE", "source" to "cancelListening"))
     }
@@ -511,6 +580,14 @@ class VoiceInputEngine(private val context: Context) {
      * @return Transcribed text or an error/status message.
      */
     suspend fun processFileForTest(filePath: String, coldStart: Boolean = false): String {
+        if (activeRuntime == ActiveRuntime.ANDROID_ON_DEVICE) {
+            onDeviceRuntime.cancel("processFileForTest")
+            activeRuntime = ActiveRuntime.NONE
+            DevKeyLogger.voice(
+                "streaming_runtime_released_for_file",
+                mapOf("source" to "processFileForTest")
+            )
+        }
         if (captureManager.isCapturing()) {
             captureManager.cancel()
             DevKeyLogger.voice(
@@ -519,14 +596,29 @@ class VoiceInputEngine(private val context: Context) {
             )
         }
         prepareModelForFileTest(coldStart)
+        activeRuntime = ActiveRuntime.TFLITE_WHISPER
         _state.value = VoiceState.PROCESSING
         DevKeyLogger.voice(
+            "runtime_selected",
+            mapOf(
+                "runtime" to VoiceLatencyPolicy.RUNTIME_TFLITE_WHISPER,
+                "source" to "processFileForTest",
+                "cold_start" to coldStart
+            )
+        )
+        DevKeyLogger.voice(
             "state_transition",
-            mapOf("state" to "PROCESSING", "source" to "processFileForTest", "cold_start" to coldStart)
+            mapOf(
+                "state" to "PROCESSING",
+                "source" to "processFileForTest",
+                "cold_start" to coldStart,
+                "runtime" to VoiceLatencyPolicy.RUNTIME_TFLITE_WHISPER
+            )
         )
 
         val audioData = readWavPcm(filePath)
         if (audioData == null || audioData.isEmpty()) {
+            activeRuntime = ActiveRuntime.NONE
             _state.value = VoiceState.IDLE
             DevKeyLogger.voice(
                 "state_transition",
@@ -565,13 +657,7 @@ class VoiceInputEngine(private val context: Context) {
             val file = java.io.File(path)
             if (!file.exists()) return null
             val bytes = file.readBytes()
-            // WAV header: first 44 bytes for standard PCM format
-            if (bytes.size < 44) return null
-            val dataSize = bytes.size - 44
-            val samples = ShortArray(dataSize / 2)
-            val buf = java.nio.ByteBuffer.wrap(bytes, 44, dataSize).order(java.nio.ByteOrder.LITTLE_ENDIAN)
-            buf.asShortBuffer().get(samples)
-            samples
+            WavPcmReader.readPcm16(bytes)
         } catch (e: IOException) {
             Log.e(TAG, "Failed to read WAV file", e)
             null
@@ -587,8 +673,10 @@ class VoiceInputEngine(private val context: Context) {
     fun release() {
         engineScope.cancel()
         captureManager.release()
+        onDeviceRuntime.release()
         interpreter?.close()
         interpreter = null
         transcriptionListener = null
+        activeRuntime = ActiveRuntime.NONE
     }
 }

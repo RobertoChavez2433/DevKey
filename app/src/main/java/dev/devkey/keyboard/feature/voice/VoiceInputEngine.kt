@@ -1,5 +1,6 @@
 package dev.devkey.keyboard.feature.voice
 
+import android.app.ActivityManager
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
@@ -90,6 +91,7 @@ class VoiceInputEngine(private val context: Context) {
 
     /** Whether the model was loaded successfully. */
     private var modelLoaded = false
+    @Volatile private var modelWarmupStarted = false
 
     fun setTranscriptionListener(listener: ((String) -> Unit)?) {
         transcriptionListener = listener
@@ -100,6 +102,36 @@ class VoiceInputEngine(private val context: Context) {
     }
 
     fun hasPermission(): Boolean = captureManager.hasPermission()
+
+    fun warmOfflineModelIfAllowed() {
+        if (modelWarmupStarted || interpreter != null) return
+        modelWarmupStarted = true
+        val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
+        val memoryClassMb = activityManager?.memoryClass ?: 0
+        val lowRam = activityManager?.isLowRamDevice ?: false
+        if (lowRam || memoryClassMb < VoiceLatencyPolicy.MIN_WARMUP_MEMORY_CLASS_MB) {
+            DevKeyLogger.voice(
+                "model_warmup_skipped",
+                mapOf(
+                    "memory_class_mb" to memoryClassMb,
+                    "low_ram" to lowRam,
+                )
+            )
+            return
+        }
+        engineScope.launch(Dispatchers.Default) {
+            val startMs = SystemClock.elapsedRealtime()
+            initialize()
+            logLatency(
+                "model_warmup",
+                startMs,
+                mapOf(
+                    "loaded" to modelLoaded,
+                    "memory_class_mb" to memoryClassMb,
+                )
+            )
+        }
+    }
 
     fun requestPermission(onResult: (Boolean) -> Unit) {
         if (hasPermission()) {
@@ -139,6 +171,7 @@ class VoiceInputEngine(private val context: Context) {
     }
 
     /** Load the Whisper TF Lite interpreter lazily on first [startListening] call. */
+    @Synchronized
     private fun initialize() {
         if (interpreter != null) return
         val startMs = SystemClock.elapsedRealtime()
@@ -363,12 +396,18 @@ class VoiceInputEngine(private val context: Context) {
         startMs: Long,
         extra: Map<String, Any?> = emptyMap()
     ) {
+        val durationMs = SystemClock.elapsedRealtime() - startMs
+        val releaseGate = if (phase == "stop_to_result") {
+            VoiceLatencyPolicy.stopToCommittedLogData(durationMs)
+        } else {
+            emptyMap()
+        }
         DevKeyLogger.voice(
             "latency",
             mapOf(
                 "phase" to phase,
-                "duration_ms" to (SystemClock.elapsedRealtime() - startMs)
-            ) + extra
+                "duration_ms" to durationMs
+            ) + releaseGate + extra
         )
     }
 

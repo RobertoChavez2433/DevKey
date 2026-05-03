@@ -10,6 +10,7 @@ import dev.devkey.keyboard.BuildConfig
 import dev.devkey.keyboard.data.db.DevKeyDatabase
 import dev.devkey.keyboard.data.repository.SettingsRepository
 import dev.devkey.keyboard.feature.smarttext.SmartTextCorrectionLevel
+import dev.devkey.keyboard.feature.voice.VoiceLatencyPolicy
 import dev.devkey.keyboard.ui.keyboard.SessionDependencies
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -172,14 +173,24 @@ internal class DebugReceiverManager(
                     }
                     DevKeyLogger.voice("process_file_start")
                     scope.launch(Dispatchers.Main) {
+                        val startedAt = android.os.SystemClock.elapsedRealtime()
                         val result = engine.processFileForTest(filePath)
                         val committed = engine.commitTranscriptionForTest(result)
+                        val durationMs = android.os.SystemClock.elapsedRealtime() - startedAt
+                        val releaseGate = VoiceLatencyPolicy.stopToCommittedLogData(durationMs)
+                        DevKeyLogger.voice(
+                            "latency",
+                            mapOf(
+                                "phase" to "process_file_to_committed",
+                                "duration_ms" to durationMs
+                            ) + releaseGate
+                        )
                         DevKeyLogger.voice(
                             "process_file_result",
                             mapOf(
                                 "length" to result.length,
                                 "committed" to committed
-                            )
+                            ) + releaseGate + mapOf("duration_ms" to durationMs)
                         )
                     }
                 }

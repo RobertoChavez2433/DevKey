@@ -18,6 +18,8 @@ FIXTURE_DIR = os.path.join(
     "..",
     "fixtures",
 )
+STOP_TO_COMMITTED_TARGET_MS = 2500
+OFFLINE_DELAYED_POSTURE = "offline_delayed"
 
 
 def push_voice_fixture(serial, fixture_name):
@@ -80,9 +82,28 @@ def process_voice_fixture(
         "process_file_result",
         timeout_ms=result_timeout_ms,
     )
+    latency = driver.wait_for(
+        "DevKey/VOX",
+        "latency",
+        match={"phase": "process_file_to_committed"},
+        timeout_ms=3000,
+    )
     data = result.get("data", {})
+    latency_data = latency.get("data", {})
     length = data.get("length", 0)
     assert length > 0, f"Expected non-empty transcription length, got {length}"
+    duration_ms = int(latency_data.get("duration_ms", -1))
+    target_ms = int(latency_data.get("target_ms", -1))
+    assert duration_ms >= 0, "Missing process_file_to_committed duration"
+    assert target_ms == STOP_TO_COMMITTED_TARGET_MS, (
+        f"Expected voice target {STOP_TO_COMMITTED_TARGET_MS}ms, got {target_ms}"
+    )
+    if duration_ms <= target_ms:
+        assert latency_data.get("release_quality") is True
+    else:
+        assert latency_data.get("release_quality") is False
+        assert latency_data.get("release_posture") == OFFLINE_DELAYED_POSTURE
+        assert latency_data.get("runtime_next_step") == "evaluate_streaming_or_smaller_local_model"
     if expect_speech:
         assert data.get("committed") is True, (
             "Expected voice fixture to produce committable speech, but committed=false"

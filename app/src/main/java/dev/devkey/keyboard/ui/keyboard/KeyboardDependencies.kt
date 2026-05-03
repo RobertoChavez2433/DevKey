@@ -63,6 +63,9 @@ fun rememberKeyboardDependencies(
         SessionDependencies.voiceInputEngine = voiceInputEngine
         onDispose { SessionDependencies.voiceInputEngine = null; voiceInputEngine.release() }
     }
+    LaunchedEffect(voiceInputEngine) {
+        voiceInputEngine.warmOfflineModelIfAllowed()
+    }
 
     RegisterDebugKeyboardReceivers(
         layoutMode = layoutMode,

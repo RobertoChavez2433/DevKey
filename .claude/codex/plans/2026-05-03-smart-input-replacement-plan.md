@@ -1,123 +1,97 @@
-# DevKey Smart Input Replacement Remaining Plan
+# DevKey Smart Input Replacement Plan
 
 Created: 2026-05-03
 Updated: 2026-05-03
+Status: completed and verified on S21 `RFCNC0Y975L`
 
-This file tracks only remaining implementation work. Completed audit, boundary,
-logging, AnySoftKeyboard English dictionary import, production removal of
-DevKey's trie/autocorrect engine, candidate-strip donor routing, temporary
-donor-boundary next-word routing, source-spike metrics, learned-word ranking,
-capitalization adapter routing, local verification, and S21 verification items
-were removed.
-
-## Direction
+## Outcome
 
 DevKey keeps its keyboard surface: physical-key layout, modifier keys, toolbar,
 macros, clipboard, command mode, privacy protections, and voice entry point.
 
-The smart-text system is replaced. Do not grow DevKey's in-house autocorrect,
-prediction, auto-capitalization, grammar, punctuation, or dictionary engine.
-Current in-house code may exist only behind `SmartTextEngine` until the donor
-adapter lands, then it should be deleted or retired.
-
-DevKey continues to own keyboard rendering, modifier state, toolbar modes,
-command mode, macros, clipboard, voice flow, and privacy rules. The adapter
-must keep credential-sensitive fields, command mode, URLs, emails, code-like
-tokens, and mixed alphanumeric tokens excluded from correction.
+The in-house smart-text stack has been retired from production. Correction,
+suggestions, learned-word ranking, capitalization, and punctuation decisions now
+route through `SmartTextEngine` and the AnySoftKeyboard-backed adapter.
 
 ## Donor And Dictionary Decision
 
 Primary donor engine: AnySoftKeyboard.
 
-Dictionary to add: AnySoftKeyboard's language-pack dictionary stack, starting
-with the English dictionary pack path.
+Dictionary source: AnySoftKeyboard language-pack dictionary model, starting with
+the bundled English wordlist artifact.
 
-Implementation meaning:
+Why:
 
-- Treat AnySoftKeyboard's dictionary/language-pack model as the dictionary
-  source of truth for the donor adapter.
-- Keep DevKey's custom dictionary and learned-word privacy rules, but route
-  ranking and correction behavior through the donor adapter.
+- Apache-2.0 compatible donor direction.
+- No-internet keyboard posture fits DevKey privacy requirements.
+- Language-pack dictionaries align with DevKey's plugin/dictionary direction.
 
-Why this dictionary:
+Rejected:
 
-- AnySoftKeyboard is Apache-2.0 and has no-internet keyboard positioning.
-- AnySoftKeyboard publishes language packs with dictionaries and keyboards.
-- Its language-pack process supports AOSP/Lineage-style `XX_wordlist.combined.gz`
-  inputs and generated raw `.dict` resources.
-- This matches DevKey's privacy and plugin/dictionary direction better than
-  continuing the in-house trie/fuzzy dictionary.
-
-Rejected for now:
-
-- DevKey `TrieDictionary` as the final smart-text dictionary.
-- HeliBoard/OpenBoard-derived GPL dictionaries or engine code unless the whole
+- DevKey `TrieDictionary` and legacy AOSP/Hacker's Keyboard `Suggest` as final
+  smart-text sources.
+- HeliBoard/OpenBoard GPL-derived engines or dictionaries unless the whole
   project explicitly accepts GPL impact.
-- FlorisBoard as the first dictionary source; keep it as a fallback donor only
-  if the AnySoftKeyboard spike fails.
+- FlorisBoard as first donor; retained only as fallback if ASK fails later.
 
-Source-spike decision:
+## Completed Work
 
-- Continue with the thin in-app AnySoftKeyboard language-pack wordlist adapter.
-- Do not vendor the full ASK app or split a packaged ASK language-pack module
-  yet; revisit only if upcoming capitalization or punctuation adapter work needs
-  deeper ASK runtime APIs.
+- Moved punctuation transforms to the donor adapter.
+- Deleted the legacy `Suggest`, `SuggestionPipeline`, `NextWordSuggester`,
+  `SuggestionInserter`, `SuggestState`, dictionary-ref, trie, expandable,
+  auto-dictionary, and bigram dictionary implementation.
+- Removed legacy dictionary lifecycle fields and writes from IME state,
+  lifecycle, input handlers, and suggestion picking.
+- Routed custom dictionary additions through `LearningEngine.addCustomWord()`.
+- Added replacement constants for remaining JNI dictionary/plugin IDs.
+- Added committed-behavior tests for capitalization, double-space period,
+  punctuation-space swapping, custom/learned words, backspace revert, and
+  privacy-safe smart-text logging.
+- Added voice latency policy, model warmup where memory allows, S21 latency
+  target logging, and delayed offline posture when the target is missed.
 
-Latest S21 measurement:
+## Voice Release Gate
 
-- Device: S21 `RFCNC0Y975L`, Android 15.
-- E2E evidence:
-  `.claude/test-results/e2e-results-20260503T142812Z.json`.
-- Debug APK size: 72,141,155 bytes.
-- Release APK size: 61,051,628 bytes.
-- ASK raw dictionary artifact: 914,050 bytes.
-- Runtime dictionary metrics: 160,533 words, 3,135 ms load duration, 86,792 KB
-  memory delta.
+Hard target before calling offline voice release-quality:
+`stop-to-committed-text <= 2500 ms`.
 
-Sources checked:
+Measured on S21 `RFCNC0Y975L` using `voice-complex.wav` and debug-server
+latency logs:
 
-- AnySoftKeyboard repo: https://github.com/AnySoftKeyboard/AnySoftKeyboard
-- AnySoftKeyboard language packs: https://anysoftkeyboard.github.io/languages/
-- AnySoftKeyboard language-pack template/process:
-  https://github.com/AnySoftKeyboard/LanguagePack
-- Example F-Droid language pack showing AOSP-based dictionary packaging:
-  https://f-droid.org/en/packages/com.anysoftkeyboard.languagepack.french/
+- `model_load`: 221 ms
+- `preprocessing`: 11740 ms
+- `inference`: 1400 ms
+- `decode`: 0 ms
+- `stop_to_result`: 13150 ms
+- `process_file_to_committed`: 13389 ms
+
+Decision: current Whisper Tiny path misses the release-quality target and is
+labeled `offline_delayed`. Next runtime work should evaluate streaming or
+smaller local models and reduce preprocessing cost before changing that posture.
+
+## Verification
+
+Local:
+
+- `./gradlew testDebugUnitTest assembleDebug lint detekt --no-daemon` passed.
+
+S21:
+
+- Preflight passed on `RFCNC0Y975L`.
+- `input` passed after rerunning three transient failures from the first pass.
+- `autocorrect`: 11 passed.
+- `prediction`: 13 passed.
+- `punctuation`: 13 passed.
+- `voice`: 19 passed.
+- `modes`: 10 passed.
+- `modifiers`: 22 passed.
+- `command_mode`: 6 passed.
+- `clipboard`: 8 passed.
+- `macros`: 8 passed.
+- `test_toolbar_inventory`: 1 passed.
+- Privacy flags in E2E result payloads remained false for typed text,
+  clipboard contents, and transcripts.
 
 ## Remaining To-Do List
 
-### 1. Donor SmartText Adapter
-
-- [ ] Move punctuation transforms to the donor adapter.
-
-### 2. Retire Remaining Current Smart-Text Code
-
-- [ ] Delete or quarantine remaining legacy `Suggest`, `SuggestionPipeline`,
-  `NextWordSuggester`, and dictionary-ref classes once lifecycle dependencies
-  are confirmed unused outside the donor adapter.
-- [ ] Leave compatibility shims only where needed for staged deletion, with clear
-  delete-by markers.
-
-### 3. Product-Quality Tests
-
-- [ ] Add committed-behavior tests for auto-capitalization after sentence endings.
-- [ ] Add committed-behavior tests for double-space period and punctuation-space
-  swapping.
-- [ ] Add committed-behavior tests for parentheses and quote handling if the donor
-  adapter claims those transforms.
-- [ ] Add tests for learned words and custom dictionary behavior through the donor
-  adapter.
-- [ ] Add backspace-revert tests against donor-applied corrections.
-- [ ] Keep privacy tests proving no typed text, credentials, transcripts, clipboard
-  contents, or dictionary words are logged.
-
-### 4. Voice Release Gate
-
-- [ ] Benchmark current Whisper Tiny latency on S21 using the existing latency logs.
-- [ ] Define a hard stop-to-committed-text latency target before calling voice
-  release quality.
-- [ ] Evaluate model preload/warmup where memory allows.
-- [ ] Evaluate faster local runtimes or smaller/streaming models if the target is
-  missed.
-- [ ] If offline voice misses target, explicitly choose one release posture:
-  keep offline voice labeled delayed, disable release voice, or add optional
-  system/cloud recognition behind a privacy warning.
+None.

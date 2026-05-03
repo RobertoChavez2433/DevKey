@@ -28,6 +28,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.text.font.FontWeight
 import dev.devkey.keyboard.feature.voice.VoiceInputEngine
+import dev.devkey.keyboard.feature.voice.VoiceLatencyPolicy
 import dev.devkey.keyboard.ui.theme.DevKeyThemeColors
 import dev.devkey.keyboard.ui.theme.DevKeyThemeDimensions
 import dev.devkey.keyboard.ui.theme.DevKeyThemeTypography
@@ -77,7 +78,14 @@ fun VoiceInputPanel(
         Text(
             text = when (voiceState) {
                 VoiceInputEngine.VoiceState.LISTENING -> "Listening..."
-                VoiceInputEngine.VoiceState.PROCESSING -> "Processing..."
+                VoiceInputEngine.VoiceState.PROCESSING ->
+                    if (VoiceLatencyPolicy.CURRENT_RELEASE_POSTURE ==
+                        VoiceLatencyPolicy.POSTURE_OFFLINE_DELAYED
+                    ) {
+                        "Processing offline..."
+                    } else {
+                        "Processing..."
+                    }
                 VoiceInputEngine.VoiceState.ERROR -> "Error"
                 else -> ""
             },

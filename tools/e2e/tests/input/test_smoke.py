@@ -150,7 +150,7 @@ def test_key_repeat_on_hold():
 
 def test_word_learning_commits_word():
     """
-    Typing a word + space must emit word_committed with the correct word_length.
+    Repeated word commits must increment learned-word frequency on device.
     """
     serial = _setup()
     driver.clear_logs()
@@ -165,6 +165,13 @@ def test_word_learning_commits_word():
     )
     time.sleep(0.3)
     driver.clear_logs()
+    driver.broadcast(
+        "dev.devkey.keyboard.SET_BOOL_PREF",
+        {"key": "auto_cap", "value": False},
+    )
+    driver.wait_for("DevKey/IME", "bool_pref_set", timeout_ms=3000)
+    adb.clear_learned_words(serial)
+    driver.clear_logs()
 
     _type_word("hello", serial)
     keyboard.tap_key_by_code(SPACE_CODE, serial)
@@ -176,3 +183,21 @@ def test_word_learning_commits_word():
     )
     data = entry["data"]
     assert data["word_length"] == 5
+
+    driver.clear_logs()
+    _type_word("hello", serial)
+    keyboard.tap_key_by_code(SPACE_CODE, serial)
+
+    entry = driver.wait_for(
+        category="DevKey/TXT",
+        event="word_committed",
+        timeout_ms=5000,
+    )
+    data = entry["data"]
+    assert data["word_length"] == 5
+    adb.assert_learned_word("hello", min_frequency=2, serial=serial)
+    adb.assert_test_host_text_equals(
+        "hello hello ",
+        serial=serial,
+        context="word learning"
+    )

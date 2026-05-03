@@ -347,6 +347,18 @@ class InputHandlersTest {
 
     @Test
     fun `handleSeparator revert separator guard skips autocorrect`() {
+        val mockDictProvider = mock<DictionaryProvider>()
+        whenever(mockDictProvider.isValidWord(any())).thenReturn(false)
+        whenever(mockDictProvider.getFuzzyCorrections(any(), any())).thenReturn(listOf("hell"))
+        val acEngine = AutocorrectEngine(mockDictProvider)
+        acEngine.aggressiveness = AutocorrectEngine.Aggressiveness.AGGRESSIVE
+
+        val learnEngine = LearningEngine(FakeLearnedWordDao())
+        kotlinx.coroutines.runBlocking { learnEngine.initialize() }
+
+        SessionDependencies.autocorrectEngine = acEngine
+        SessionDependencies.learningEngine = learnEngine
+
         state.mPredicting = true
         state.mAutoCorrectOn = true
         state.mComposing.append("hel")
@@ -360,6 +372,7 @@ class InputHandlersTest {
 
         // When mJustRevertedSeparator matches the separator code, pickDefaultSuggestion is NOT called
         verify(mockPicker, never()).pickDefaultSuggestion()
+        verify(mockDictProvider, never()).getFuzzyCorrections(any(), any())
     }
 
     @Test

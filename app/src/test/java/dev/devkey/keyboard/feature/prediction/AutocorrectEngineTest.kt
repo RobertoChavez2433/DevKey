@@ -35,6 +35,15 @@ class AutocorrectEngineTest {
         assertEquals(AutocorrectResult.None, result)
     }
 
+    @Test
+    fun `alpha numeric word returns None`() {
+        engine.aggressiveness = AutocorrectEngine.Aggressiveness.AGGRESSIVE
+        fakeDictProvider.fuzzyCorrections = listOf("abc")
+
+        val result = engine.getCorrection("abc1", emptySet())
+        assertEquals(AutocorrectResult.None, result)
+    }
+
     // --- Learned words skip ---
 
     @Test

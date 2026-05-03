@@ -35,6 +35,7 @@ class AutocorrectEngine(private val dictionaryProvider: DictionaryProvider) {
     fun getCorrection(typed: String, customWords: Set<String>): AutocorrectResult {
         if (aggressiveness == Aggressiveness.OFF) return AutocorrectResult.None
         if (typed.isEmpty()) return AutocorrectResult.None
+        if (!typed.all { it.isLetter() }) return AutocorrectResult.None
 
         // User explicitly added this word — don't correct it
         val typedLower = typed.lowercase()

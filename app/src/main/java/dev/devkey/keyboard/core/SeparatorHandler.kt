@@ -76,7 +76,7 @@ internal class SeparatorHandler(
 
     private fun acceptTypedOrCorrectedWord(primaryCode: Int, ic: InputConnection?): Boolean {
         val typedWord = state.mComposing.toString()
-        val result = findAutocorrectResult(typedWord)
+        val result = findAutocorrectResult(typedWord, primaryCode)
         when {
             result is AutocorrectResult.Suggestion && result.autoApply ->
                 applyAutocorrect(ic, typedWord, result)
@@ -90,10 +90,14 @@ internal class SeparatorHandler(
         return true
     }
 
-    private fun findAutocorrectResult(typedWord: String): AutocorrectResult? {
+    private fun findAutocorrectResult(typedWord: String, primaryCode: Int): AutocorrectResult? {
         val acEngine = SessionDependencies.autocorrectEngine ?: return null
         val learnEngine = SessionDependencies.learningEngine ?: return null
         if (acEngine.aggressiveness == AutocorrectEngine.Aggressiveness.OFF || state.mComposing.isEmpty()) {
+            return null
+        }
+        val revertedSeparator = state.mJustRevertedSeparator
+        if (!revertedSeparator.isNullOrEmpty() && revertedSeparator[0].code == primaryCode) {
             return null
         }
         return acEngine.getCorrection(typedWord, learnEngine.getCustomWords())

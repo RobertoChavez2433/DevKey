@@ -14,6 +14,7 @@ PRIVACY: structural only — NEVER log command buffers or typed content.
 """
 import subprocess
 from lib import adb, driver, keyboard
+from lib.privacy import allowed_payload_keys
 
 
 def test_command_mode_auto_enabled_on_terminal_focus():
@@ -47,7 +48,7 @@ def test_command_mode_auto_enabled_on_terminal_focus():
     )
 
     # Expect the documented structural fields only.
-    allowed = {"trigger"}
+    allowed = allowed_payload_keys("trigger")
     extra = set(data.keys()) - allowed
     assert not extra, (
         f"command_mode_manual_enabled payload had unexpected keys: {extra}. "

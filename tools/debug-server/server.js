@@ -52,14 +52,25 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // GET /logs?last=N&category=X&hypothesis=H001
+  // GET /logs?last=N&category=X&hypothesis=H001&trace_id=T&since_seq=N
   if (url.pathname === '/logs') {
     let filtered = logs;
     const cat = url.searchParams.get('category');
     const hyp = url.searchParams.get('hypothesis');
+    const traceId = url.searchParams.get('trace_id');
+    const sinceSeq = parseInt(url.searchParams.get('since_seq') || '0', 10);
     const last = parseInt(url.searchParams.get('last') || '50');
     if (cat) filtered = filtered.filter(e => e.category === cat);
     if (hyp) filtered = filtered.filter(e => e.hypothesis === hyp);
+    if (traceId) {
+      filtered = filtered.filter(e => String((e.data || {}).devkey_trace_id) === traceId);
+    }
+    if (sinceSeq > 0) {
+      filtered = filtered.filter(e => {
+        const seq = parseInt((e.data || {}).devkey_event_seq || '0', 10);
+        return seq >= sinceSeq;
+      });
+    }
     filtered = filtered.slice(-last);
     res.end(filtered.map(e => JSON.stringify(e)).join('\n'));
     return;

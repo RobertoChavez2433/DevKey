@@ -1,6 +1,8 @@
 // WHY: Structured logging with categories for systematic debugging.
 package dev.devkey.keyboard.debug
 
+import android.os.Process
+import android.os.SystemClock
 import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -31,6 +33,9 @@ object DevKeyLogger {
     }
 
     @Volatile private var serverUrl: String? = null
+    private val eventSequence = AtomicLong(0L)
+    private val processTraceId =
+        "${System.currentTimeMillis().toString(36)}-${Process.myPid().toString(36)}"
     // WHY: Limit parallelism so a slow/unreachable driver can never saturate the
     //      full Dispatchers.IO pool (64 threads by default on Android). If we let
     //      every log call grab an IO thread, a flurry of events with a stalled
@@ -106,9 +111,18 @@ object DevKeyLogger {
         log(Category.ERROR, message, data)
 
     private fun log(category: Category, message: String, data: Map<String, Any?>) {
-        Log.d(category.tag, formatMessage(message, data))
-        sendToServer(category.tag, message, data)
+        val enrichedData = enrichData(data)
+        Log.d(category.tag, formatMessage(message, enrichedData))
+        sendToServer(category.tag, message, enrichedData)
     }
+
+    private fun enrichData(data: Map<String, Any?>): Map<String, Any?> =
+        data + mapOf(
+            "devkey_trace_id" to processTraceId,
+            "devkey_event_seq" to eventSequence.incrementAndGet(),
+            "devkey_uptime_ms" to SystemClock.elapsedRealtime(),
+            "devkey_thread" to Thread.currentThread().name.take(48),
+        )
 
     private fun formatMessage(message: String, data: Map<String, Any?>): String {
         if (data.isEmpty()) return message

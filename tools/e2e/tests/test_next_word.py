@@ -9,6 +9,7 @@ Depends on:
   - HTTP forwarding enabled (sub-phase 1.1)
 """
 from lib import adb, keyboard, driver
+from lib.privacy import allowed_payload_keys
 
 SPACE_CODE = 32
 
@@ -114,9 +115,9 @@ def test_next_word_privacy_payload_is_structural_only():
 
     entry = driver.wait_for("DevKey/TXT", "next_word_suggestions", timeout_ms=3000)
     data = entry["data"]
-    allowed_keys = {"prev_word_length", "result_count", "source"}
+    allowed_keys = allowed_payload_keys("prev_word_length", "result_count", "source")
     extra = set(data.keys()) - allowed_keys
     assert not extra, (
         f"next_word_suggestions payload contained unexpected keys: {extra}. "
-        f"PRIVACY: payload must contain only prev_word_length, result_count, source."
+        f"PRIVACY: payload must contain only prev_word_length, result_count, source, and trace metadata."
     )

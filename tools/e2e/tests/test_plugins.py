@@ -15,6 +15,7 @@ PRIVACY: only plugin_count integer — NEVER plugin metadata / names / paths.
 """
 import os
 from lib import adb, driver, keyboard
+from lib.privacy import allowed_payload_keys
 
 # Expected plugin count — override per build via env var. Defaults to 0
 # (no bundled plugins). Adjust in CI as the plugin set stabilizes.
@@ -51,8 +52,8 @@ def test_plugin_scan_complete_event_fires():
     )
 
     # PRIVACY guard: no keys other than plugin_count.
-    extra = set(data.keys()) - {"plugin_count"}
+    extra = set(data.keys()) - allowed_payload_keys("plugin_count")
     assert not extra, (
         f"plugin_scan_complete payload had unexpected keys: {extra}. "
-        f"PRIVACY: only plugin_count allowed."
+        f"PRIVACY: only plugin_count and trace metadata allowed."
     )

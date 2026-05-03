@@ -85,6 +85,13 @@ internal class InputDispatcher(
 
     fun onText(text: CharSequence) {
         val ic = icProvider.inputConnection ?: return
+        DevKeyLogger.text(
+            "text_sequence_dispatch",
+            mapOf(
+                "text_length" to text.length,
+                "was_predicting" to state.mPredicting,
+            )
+        )
         if (state.mPredicting && text.length == 1) {
             val c = text[0].code
             if (!state.isWordSeparator(c)) {

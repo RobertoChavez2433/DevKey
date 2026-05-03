@@ -8,6 +8,7 @@ relocated into the clipboard/ test package for Phase 9 organisation.
 import subprocess
 
 from lib import adb, keyboard, driver
+from lib.privacy import allowed_payload_keys
 
 
 def _setup():
@@ -35,9 +36,10 @@ def test_clipboard_panel_opens():
     )
     # PRIVACY: panel_opened payload must never contain clipboard contents.
     data = entry.get("data", {})
-    assert set(data.keys()).issubset({"panel"}), (
-        f"panel_opened payload had unexpected keys: {set(data.keys()) - {'panel'}}. "
-        f"PRIVACY: must be structural-only (panel name)."
+    allowed = allowed_payload_keys("panel")
+    assert set(data.keys()).issubset(allowed), (
+        f"panel_opened payload had unexpected keys: {set(data.keys()) - allowed}. "
+        f"PRIVACY: must be structural-only (panel name plus trace metadata)."
     )
 
     # Dismiss via RESET_KEYBOARD_MODE.

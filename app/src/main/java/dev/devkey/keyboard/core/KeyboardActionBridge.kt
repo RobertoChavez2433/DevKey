@@ -94,6 +94,10 @@ class KeyboardActionBridge(
      * Send a text sequence through the listener.
      */
     fun onText(text: CharSequence) {
+        DevKeyLogger.text(
+            "text_sequence_bridge",
+            mapOf("text_length" to text.length)
+        )
         listener.onText(text)
     }
 

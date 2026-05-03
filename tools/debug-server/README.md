@@ -41,7 +41,7 @@ To disable (broadcast with no `url` extra):
 | Method | Path | Purpose |
 |---|---|---|
 | POST | `/log` | Append a log entry (JSON body) |
-| GET | `/logs?last=N&category=X&hypothesis=H` | Filtered tail |
+| GET | `/logs?last=N&category=X&hypothesis=H&trace_id=T&since_seq=N` | Filtered tail |
 | GET | `/health` | `{status, entries, maxEntries, memoryMB, uptimeSeconds}` |
 | GET | `/categories` | `{category: count}` |
 | POST | `/clear` | Drop buffer |
@@ -65,3 +65,15 @@ To disable (broadcast with no `url` extra):
 DevKey IMEs see every keystroke, including passwords and PII. The HTTP log endpoint accepts ONLY structural data (state names, lengths, counts, durations). NEVER log typed text, transcripts, audio samples, or buffer bytes — see `DevKeyLogger.kt` privacy comment.
 
 This server exposes a local ADB convenience layer on 127.0.0.1:3950. The `/adb/logcat` endpoint can return `DevKeyPress` KEY/LONG lines, which on debug builds contain a live stream of keystrokes. Any process on this machine can poll `/adb/logcat`. DO NOT run the driver server on a workstation where untrusted local processes exist. Stop the driver server between sessions.
+
+## Trace metadata
+
+Every `DevKeyLogger` event includes these structural fields in `data`:
+
+- `devkey_trace_id`: process-level trace id for the current IME process
+- `devkey_event_seq`: monotonic event sequence within that process
+- `devkey_uptime_ms`: device uptime at emit time
+- `devkey_thread`: emitting thread name
+
+Use `/logs?trace_id=<id>&since_seq=<n>` to follow a single app timeline across
+IME, UI, text, modifier, voice, native, and error categories.

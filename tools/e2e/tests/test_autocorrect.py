@@ -10,6 +10,7 @@ from tests.autocorrect.common import (
     wait_next_word_suggestions,
 )
 from lib import driver
+from lib.privacy import allowed_payload_keys
 
 
 def test_autocorrect_aggressive_applies():
@@ -44,9 +45,9 @@ def test_autocorrect_privacy_no_words_logged():
 
     data = wait_autocorrect_applied()
     assert_controlled_text_equals(serial, "the ", "legacy autocorrect privacy")
-    allowed_keys = {"action", "level"}
+    allowed_keys = allowed_payload_keys("action", "level")
     extra = set(data.keys()) - allowed_keys
     assert not extra, (
         f"autocorrect_applied payload contained unexpected keys: {extra}. "
-        f"PRIVACY: payload must contain only action and level."
+        f"PRIVACY: payload must contain only action, level, and trace metadata."
     )

@@ -245,14 +245,24 @@ def _parse_test_host_line(line: str, event: str, request_id: str) -> Optional[Di
     if event not in line or f"request_id={request_id}" not in line:
         return None
     length_match = re.search(r"text_length=(\d+)", line)
+    expected_length_match = re.search(r"expected_length=(-?\d+)", line)
+    actual_length_match = re.search(r"actual_length=(\d+)", line)
     focused_match = re.search(r"focused=(true|false)", line)
+    ok_match = re.search(r"ok=(true|false)", line)
     if not length_match:
         return None
-    return {
+    parsed: Dict[str, Any] = {
         "text_length": int(length_match.group(1)),
         "focused": focused_match.group(1) == "true" if focused_match else None,
         "request_id": request_id,
     }
+    if expected_length_match:
+        parsed["expected_length"] = int(expected_length_match.group(1))
+    if actual_length_match:
+        parsed["actual_length"] = int(actual_length_match.group(1))
+    if ok_match:
+        parsed["ok"] = ok_match.group(1) == "true"
+    return parsed
 
 
 def _wait_for_test_host_event(
@@ -273,6 +283,14 @@ def _wait_for_test_host_event(
         data = dict(entry.get("data", {}))
         data["text_length"] = int(data.get("text_length", -1))
         data["focused"] = _coerce_bool(data.get("focused"))
+        if "actual_length" in data:
+            data["actual_length"] = int(data["actual_length"])
+        if "expected_length" in data:
+            data["expected_length"] = int(data["expected_length"])
+        if "first_diff_index" in data:
+            data["first_diff_index"] = int(data["first_diff_index"])
+        if "ok" in data:
+            data["ok"] = _coerce_bool(data["ok"])
         return data
     except Exception:
         pass

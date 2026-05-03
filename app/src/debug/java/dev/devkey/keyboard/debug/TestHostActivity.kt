@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.Bundle
+import android.util.Base64
 import androidx.core.content.ContextCompat
 import android.text.InputType
 import android.view.Gravity
@@ -90,6 +91,10 @@ class TestHostActivity : Activity() {
                     editText.requestFocus()
                     logState("test_host_state", intent)
                 }
+                ACTION_ASSERT_EDIT_TEXT -> {
+                    editText.requestFocus()
+                    logTextAssertion(intent)
+                }
             }
         }
     }
@@ -106,6 +111,63 @@ class TestHostActivity : Activity() {
         )
     }
 
+    private fun logTextAssertion(intent: Intent) {
+        val requestId = intent.getStringExtra(EXTRA_REQUEST_ID) ?: ""
+        val expected = decodeExpectedText(intent)
+        val actual = editText.text.toString()
+        val actualLength = actual.length
+        val firstDiffIndex = expected?.let { firstDifferenceIndex(it, actual) } ?: -1
+        DevKeyLogger.ime(
+            "test_host_text_asserted",
+            mapOf(
+                "ok" to (expected != null && actual == expected),
+                "text_length" to actualLength,
+                "actual_length" to actualLength,
+                "expected_length" to (expected?.length ?: -1),
+                "first_diff_index" to firstDiffIndex,
+                "expected_char_kind" to charKind(expected?.getOrNull(firstDiffIndex)),
+                "actual_char_kind" to charKind(actual.getOrNull(firstDiffIndex)),
+                "focused" to editText.hasFocus(),
+                "request_id" to requestId
+            )
+        )
+    }
+
+    private fun decodeExpectedText(intent: Intent): String? {
+        val encoded = intent.getStringExtra(EXTRA_EXPECTED_TEXT_BASE64) ?: return null
+        return try {
+            String(Base64.decode(encoded, Base64.NO_WRAP), Charsets.UTF_8)
+        } catch (_: IllegalArgumentException) {
+            null
+        }
+    }
+
+    private fun firstDifferenceIndex(expected: String, actual: String): Int {
+        val minLength = minOf(expected.length, actual.length)
+        for (index in 0 until minLength) {
+            if (expected[index] != actual[index]) {
+                return index
+            }
+        }
+        return if (expected.length == actual.length) -1 else minLength
+    }
+
+    private fun charKind(char: Char?): String {
+        return when {
+            char == null -> "none"
+            char == ' ' -> "space"
+            char == '\n' -> "newline"
+            char == '\t' -> "tab"
+            char.isUpperCase() -> "uppercase"
+            char.isLowerCase() -> "lowercase"
+            char.isDigit() -> "digit"
+            char.isWhitespace() -> "whitespace"
+            char.isLetter() -> "letter"
+            !char.isLetterOrDigit() -> "punctuation"
+            else -> "other"
+        }
+    }
+
     override fun onResume() {
         super.onResume()
         // Re-request focus on resume in case a layout broadcast caused the
@@ -117,6 +179,7 @@ class TestHostActivity : Activity() {
             IntentFilter().apply {
                 addAction(ACTION_CLEAR_EDIT_TEXT)
                 addAction(ACTION_DUMP_STATE)
+                addAction(ACTION_ASSERT_EDIT_TEXT)
             },
             ContextCompat.RECEIVER_EXPORTED
         )
@@ -133,6 +196,8 @@ class TestHostActivity : Activity() {
         const val ID_TEST_EDIT = 0x7f0a9001
         const val ACTION_CLEAR_EDIT_TEXT = "dev.devkey.keyboard.debug.CLEAR_EDIT_TEXT"
         const val ACTION_DUMP_STATE = "dev.devkey.keyboard.debug.DUMP_TEST_HOST_STATE"
+        const val ACTION_ASSERT_EDIT_TEXT = "dev.devkey.keyboard.debug.ASSERT_EDIT_TEXT"
         const val EXTRA_REQUEST_ID = "request_id"
+        const val EXTRA_EXPECTED_TEXT_BASE64 = "expected_text_base64"
     }
 }

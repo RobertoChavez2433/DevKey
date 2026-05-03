@@ -108,9 +108,24 @@ def unresolved_actions() -> List[Dict[str, Any]]:
 def summarize(state: Dict[str, Any]) -> Dict[str, Any]:
     evidence: List[Dict[str, Any]] = state.get("evidence", [])
     actions: List[Dict[str, Any]] = state.get("actions", [])
+    if len(evidence) <= 10:
+        summarized_evidence: List[Dict[str, Any]] = evidence
+    else:
+        summarized_evidence = (
+            evidence[:5]
+            + [{
+                "kind": "verify.evidence_truncated",
+                "detail": {
+                    "omitted_count": len(evidence) - 10,
+                    "summary": "showing first 5 and last 5 evidence records",
+                },
+                "sequence": -1,
+            }]
+            + evidence[-5:]
+        )
     return {
         "verified": bool(evidence),
         "evidence_count": len(evidence),
         "action_count": len(actions),
-        "evidence": evidence[:10],
+        "evidence": summarized_evidence,
     }

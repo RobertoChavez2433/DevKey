@@ -4,8 +4,10 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.util.Base64
 import androidx.core.content.ContextCompat
 import dev.devkey.keyboard.BuildConfig
+import dev.devkey.keyboard.data.db.DevKeyDatabase
 import dev.devkey.keyboard.data.repository.SettingsRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -23,6 +25,7 @@ internal class DebugReceiverManager(
     private var setAutocorrectLevelReceiver: BroadcastReceiver? = null
     private var voiceProcessFileReceiver: BroadcastReceiver? = null
     private var clearLearnedWordsReceiver: BroadcastReceiver? = null
+    private var assertLearnedWordReceiver: BroadcastReceiver? = null
     private var resetCircuitBreakerReceiver: BroadcastReceiver? = null
 
     fun registerAll() {
@@ -180,13 +183,17 @@ internal class DebugReceiverManager(
         clearLearnedWordsReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
                 val engine = dev.devkey.keyboard.ui.keyboard.SessionDependencies.learningEngine
+                val requestId = intent.getStringExtra("request_id") ?: ""
                 if (engine == null) {
-                    DevKeyLogger.error("clear_learned_words_rejected", mapOf("reason" to "engine_null"))
+                    DevKeyLogger.error(
+                        "clear_learned_words_rejected",
+                        mapOf("reason" to "engine_null", "request_id" to requestId)
+                    )
                     return
                 }
                 scope.launch(Dispatchers.IO) {
                     engine.clearAll()
-                    DevKeyLogger.ime("learned_words_cleared")
+                    DevKeyLogger.ime("learned_words_cleared", mapOf("request_id" to requestId))
                 }
             }
         }
@@ -196,13 +203,56 @@ internal class DebugReceiverManager(
             IntentFilter("dev.devkey.keyboard.CLEAR_LEARNED_WORDS"),
             ContextCompat.RECEIVER_EXPORTED
         )
+
+        if (BuildConfig.DEBUG) {
+            assertLearnedWordReceiver = object : BroadcastReceiver() {
+                override fun onReceive(context: Context, intent: Intent) {
+                    val requestId = intent.getStringExtra("request_id") ?: ""
+                    val expected = decodeExpectedWord(intent)
+                    val minFrequency = intent.getIntExtra("min_frequency", 1)
+                    if (expected == null) {
+                        logLearnedWordAssertion(
+                            ok = false,
+                            wordLength = -1,
+                            frequency = 0,
+                            minFrequency = minFrequency,
+                            isCommand = false,
+                            isUserAdded = false,
+                            requestId = requestId
+                        )
+                        return
+                    }
+                    scope.launch(Dispatchers.IO) {
+                        val entity = DevKeyDatabase
+                            .getInstance(context)
+                            .learnedWordDao()
+                            .findWordAny(expected)
+                        logLearnedWordAssertion(
+                            ok = entity != null && entity.frequency >= minFrequency,
+                            wordLength = expected.length,
+                            frequency = entity?.frequency ?: 0,
+                            minFrequency = minFrequency,
+                            isCommand = entity?.isCommand ?: false,
+                            isUserAdded = entity?.isUserAdded ?: false,
+                            requestId = requestId
+                        )
+                    }
+                }
+            }
+            ContextCompat.registerReceiver(
+                context,
+                assertLearnedWordReceiver,
+                IntentFilter("dev.devkey.keyboard.debug.ASSERT_LEARNED_WORD"),
+                ContextCompat.RECEIVER_EXPORTED
+            )
+        }
     }
 
     fun unregisterAll() {
         listOf(
             enableDebugServerReceiver, setLayoutModeReceiver, setBoolPrefReceiver,
             setStringPrefReceiver, setAutocorrectLevelReceiver, voiceProcessFileReceiver,
-            clearLearnedWordsReceiver, resetCircuitBreakerReceiver
+            clearLearnedWordsReceiver, assertLearnedWordReceiver, resetCircuitBreakerReceiver
         ).forEach { r ->
             try { r?.let { context.unregisterReceiver(it) } } catch (_: IllegalArgumentException) {}
         }
@@ -213,6 +263,39 @@ internal class DebugReceiverManager(
         setAutocorrectLevelReceiver = null
         voiceProcessFileReceiver = null
         clearLearnedWordsReceiver = null
+        assertLearnedWordReceiver = null
         resetCircuitBreakerReceiver = null
+    }
+
+    private fun decodeExpectedWord(intent: Intent): String? {
+        val encoded = intent.getStringExtra("word_base64") ?: return null
+        return try {
+            String(Base64.decode(encoded, Base64.NO_WRAP), Charsets.UTF_8)
+        } catch (_: IllegalArgumentException) {
+            null
+        }
+    }
+
+    private fun logLearnedWordAssertion(
+        ok: Boolean,
+        wordLength: Int,
+        frequency: Int,
+        minFrequency: Int,
+        isCommand: Boolean,
+        isUserAdded: Boolean,
+        requestId: String
+    ) {
+        DevKeyLogger.ime(
+            "learned_word_asserted",
+            mapOf(
+                "ok" to ok,
+                "word_length" to wordLength,
+                "frequency" to frequency,
+                "min_frequency" to minFrequency,
+                "is_command" to isCommand,
+                "is_user_added" to isUserAdded,
+                "request_id" to requestId
+            )
+        )
     }
 }

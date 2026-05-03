@@ -16,6 +16,10 @@ from .adb_logcat import (
     capture_logcat,
     clear_logcat,
 )
+from .adb_learning import (
+    assert_learned_word,
+    clear_learned_words,
+)
 from .adb_test_host import (
     TEST_HOST_ACTIVITY,
     assert_text_field_empty,
@@ -27,6 +31,7 @@ from .adb_test_host import (
     reset_keyboard_mode,
     reset_test_host_state,
 )
+from .adb_text_assertions import assert_test_host_text_equals
 from .adb_visual import (
     analyze_keyboard_visual_baseline,
     capture_screenshot,
@@ -38,11 +43,14 @@ __all__ = [
     "_adb_cmd",
     "analyze_keyboard_visual_baseline",
     "assert_logcat_contains",
+    "assert_learned_word",
     "assert_text_field_empty",
+    "assert_test_host_text_equals",
     "capture_logcat",
     "capture_screenshot",
     "capture_visual_baseline",
     "clear_logcat",
+    "clear_learned_words",
     "clear_test_host_text",
     "configure_debug_server_forwarding",
     "ensure_keyboard_visible",

@@ -367,6 +367,22 @@ Created: 2026-05-02
     `.claude/test-results/e2e-results-20260503T021359Z.json`
   - S21 input scope passed 16/16, including learned-word frequency assertion:
     `.claude/test-results/e2e-results-20260503T020910Z.json`
+  - post-commit S21 verification exposed two remaining issues and both are
+    fixed:
+    - E2E word/space taps now refresh the live key map against current
+      composed-state geometry; key-map dump waits use the driver completion
+      event instead of a fixed 2-second logcat sleep
+    - learned-word frequency now increments for null app context rows by using
+      a Room query that matches `context_app IS NULL`
+  - post-commit S21 preflight passed:
+    `.claude/test-results/visual-baseline-20260503T023858Z.png`
+  - post-commit S21 autocorrect scope passed 11/11:
+    `.claude/test-results/e2e-results-postcommit-autocorrect-fixed.json`
+  - post-commit S21 prediction scope passed 12/12:
+    `.claude/test-results/e2e-results-postcommit-prediction-fixed.json`
+  - post-commit S21 input scope passed 16/16, including learned-word
+    frequency assertion:
+    `.claude/test-results/e2e-results-postcommit-input-fixed.json`
   - current locked full-suite discovery count: 180
 
 ## Remaining Implementation Work
@@ -416,6 +432,14 @@ Created: 2026-05-02
   - `.claude/test-results/e2e-results-20260502T202749Z.json` passed 5/5
 - [x] Run full E2E suite on the primary S21 release target:
   - `.claude/test-results/e2e-results-20260502T222753Z.json` passed 179/179
+- [x] Continue post-commit S21 verification for the changed
+  autocorrect/prediction/learning surface:
+  - autocorrect: `.claude/test-results/e2e-results-postcommit-autocorrect-fixed.json`
+    passed 11/11
+  - prediction: `.claude/test-results/e2e-results-postcommit-prediction-fixed.json`
+    passed 12/12
+  - input/learning: `.claude/test-results/e2e-results-postcommit-input-fixed.json`
+    passed 16/16
 - [x] Reproduce final failures or final full suite on `Pixel_7_API_36` only if
   the S21 release gate needs a reproducibility fallback. Current validation
   direction is S21-only, and no final S21 failure needs emulator fallback.

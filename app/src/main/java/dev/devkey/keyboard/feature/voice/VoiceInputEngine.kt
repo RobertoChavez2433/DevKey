@@ -3,6 +3,7 @@ package dev.devkey.keyboard.feature.voice
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
+import android.os.SystemClock
 import android.util.Log
 import dev.devkey.keyboard.debug.DevKeyLogger
 import dev.devkey.keyboard.ui.voice.PermissionActivity
@@ -140,6 +141,7 @@ class VoiceInputEngine(private val context: Context) {
     /** Load the Whisper TF Lite interpreter lazily on first [startListening] call. */
     private fun initialize() {
         if (interpreter != null) return
+        val startMs = SystemClock.elapsedRealtime()
         try {
             val bytes = context.assets.open("whisper-tiny.en.tflite").use { it.readBytes() }
             val buf = ByteBuffer.allocateDirect(bytes.size).order(ByteOrder.nativeOrder())
@@ -148,18 +150,22 @@ class VoiceInputEngine(private val context: Context) {
             modelLoaded = true
             processor.loadResources()
             Log.i(TAG, "Whisper model loaded successfully")
+            logLatency("model_load", startMs)
         } catch (e: IOException) {
             Log.w(TAG, "Whisper model not available — voice input will be limited", e)
             DevKeyLogger.voice("error", mapOf("kind" to "model_missing", "source" to "initialize"))
+            logLatency("model_load_failed", startMs, mapOf("kind" to "model_missing"))
             modelLoaded = false
             // Don't set ERROR state — allow recording to proceed, skip inference
         } catch (e: IllegalArgumentException) {
             Log.w(TAG, "Whisper model failed to initialize", e)
             DevKeyLogger.voice("error", mapOf("kind" to "model_invalid", "source" to "initialize"))
+            logLatency("model_load_failed", startMs, mapOf("kind" to "model_invalid"))
             modelLoaded = false
         } catch (e: IllegalStateException) {
             Log.w(TAG, "Whisper model not available — voice input will be limited", e)
             DevKeyLogger.voice("error", mapOf("kind" to "model_missing", "source" to "initialize"))
+            logLatency("model_load_failed", startMs, mapOf("kind" to "model_missing"))
             modelLoaded = false
             // Don't set ERROR state — allow recording to proceed, skip inference
         }
@@ -174,6 +180,7 @@ class VoiceInputEngine(private val context: Context) {
      * @return true when capture starts, false when permission or capture setup blocks it.
      */
     suspend fun startListening(): Boolean {
+        val startMs = SystemClock.elapsedRealtime()
         if (_state.value == VoiceState.LISTENING) {
             DevKeyLogger.voice(
                 "state_transition",
@@ -202,9 +209,19 @@ class VoiceInputEngine(private val context: Context) {
         DevKeyLogger.voice("state_transition", mapOf("state" to "LISTENING", "source" to "startListening"))
 
         val started = captureManager.startCapture(engineScope)
+        if (started) {
+            logLatency("recording_start", startMs)
+        }
         if (!started) {
             _state.value = VoiceState.ERROR
-            DevKeyLogger.voice("state_transition", mapOf("state" to "ERROR", "source" to "startListening", "reason" to "capture_init_failed"))
+            DevKeyLogger.voice(
+                "state_transition",
+                mapOf(
+                    "state" to "ERROR",
+                    "source" to "startListening",
+                    "reason" to "capture_init_failed"
+                )
+            )
         }
         return started
     }
@@ -215,6 +232,7 @@ class VoiceInputEngine(private val context: Context) {
      * @return The transcribed text, or an error/status message.
      */
     suspend fun stopListening(source: String = "stopListening"): String {
+        val stopStartMs = SystemClock.elapsedRealtime()
         if (!captureManager.isCapturing() && _state.value == VoiceState.IDLE) {
             return ""
         }
@@ -225,9 +243,17 @@ class VoiceInputEngine(private val context: Context) {
         )
 
         val audioData = captureManager.stopCapture()
+        logLatency(
+            if (source == "silence") "silence_stop" else "recording_stop",
+            stopStartMs,
+            mapOf("samples" to audioData.size, "source" to source)
+        )
         if (audioData.isEmpty()) {
             _state.value = VoiceState.IDLE
-            DevKeyLogger.voice("state_transition", mapOf("state" to "IDLE", "source" to source, "reason" to "empty_audio"))
+            DevKeyLogger.voice(
+                "state_transition",
+                mapOf("state" to "IDLE", "source" to source, "reason" to "empty_audio")
+            )
             return ""
         }
 
@@ -237,16 +263,26 @@ class VoiceInputEngine(private val context: Context) {
     /** Run Whisper inference on [audioData] and return the transcription text. */
     private suspend fun runInference(audioData: ShortArray, source: String): String {
         val startMs = System.currentTimeMillis()
+        val elapsedStartMs = SystemClock.elapsedRealtime()
         return withContext(Dispatchers.Default) {
             try {
                 val interp = interpreter
                 if (interp == null || !modelLoaded) {
                     _state.value = VoiceState.IDLE
-                    DevKeyLogger.voice("state_transition", mapOf("state" to "IDLE", "source" to source, "reason" to "model_unavailable"))
+                    DevKeyLogger.voice(
+                        "state_transition",
+                        mapOf(
+                            "state" to "IDLE",
+                            "source" to source,
+                            "reason" to "model_unavailable"
+                        )
+                    )
                     return@withContext "[Voice model not available]"
                 }
 
+                val preprocessingStartMs = SystemClock.elapsedRealtime()
                 val flatInput = processor.processAudio(audioData)
+                logLatency("preprocessing", preprocessingStartMs, mapOf("source" to source))
                 if (flatInput == null) {
                     _state.value = VoiceState.IDLE
                     DevKeyLogger.voice("state_transition", mapOf(
@@ -275,16 +311,32 @@ class VoiceInputEngine(private val context: Context) {
                 val outputLen = if (outputShape.size >= 2) outputShape[1] else outputShape[0]
                 val outputTokens2D = Array(1) { IntArray(outputLen) }
                 val outputBuffer = hashMapOf<Int, Any>(0 to outputTokens2D)
+                val inferenceStartMs = SystemClock.elapsedRealtime()
                 interp.runForMultipleInputsOutputs(arrayOf<Any>(inputBuf), outputBuffer)
+                logLatency("inference", inferenceStartMs, mapOf("source" to source))
 
+                val decodeStartMs = SystemClock.elapsedRealtime()
                 val transcription = processor.decodeTokens(outputTokens2D[0])
+                logLatency(
+                    "decode",
+                    decodeStartMs,
+                    mapOf("source" to source, "result_length" to transcription.length)
+                )
                 _state.value = VoiceState.IDLE
                 DevKeyLogger.voice("processing_complete", mapOf(
                     "result_length" to transcription.length,
                     "duration_ms" to (System.currentTimeMillis() - startMs),
                     "source" to source
                 ))
-                DevKeyLogger.voice("state_transition", mapOf("state" to "IDLE", "source" to source, "reason" to "inference_complete"))
+                DevKeyLogger.voice(
+                    "state_transition",
+                    mapOf(
+                        "state" to "IDLE",
+                        "source" to source,
+                        "reason" to "inference_complete"
+                    )
+                )
+                logLatency("stop_to_result", elapsedStartMs, mapOf("source" to source))
                 transcription.ifEmpty { "[No speech detected]" }
             } catch (e: IllegalArgumentException) {
                 handleInferenceFailure(source, startMs, e)
@@ -304,6 +356,20 @@ class VoiceInputEngine(private val context: Context) {
             "duration_ms" to (System.currentTimeMillis() - startMs)
         ))
         return "[Transcription error]"
+    }
+
+    private fun logLatency(
+        phase: String,
+        startMs: Long,
+        extra: Map<String, Any?> = emptyMap()
+    ) {
+        DevKeyLogger.voice(
+            "latency",
+            mapOf(
+                "phase" to phase,
+                "duration_ms" to (SystemClock.elapsedRealtime() - startMs)
+            ) + extra
+        )
     }
 
     /**
@@ -349,7 +415,14 @@ class VoiceInputEngine(private val context: Context) {
         val audioData = readWavPcm(filePath)
         if (audioData == null || audioData.isEmpty()) {
             _state.value = VoiceState.IDLE
-            DevKeyLogger.voice("state_transition", mapOf("state" to "IDLE", "source" to "processFileForTest", "reason" to "file_read_failed"))
+            DevKeyLogger.voice(
+                "state_transition",
+                mapOf(
+                    "state" to "IDLE",
+                    "source" to "processFileForTest",
+                    "reason" to "file_read_failed"
+                )
+            )
             return "[Failed to read WAV file]"
         }
 

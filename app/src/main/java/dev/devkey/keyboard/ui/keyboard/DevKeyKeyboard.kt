@@ -1,5 +1,6 @@
 package dev.devkey.keyboard.ui.keyboard
 
+import android.os.SystemClock
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
@@ -86,7 +87,17 @@ fun DevKeyKeyboard(
 
     DisposableEffect(deps.voiceInputEngine, deps.bridge, deps.modeManager) {
         deps.voiceInputEngine.setTranscriptionListener { transcription ->
+            val commitStartMs = SystemClock.elapsedRealtime()
             deps.bridge.onText(transcription)
+            DevKeyLogger.voice(
+                "latency",
+                mapOf(
+                    "phase" to "commit_to_screen",
+                    "duration_ms" to (SystemClock.elapsedRealtime() - commitStartMs),
+                    "result_length" to transcription.length,
+                    "source" to "auto_stop",
+                )
+            )
             deps.modeManager.setMode(KeyboardMode.Normal)
         }
         onDispose { deps.voiceInputEngine.setTranscriptionListener(null) }

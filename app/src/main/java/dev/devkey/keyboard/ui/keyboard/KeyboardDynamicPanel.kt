@@ -1,5 +1,6 @@
 package dev.devkey.keyboard.ui.keyboard
 
+import android.os.SystemClock
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
@@ -8,6 +9,7 @@ import dev.devkey.keyboard.core.KeyboardModeManager
 import dev.devkey.keyboard.core.ModifierStateManager
 import dev.devkey.keyboard.data.db.entity.ClipboardHistoryEntity
 import dev.devkey.keyboard.data.db.entity.MacroEntity
+import dev.devkey.keyboard.debug.DevKeyLogger
 import dev.devkey.keyboard.feature.clipboard.ClipboardRepository
 import dev.devkey.keyboard.feature.command.InputMode
 import dev.devkey.keyboard.feature.macro.MacroEngine
@@ -135,7 +137,17 @@ fun KeyboardDynamicPanel(
                 coroutineScope.launch {
                     val transcription = voiceInputEngine.stopListening()
                     if (voiceInputEngine.shouldCommitTranscription(transcription)) {
+                        val commitStartMs = SystemClock.elapsedRealtime()
                         bridge.onText(transcription)
+                        DevKeyLogger.voice(
+                            "latency",
+                            mapOf(
+                                "phase" to "commit_to_screen",
+                                "duration_ms" to (SystemClock.elapsedRealtime() - commitStartMs),
+                                "result_length" to transcription.length,
+                                "source" to "manual_stop",
+                            )
+                        )
                     }
                     modeManager.setMode(KeyboardMode.Normal)
                 }

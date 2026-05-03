@@ -179,11 +179,15 @@ class VoiceInputEngine(private val context: Context) {
             val bytes = context.assets.open("whisper-tiny.en.tflite").use { it.readBytes() }
             val buf = ByteBuffer.allocateDirect(bytes.size).order(ByteOrder.nativeOrder())
             buf.put(bytes).rewind()
-            interpreter = Interpreter(buf)
+            val options = Interpreter.Options().apply {
+                setNumThreads(VoiceLatencyPolicy.TFLITE_THREAD_COUNT)
+                setUseXNNPACK(true)
+            }
+            interpreter = Interpreter(buf, options)
             modelLoaded = true
             processor.loadResources()
             Log.i(TAG, "Whisper model loaded successfully")
-            logLatency("model_load", startMs)
+            logLatency("model_load", startMs, mapOf("threads" to VoiceLatencyPolicy.TFLITE_THREAD_COUNT))
         } catch (e: IOException) {
             Log.w(TAG, "Whisper model not available — voice input will be limited", e)
             DevKeyLogger.voice("error", mapOf("kind" to "model_missing", "source" to "initialize"))

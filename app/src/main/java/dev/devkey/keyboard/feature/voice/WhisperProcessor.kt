@@ -2,6 +2,10 @@ package dev.devkey.keyboard.feature.voice
 
 import android.content.Context
 import android.util.Log
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.log10
+import org.jtransforms.fft.FloatFFT_1D
 
 /**
  * Preprocesses raw PCM audio into the format expected by the Whisper TF Lite model.
@@ -9,11 +13,6 @@ import android.util.Log
  * Whisper expects 30 seconds of audio at 16kHz (480,000 samples), converted to
  * an 80-bin mel spectrogram. This processor handles padding/trimming and
  * mel spectrogram computation.
- *
- * Note: Full mel spectrogram computation is complex. This implementation provides
- * a simplified approach that normalizes and pads raw audio. When the actual model
- * is integrated, this should be updated to match the model's expected input format,
- * referencing the Java implementation from whisper_android.
  *
  * @param context Android context for loading assets.
  */
@@ -36,13 +35,25 @@ class WhisperProcessor(private val context: Context) {
 
         /** Number of frames in the mel spectrogram. */
         const val N_FRAMES = 3000
+
+        private const val N_FFT = 400
+        private const val HOP_LENGTH = 160
+        private const val N_FREQS = N_FFT / 2 + 1
+        private const val PCM_SCALE = 1.0f / Short.MAX_VALUE.toFloat()
+        private const val LOG_FLOOR = 1e-10f
     }
 
     /** Mel filter bank loaded from assets, null if not available. */
     private var melFilters: FloatArray? = null
+    private var melFilterFreqs: Int = 0
 
     /** Vocabulary tokens loaded from assets, null if not available. */
     private var vocabulary: List<String>? = null
+
+    private val fft = FloatFFT_1D(N_FFT.toLong())
+    private val hannWindow = FloatArray(N_FFT) { i ->
+        (0.5 * (1.0 - cos(2.0 * PI * i / N_FFT))).toFloat()
+    }
 
     /**
      * Load the mel filter bank and vocabulary from `filters_vocab_en.bin`.
@@ -73,6 +84,7 @@ class WhisperProcessor(private val context: Context) {
             val melFloats = FloatArray(melFilterCount)
             for (i in melFloats.indices) melFloats[i] = buf.float
             melFilters = melFloats
+            melFilterFreqs = numFreqs
 
             // Vocabulary section: vocabSize entries, each length:int32 + UTF-8 bytes.
             val vocabSize = buf.int
@@ -98,6 +110,7 @@ class WhisperProcessor(private val context: Context) {
         } catch (e: Exception) {
             Log.w(TAG, "Failed to load Whisper resources", e)
             melFilters = null
+            melFilterFreqs = 0
             vocabulary = null
             false
         }
@@ -110,33 +123,27 @@ class WhisperProcessor(private val context: Context) {
      * @param sampleRate The sample rate of the input audio (should be 16000).
      * @return Float array suitable for TF Lite interpreter input, or null if processing fails.
      */
+    @Synchronized
     fun processAudio(pcmData: ShortArray, _sampleRate: Int = SAMPLE_RATE): FloatArray? {
         if (pcmData.isEmpty()) return null
 
-        // Step 1: Convert ShortArray PCM to float (-1.0 to 1.0)
-        val floatData = FloatArray(pcmData.size) { i ->
-            pcmData[i].toFloat() / Short.MAX_VALUE.toFloat()
-        }
+        val sampleCount = pcmData.size.coerceAtMost(EXPECTED_SAMPLES)
 
-        // Step 2: Pad or trim to expected length (30 seconds at 16kHz)
-        val normalized = when {
-            floatData.size >= EXPECTED_SAMPLES -> floatData.copyOfRange(0, EXPECTED_SAMPLES)
-            else -> {
-                val padded = FloatArray(EXPECTED_SAMPLES)
-                floatData.copyInto(padded)
-                padded
-            }
-        }
-
-        // Step 3: If mel filters are available, compute mel spectrogram
-        // Otherwise, return the raw normalized audio for simplified model input
         return if (melFilters != null) {
-            computeMelSpectrogram(normalized)
+            computeMelSpectrogram(pcmData, sampleCount)
         } else {
-            // Simplified: return raw audio as float array
-            // The actual model may require mel spectrogram input
-            normalized
+            normalizedAudio(pcmData, sampleCount)
         }
+    }
+
+    private fun normalizedAudio(pcmData: ShortArray, sampleCount: Int): FloatArray {
+        val normalized = FloatArray(EXPECTED_SAMPLES)
+        var i = 0
+        while (i < sampleCount) {
+            normalized[i] = pcmData[i] * PCM_SCALE
+            i++
+        }
+        return normalized
     }
 
     /**
@@ -147,121 +154,99 @@ class WhisperProcessor(private val context: Context) {
      *
      * Reference: nyadla-sys/whisper_android Java implementation.
      *
-     * @param audio Normalized float audio samples (480,000 = 30s at 16kHz).
+     * The old implementation recursively allocated FFT buffers for every frame.
+     * This path keeps one frame buffer and uses an optimized mixed-radix real FFT.
+     * For short dictation, it computes only frames that contain recorded samples
+     * and fills the padded tail after normalization.
+     *
+     * @param pcmData Raw PCM samples.
+     * @param sampleCount Samples to process after 30s trimming.
      * @return Mel spectrogram as flattened float array [mel_bin, frame] = 80×3000.
      */
-    private fun computeMelSpectrogram(audio: FloatArray): FloatArray {
+    private fun computeMelSpectrogram(pcmData: ShortArray, sampleCount: Int): FloatArray {
         val filters = melFilters ?: return FloatArray(N_MELS * N_FRAMES)
-        val nFft = 400
-        val hopLength = 160
-        val nFreqs = nFft / 2 + 1 // 201
-
-        // Hann window
-        val window = FloatArray(nFft) { i ->
-            (0.5 * (1.0 - Math.cos(2.0 * Math.PI * i / nFft))).toFloat()
-        }
-
-        // STFT → power spectrum for each frame
-        val fftIn = FloatArray(nFft)
-        val fftOut = FloatArray(nFft * 2)
+        val filterFreqs = melFilterFreqs.coerceAtMost(N_FREQS)
+        val activeFrames = ((sampleCount + HOP_LENGTH - 1) / HOP_LENGTH)
+            .coerceIn(1, N_FRAMES)
+        val fftBuffer = FloatArray(N_FFT)
+        val powerSpectrum = FloatArray(N_FREQS)
         val output = FloatArray(N_MELS * N_FRAMES)
-        for (frame in 0 until N_FRAMES) {
-            val offset = frame * hopLength
-            for (i in 0 until nFft) {
+
+        var frame = 0
+        while (frame < activeFrames) {
+            val offset = frame * HOP_LENGTH
+            var i = 0
+            while (i < N_FFT) {
                 val idx = offset + i
-                fftIn[i] = if (idx < audio.size) audio[idx] * window[i] else 0f
-            }
-            fft(fftIn, fftOut)
-            for (i in 0 until nFft) {
-                fftOut[i] = fftOut[2 * i] * fftOut[2 * i] + fftOut[2 * i + 1] * fftOut[2 * i + 1]
-            }
-            for (i in 1 until nFft / 2) {
-                fftOut[i] += fftOut[nFft - i]
-            }
-
-            // Apply mel filter bank: filters is flat [numMelBins * nFreqs] = 80 * 201
-            for (mel in 0 until N_MELS) {
-                var sum = 0.0
-                val filterOffset = mel * nFreqs
-                for (k in 0 until nFreqs) {
-                    if (filterOffset + k < filters.size) {
-                        sum += filters[filterOffset + k] * fftOut[k]
-                    }
+                fftBuffer[i] = if (idx < sampleCount) {
+                    pcmData[idx] * PCM_SCALE * hannWindow[i]
+                } else {
+                    0f
                 }
-                // Log10 compression, clamp floor
-                val logVal = Math.log10(sum.coerceAtLeast(1e-10))
-                output[mel * N_FRAMES + frame] = logVal.toFloat()
+                i++
             }
+            fft.realForward(fftBuffer)
+            writePowerSpectrum(fftBuffer, powerSpectrum)
+
+            var mel = 0
+            while (mel < N_MELS) {
+                var sum = 0.0f
+                val filterOffset = mel * melFilterFreqs
+                var k = 0
+                while (k < filterFreqs && filterOffset + k < filters.size) {
+                    sum += filters[filterOffset + k] * powerSpectrum[k]
+                    k++
+                }
+                output[mel * N_FRAMES + frame] = log10(sum.coerceAtLeast(LOG_FLOOR)).toFloat()
+                mel++
+            }
+            frame++
         }
 
-        // Normalize per canonical Whisper: clamp to max - 8.0, then (x + 4) / 4
-        var maxVal = -Float.MAX_VALUE
-        for (v in output) if (v > maxVal) maxVal = v
-        val floor = maxVal - 8.0f
-        for (i in output.indices) {
-            output[i] = (output[i].coerceAtLeast(floor) + 4.0f) / 4.0f
-        }
-
+        normalizeMelOutput(output, activeFrames)
         return output
     }
 
-    /**
-     * Cooley-Tukey FFT matching the upstream Android Whisper reference.
-     * The Whisper filter bank expects a 400-point FFT folded into 201 bins.
-     */
-    private fun fft(input: FloatArray, output: FloatArray) {
-        val size = input.size
-        if (size == 1) {
-            output[0] = input[0]
-            output[1] = 0.0f
-            return
+    private fun writePowerSpectrum(fftBuffer: FloatArray, powerSpectrum: FloatArray) {
+        powerSpectrum[0] = fftBuffer[0] * fftBuffer[0]
+        var k = 1
+        while (k < N_FFT / 2) {
+            val re = fftBuffer[2 * k]
+            val im = fftBuffer[2 * k + 1]
+            powerSpectrum[k] = re * re + im * im
+            k++
         }
-        if (size % 2 == 1) {
-            dft(input, output)
-            return
-        }
-
-        val even = FloatArray(size / 2)
-        val odd = FloatArray(size / 2)
-        var evenIndex = 0
-        var oddIndex = 0
-        for (i in 0 until size) {
-            if (i % 2 == 0) {
-                even[evenIndex++] = input[i]
-            } else {
-                odd[oddIndex++] = input[i]
-            }
-        }
-
-        val evenFft = FloatArray(size)
-        val oddFft = FloatArray(size)
-        fft(even, evenFft)
-        fft(odd, oddFft)
-
-        for (k in 0 until size / 2) {
-            val theta = 2.0 * Math.PI * k / size
-            val re = Math.cos(theta).toFloat()
-            val im = (-Math.sin(theta)).toFloat()
-            val oddRe = oddFft[2 * k]
-            val oddIm = oddFft[2 * k + 1]
-            output[2 * k] = evenFft[2 * k] + re * oddRe - im * oddIm
-            output[2 * k + 1] = evenFft[2 * k + 1] + re * oddIm + im * oddRe
-            output[2 * (k + size / 2)] = evenFft[2 * k] - re * oddRe + im * oddIm
-            output[2 * (k + size / 2) + 1] = evenFft[2 * k + 1] - re * oddIm - im * oddRe
-        }
+        powerSpectrum[N_FFT / 2] = fftBuffer[1] * fftBuffer[1]
     }
 
-    private fun dft(input: FloatArray, output: FloatArray) {
-        for (k in input.indices) {
-            var re = 0.0f
-            var im = 0.0f
-            for (n in input.indices) {
-                val angle = (2.0 * Math.PI * k * n / input.size).toFloat()
-                re += input[n] * Math.cos(angle.toDouble()).toFloat()
-                im -= input[n] * Math.sin(angle.toDouble()).toFloat()
+    private fun normalizeMelOutput(output: FloatArray, activeFrames: Int) {
+        var maxVal = -Float.MAX_VALUE
+        var mel = 0
+        while (mel < N_MELS) {
+            val base = mel * N_FRAMES
+            var frame = 0
+            while (frame < activeFrames) {
+                val value = output[base + frame]
+                if (value > maxVal) maxVal = value
+                frame++
             }
-            output[k * 2] = re
-            output[k * 2 + 1] = im
+            mel++
+        }
+        val floor = maxVal - 8.0f
+        val paddedValue = (floor + 4.0f) / 4.0f
+        mel = 0
+        while (mel < N_MELS) {
+            val base = mel * N_FRAMES
+            var frame = 0
+            while (frame < activeFrames) {
+                output[base + frame] = (output[base + frame].coerceAtLeast(floor) + 4.0f) / 4.0f
+                frame++
+            }
+            while (frame < N_FRAMES) {
+                output[base + frame] = paddedValue
+                frame++
+            }
+            mel++
         }
     }
 

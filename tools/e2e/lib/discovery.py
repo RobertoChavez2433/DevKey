@@ -6,7 +6,7 @@ from typing import Any, Callable, Iterable, List, Optional, Tuple
 
 from .paths import TESTS_DIR
 
-LOCKED_FULL_SUITE_COUNT = 181
+LOCKED_FULL_SUITE_COUNT = 182
 DiscoveredTest = Tuple[str, Callable[..., Any]]
 Candidate = Tuple[str, str, str]
 

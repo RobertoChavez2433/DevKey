@@ -9,13 +9,13 @@ class VoiceLatencyPolicyTest {
 
     @Test
     fun `stop to committed target is explicit`() {
-        assertEquals(2_500L, VoiceLatencyPolicy.RELEASE_STOP_TO_COMMITTED_TARGET_MS)
+        assertEquals(1_000L, VoiceLatencyPolicy.RELEASE_STOP_TO_COMMITTED_TARGET_MS)
     }
 
     @Test
     fun `release quality requires target latency`() {
-        assertTrue(VoiceLatencyPolicy.meetsReleaseTarget(2_500L))
-        assertFalse(VoiceLatencyPolicy.meetsReleaseTarget(2_501L))
+        assertTrue(VoiceLatencyPolicy.meetsReleaseTarget(1_000L))
+        assertFalse(VoiceLatencyPolicy.meetsReleaseTarget(1_001L))
     }
 
     @Test

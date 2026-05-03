@@ -1,12 +1,13 @@
 package dev.devkey.keyboard.feature.voice
 
 object VoiceLatencyPolicy {
-    const val RELEASE_STOP_TO_COMMITTED_TARGET_MS = 2_500L
+    const val RELEASE_STOP_TO_COMMITTED_TARGET_MS = 1_000L
     const val POSTURE_RELEASE_QUALITY = "release_quality"
     const val POSTURE_OFFLINE_DELAYED = "offline_delayed"
     const val CURRENT_RELEASE_POSTURE = POSTURE_OFFLINE_DELAYED
-    const val RUNTIME_EVALUATION_NEXT_STEP = "evaluate_streaming_or_smaller_local_model"
+    const val RUNTIME_EVALUATION_NEXT_STEP = "replace_full_window_tiny_with_streaming_subsecond_runtime"
     const val MIN_WARMUP_MEMORY_CLASS_MB = 192
+    const val TFLITE_THREAD_COUNT = 4
 
     fun meetsReleaseTarget(durationMs: Long): Boolean =
         durationMs <= RELEASE_STOP_TO_COMMITTED_TARGET_MS

@@ -86,3 +86,19 @@ def test_voice_file_based_inference():
     serial = _setup_voice()
 
     process_voice_fixture(serial, "voice-complex.wav")
+
+
+def test_voice_short_fixture_hits_subsecond_gate():
+    """
+    Short fixture latency probe: the fixture is low-amplitude, so it should not
+    be treated as speech, but the local pipeline still must clear the subsecond
+    release gate.
+    """
+    serial = _setup_voice()
+
+    process_voice_fixture(
+        serial,
+        "voice-hello.wav",
+        expect_speech=False,
+        require_release_quality=True,
+    )

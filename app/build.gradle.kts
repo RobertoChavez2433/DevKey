@@ -130,6 +130,7 @@ dependencies {
     // TensorFlow Lite
     implementation(libs.tflite)
     implementation(libs.tflite.support)
+    implementation(libs.jtransforms)
 
     // Testing — unit tests
     testImplementation(libs.junit)

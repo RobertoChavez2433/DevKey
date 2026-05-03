@@ -13,6 +13,7 @@ core-ktx = "1.13.1"
 preference = "1.2.1"
 tflite = "2.16.1"
 tflite-support = "0.4.4"
+jtransforms = "3.2"
 junit = "4.13.2"
 kotlinx-serialization = "1.6.3"
 coroutines-test = "1.9.0"
@@ -55,6 +56,7 @@ kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-
 # TensorFlow Lite
 tflite = { group = "org.tensorflow", name = "tensorflow-lite", version.ref = "tflite" }
 tflite-support = { group = "org.tensorflow", name = "tensorflow-lite-support", version.ref = "tflite-support" }
+jtransforms = { group = "com.github.wendykierp", name = "JTransforms", version.ref = "jtransforms" }
 
 # Testing
 junit = { group = "junit", name = "junit", version.ref = "junit" }

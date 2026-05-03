@@ -84,7 +84,7 @@ python e2e_runner.py --verbose
    long-press action points at a key that is not visible in the matching
    layout/layer inventory.
 
-The locked full-suite discovery count is 178 tests for `--suite all`.
+The locked full-suite discovery count is 182 tests for `--suite all`.
 Use `--suite features` or `--suite legacy-flat` when you need one side of the
 flat/subdirectory split explicitly.
 

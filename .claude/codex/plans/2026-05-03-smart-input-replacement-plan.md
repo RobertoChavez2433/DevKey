@@ -53,10 +53,10 @@ Rejected:
 ## Voice Release Gate
 
 Hard target before calling offline voice release-quality:
-`stop-to-committed-text <= 2500 ms`.
+`stop-to-committed-text < 1000 ms`.
 
-Measured on S21 `RFCNC0Y975L` using `voice-complex.wav` and debug-server
-latency logs:
+Original measurement on S21 `RFCNC0Y975L` using `voice-complex.wav` and
+debug-server latency logs:
 
 - `model_load`: 221 ms
 - `preprocessing`: 11740 ms
@@ -66,8 +66,27 @@ latency logs:
 - `process_file_to_committed`: 13389 ms
 
 Decision: current Whisper Tiny path misses the release-quality target and is
-labeled `offline_delayed`. Next runtime work should evaluate streaming or
-smaller local models and reduce preprocessing cost before changing that posture.
+labeled `offline_delayed`.
+
+Follow-up optimization started after the first S21 gate showed preprocessing
+dominating latency. The immediate fix replaces the allocating recursive Kotlin
+FFT with JTransforms' optimized real FFT, skips padded mel frames for short
+utterances, and runs the TFLite interpreter with four threads. The remaining
+release blocker is the full-window tiny model/runtime: a 30-second Whisper
+window plus the current TFLite pass still cannot be treated as subsecond until
+fresh S21 numbers prove it.
+
+Post-optimization S21 measurements:
+
+- `voice-complex.wav` (39.7s file, trimmed to full 30s Whisper window):
+  - `model_load`: 86 ms
+  - `preprocessing`: 408 ms
+  - `inference`: 1166 ms
+  - `process_file_to_committed`: 1701 ms
+  - release quality: false
+- `voice-hello.wav` (1s low-amplitude latency probe, not an accuracy fixture):
+  - `process_file_to_committed`: 714 ms
+  - release quality: true
 
 ## Verification
 

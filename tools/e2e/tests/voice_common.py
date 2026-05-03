@@ -18,8 +18,9 @@ FIXTURE_DIR = os.path.join(
     "..",
     "fixtures",
 )
-STOP_TO_COMMITTED_TARGET_MS = 2500
+STOP_TO_COMMITTED_TARGET_MS = 1000
 OFFLINE_DELAYED_POSTURE = "offline_delayed"
+VOICE_RUNTIME_NEXT_STEP = "replace_full_window_tiny_with_streaming_subsecond_runtime"
 
 
 def push_voice_fixture(serial, fixture_name):
@@ -49,6 +50,7 @@ def process_voice_fixture(
     fixture_name="voice-complex.wav",
     expect_commit=False,
     expect_speech=True,
+    require_release_quality=False,
     clear_logs=True,
     processing_timeout_ms=10000,
     idle_timeout_ms=60000,
@@ -103,7 +105,12 @@ def process_voice_fixture(
     else:
         assert latency_data.get("release_quality") is False
         assert latency_data.get("release_posture") == OFFLINE_DELAYED_POSTURE
-        assert latency_data.get("runtime_next_step") == "evaluate_streaming_or_smaller_local_model"
+        assert latency_data.get("runtime_next_step") == VOICE_RUNTIME_NEXT_STEP
+    if require_release_quality:
+        assert duration_ms <= target_ms, (
+            f"Expected release-quality voice latency <= {target_ms}ms, got {duration_ms}ms"
+        )
+        assert latency_data.get("release_quality") is True
     if expect_speech:
         assert data.get("committed") is True, (
             "Expected voice fixture to produce committable speech, but committed=false"

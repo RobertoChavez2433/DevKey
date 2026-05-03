@@ -91,20 +91,24 @@ def set_bool_pref(key, value):
 
 
 def type_word(word, serial, delay=0.15):
-    for index, ch in enumerate(word):
+    for ch in word:
+        keyboard.load_key_map(serial)
         keyboard.tap_key(ch, serial)
         time.sleep(delay)
-        if index == 0:
-            keyboard.load_key_map(serial)
 
 
 def tap_word_with_space(word, serial, delay=0.15):
     type_word(word, serial, delay=delay)
-    keyboard.tap_key_by_code(SPACE_CODE, serial)
+    tap_space(serial)
 
 
 def tap_sequence_with_space(text, serial, delay=0.08):
     type_word(text, serial, delay=delay)
+    tap_space(serial)
+
+
+def tap_space(serial):
+    keyboard.load_key_map(serial)
     keyboard.tap_key_by_code(SPACE_CODE, serial)
 
 

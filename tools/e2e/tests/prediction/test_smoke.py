@@ -19,12 +19,15 @@ def _setup():
 
 
 def _tap_word_stable(word, serial):
-    keyboard.load_key_map(serial)
-    for index, ch in enumerate(word):
+    for ch in word:
+        keyboard.load_key_map(serial)
         keyboard.tap_key(ch, serial)
         time.sleep(0.12)
-        if index == 0:
-            keyboard.load_key_map(serial)
+
+
+def _tap_space_stable(serial):
+    keyboard.load_key_map(serial)
+    keyboard.tap_key_by_code(SPACE_CODE, serial)
 
 
 def test_next_word_fires_after_space():
@@ -38,7 +41,7 @@ def test_next_word_fires_after_space():
     serial = _setup()
     driver.clear_logs()
     _tap_word_stable("the", serial)
-    keyboard.tap_key_by_code(SPACE_CODE, serial)
+    _tap_space_stable(serial)
 
     entry = driver.wait_for(
         category="DevKey/TXT",
@@ -75,7 +78,7 @@ def test_next_word_bigram_hit_for_common_word():
     serial = _setup()
     driver.clear_logs()
     _tap_word_stable("the", serial)
-    keyboard.tap_key_by_code(SPACE_CODE, serial)
+    _tap_space_stable(serial)
 
     entry = driver.wait_for(
         "DevKey/TXT", "next_word_suggestions",
@@ -103,7 +106,7 @@ def test_next_word_privacy_payload_is_structural_only():
     serial = _setup()
     driver.clear_logs()
     _tap_word_stable("hi", serial)
-    keyboard.tap_key_by_code(SPACE_CODE, serial)
+    _tap_space_stable(serial)
 
     entry = driver.wait_for("DevKey/TXT", "next_word_suggestions", timeout_ms=3000)
     data = entry["data"]

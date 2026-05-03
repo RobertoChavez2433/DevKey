@@ -23,7 +23,7 @@ def load_key_map(serial: Optional[str] = None) -> Dict[str, Tuple[int, int]]:
     _wait_for_keymap_dump()
 
     key_map, symbols_map, inventory = _parse_key_map_lines(
-        adb.capture_logcat("DevKeyMap", timeout=2.0, serial=serial)
+        adb.capture_logcat("DevKeyMap", timeout=0.1, serial=serial)
     )
     state.key_map = key_map
     state.symbols_key_map = symbols_map

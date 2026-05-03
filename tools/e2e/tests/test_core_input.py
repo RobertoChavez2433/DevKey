@@ -50,8 +50,14 @@ def _setup():
 def _type_word(word, serial):
     """Tap each character with inter-key delay for reliable composing."""
     for ch in word:
+        keyboard.load_key_map(serial)
         keyboard.tap_key(ch, serial)
         time.sleep(0.15)
+
+
+def _tap_space(serial):
+    keyboard.load_key_map(serial)
+    keyboard.tap_key_by_code(SPACE_CODE, serial)
 
 
 def test_backspace_in_composing():
@@ -175,7 +181,7 @@ def test_word_learning_commits_word():
     driver.clear_logs()
 
     _type_word("hello", serial)
-    keyboard.tap_key_by_code(SPACE_CODE, serial)
+    _tap_space(serial)
 
     entry = driver.wait_for(
         category="DevKey/TXT",
@@ -187,7 +193,7 @@ def test_word_learning_commits_word():
 
     driver.clear_logs()
     _type_word("hello", serial)
-    keyboard.tap_key_by_code(SPACE_CODE, serial)
+    _tap_space(serial)
 
     entry = driver.wait_for(
         category="DevKey/TXT",

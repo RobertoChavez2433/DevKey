@@ -19,12 +19,15 @@ COMMON_WORDS = [
 
 def _tap_word_stable(word, serial):
     """Type a word after refreshing coordinates for composed-state geometry."""
-    keyboard.load_key_map(serial)
-    for index, ch in enumerate(word):
+    for ch in word:
+        keyboard.load_key_map(serial)
         keyboard.tap_key(ch, serial)
-        time.sleep(0.35 if index == 0 else 0.12)
-        if index == 0:
-            keyboard.load_key_map(serial)
+        time.sleep(0.12)
+
+
+def _tap_space_stable(serial):
+    keyboard.load_key_map(serial)
+    keyboard.tap_key_by_code(SPACE_CODE, serial)
 
 
 def _setup():
@@ -73,7 +76,7 @@ def test_rapid_20_word_typing():
     for word in COMMON_WORDS:
         driver.clear_logs()
         _tap_word_stable(word, serial)
-        keyboard.tap_key_by_code(SPACE_CODE, serial)
+        _tap_space_stable(serial)
 
         entry = driver.wait_for(
             "DevKey/TXT", "next_word_suggestions",
@@ -104,7 +107,7 @@ def test_suggestion_tap_chain():
     for word in chain_words:
         driver.clear_logs()
         _tap_word_stable(word, serial)
-        keyboard.tap_key_by_code(SPACE_CODE, serial)
+        _tap_space_stable(serial)
 
         entry = driver.wait_for(
             "DevKey/TXT", "next_word_suggestions",
@@ -135,7 +138,7 @@ def test_three_sentence_paragraph():
         for word in sentence:
             driver.clear_logs()
             _tap_word_stable(word, serial)
-            keyboard.tap_key_by_code(SPACE_CODE, serial)
+            _tap_space_stable(serial)
 
             entry = driver.wait_for(
                 "DevKey/TXT", "next_word_suggestions",
@@ -166,7 +169,7 @@ def test_rare_word_graceful_fallback():
     serial = _setup()
     driver.clear_logs()
     _tap_word_stable("xyzqwkjh", serial)
-    keyboard.tap_key_by_code(SPACE_CODE, serial)
+    _tap_space_stable(serial)
 
     entry = driver.wait_for(
         "DevKey/TXT", "next_word_suggestions",

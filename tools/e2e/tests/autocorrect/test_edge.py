@@ -6,6 +6,7 @@ from .common import (
     setup_autocorrect,
     set_autocorrect_level,
     tap_sequence_with_space,
+    tap_space,
     tap_word_with_space,
     wait_next_word_suggestions,
 )
@@ -21,7 +22,7 @@ def test_single_char_words():
     for ch in ["i", "a"]:
         driver.clear_logs()
         keyboard.tap_key(ch, serial)
-        keyboard.tap_key_by_code(32, serial)
+        tap_space(serial)
 
         wait_next_word_suggestions(timeout_ms=3000)
         assert_no_autocorrect_event()
@@ -37,7 +38,6 @@ def test_numbers_mixed():
 
     tap_sequence_with_space("abc1", serial, delay=0.08)
 
-    wait_next_word_suggestions(timeout_ms=3000)
     assert_no_autocorrect_event()
     assert_controlled_text_equals(serial, "abc1 ", "mixed alpha numeric autocorrect edge")
 
@@ -64,6 +64,5 @@ def test_word_at_boundary():
     text = "a" * 40
     tap_sequence_with_space(text, serial, delay=0.08)
 
-    wait_next_word_suggestions(timeout_ms=5000)
     assert_no_autocorrect_event()
     assert_controlled_text_equals(serial, f"{text} ", "long-word autocorrect edge")

@@ -4,8 +4,8 @@ from .common import (
     assert_controlled_text_equals,
     setup_autocorrect,
     set_autocorrect_level,
-    SPACE_CODE,
     tap_sequence_with_space,
+    tap_space,
     tap_word_with_space,
     wait_autocorrect_applied,
     wait_next_word_suggestions,
@@ -43,7 +43,7 @@ def test_type_and_backspace_revert():
     keyboard.tap_key(BACKSPACE_LABEL, serial)
     assert_controlled_text_equals(serial, "teh", "backspace reverts autocorrect")
 
-    keyboard.tap_key_by_code(SPACE_CODE, serial)
+    tap_space(serial)
     wait_next_word_suggestions(timeout_ms=5000)
     assert_controlled_text_equals(serial, "teh ", "space after autocorrect revert")
 

@@ -21,8 +21,8 @@ import dev.devkey.keyboard.language.LanguageSwitcher
 import dev.devkey.keyboard.language.Loc
 import dev.devkey.keyboard.language.arrayContains
 import dev.devkey.keyboard.language.getUniqueLocales
-import dev.devkey.keyboard.suggestion.engine.Suggest
 import dev.devkey.keyboard.dictionary.base.BinaryDictionary
+import dev.devkey.keyboard.dictionary.base.DictionaryType
 import dev.devkey.keyboard.dictionary.loader.PluginManager
 
 import android.os.Bundle
@@ -107,11 +107,11 @@ class InputLanguageSelection : PreferenceActivity() {
         res.updateConfiguration(conf, res.displayMetrics)
 
         val dictionaries = dev.devkey.keyboard.core.prefs.ImePrefsUtil.getDictionary(res)
-        var bd = BinaryDictionary(this, dictionaries, Suggest.DIC_MAIN)
+        var bd = BinaryDictionary(this, dictionaries, DictionaryType.MAIN)
 
         // Is the dictionary larger than a placeholder? Arbitrarily chose a lower limit of
         // 4000-5000 words, whereas the LARGE_DICTIONARY is about 20000+ words.
-        if (bd.getSize() > Suggest.LARGE_DICTIONARY_THRESHOLD / 4) {
+        if (bd.getSize() > DictionaryType.LARGE_DICTIONARY_THRESHOLD / 4) {
             haveDictionary = true
         } else {
             val plug = PluginManager.getDictionary(applicationContext, locale.language)

@@ -109,6 +109,22 @@ class AnySoftKeyboardSmartTextEngineTest {
     }
 
     @Test
+    fun `custom dictionary suppresses autocorrect through donor adapter`() = runBlocking {
+        val engine = createEngine()
+        learningEngine.addCustomWord("teh")
+
+        val suggestions = engine.suggestions(
+            SmartTextSuggestionRequest(
+                currentWord = "teh",
+                maxResults = 3,
+            )
+        )
+
+        assertTrue("teh" in learningEngine.getCustomWords())
+        assertFalse(suggestions.any { it.kind == SmartTextSuggestionKind.AUTOCORRECT })
+    }
+
+    @Test
     fun `credential and structured inputs suppress corrections`() {
         val engine = createEngine()
         val excludedKinds = listOf(
@@ -247,6 +263,54 @@ class AnySoftKeyboardSmartTextEngineTest {
     }
 
     @Test
+    fun `punctuation transforms are owned by smart text adapter`() {
+        val engine = createEngine()
+
+        val doubleSpace = engine.punctuation(
+            SmartTextPunctuationRequest(
+                transform = SmartTextPunctuationTransform.DOUBLE_SPACE_PERIOD,
+                contextBeforeCursor = "a  ",
+            )
+        )
+        val swap = engine.punctuation(
+            SmartTextPunctuationRequest(
+                transform = SmartTextPunctuationTransform.PUNCTUATION_SPACE_SWAP,
+                contextBeforeCursor = " .",
+                sentenceSeparators = ".!?",
+            )
+        )
+        val reswap = engine.punctuation(
+            SmartTextPunctuationRequest(
+                transform = SmartTextPunctuationTransform.PERIOD_RESWAP,
+                contextBeforeCursor = ". .",
+            )
+        )
+        val trailing = engine.punctuation(
+            SmartTextPunctuationRequest(
+                transform = SmartTextPunctuationTransform.REMOVE_TRAILING_SPACE,
+                contextBeforeCursor = " ",
+            )
+        )
+        val blocked = engine.punctuation(
+            SmartTextPunctuationRequest(
+                transform = SmartTextPunctuationTransform.DOUBLE_SPACE_PERIOD,
+                contextBeforeCursor = ".  ",
+            )
+        )
+
+        assertEquals(true, doubleSpace.apply)
+        assertEquals(". ", doubleSpace.replacement)
+        assertEquals(2, doubleSpace.deleteBeforeCursor)
+        assertEquals(true, swap.apply)
+        assertEquals(". ", swap.replacement)
+        assertEquals(true, reswap.apply)
+        assertEquals(" ..", reswap.replacement)
+        assertEquals(true, trailing.apply)
+        assertFalse(blocked.apply)
+        assertEquals(SmartTextPunctuationReason.NOT_WORD_BOUNDARY, blocked.reason)
+    }
+
+    @Test
     fun `next word reports explicit temporary boundary`() {
         val engine = createEngine()
 
@@ -262,7 +326,7 @@ class AnySoftKeyboardSmartTextEngineTest {
     }
 
     private fun createEngine(): AnySoftKeyboardSmartTextEngine {
-        val dictionaryProvider = DictionaryProvider(null)
+        val dictionaryProvider = DictionaryProvider()
         dictionaryProvider.donorDictionary = loadAnySoftKeyboardDictionaryWithWords(
             "hello" to 3000,
             "help" to 1200,

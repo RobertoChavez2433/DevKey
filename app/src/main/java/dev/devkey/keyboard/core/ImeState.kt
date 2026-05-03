@@ -9,13 +9,9 @@ package dev.devkey.keyboard.core
 
 import dev.devkey.keyboard.compose.ComposeSequence
 import dev.devkey.keyboard.core.modifier.ChordeTracker
-import dev.devkey.keyboard.dictionary.bigram.UserBigramDictionary
-import dev.devkey.keyboard.dictionary.user.AutoDictionary
-import dev.devkey.keyboard.dictionary.user.UserDictionary
 import dev.devkey.keyboard.keyboard.switcher.KeyboardSwitcher
 import dev.devkey.keyboard.language.LanguageSwitcher
 import dev.devkey.keyboard.legacy.CandidateView
-import dev.devkey.keyboard.suggestion.engine.Suggest
 import dev.devkey.keyboard.suggestion.word.WordAlternatives
 import dev.devkey.keyboard.suggestion.word.WordComposer
 import android.view.inputmethod.CompletionInfo
@@ -114,13 +110,9 @@ class ImeState(dispatcher: CoroutineDispatcher = Dispatchers.Main) {
     var mConfigurationChanging = false
 
     // -- Shared complex objects (nullable, null in tests) --
-    var mSuggest: Suggest? = null
     var mKeyboardSwitcher: KeyboardSwitcher? = null
     var mLanguageSwitcher: LanguageSwitcher? = null
     var mCandidateView: CandidateView? = null
-    var mUserDictionary: UserDictionary? = null
-    var mUserBigramDictionary: UserBigramDictionary? = null
-    var mAutoDictionary: AutoDictionary? = null
 
     // -- Coroutines --
     val serviceScope = CoroutineScope(SupervisorJob() + dispatcher)

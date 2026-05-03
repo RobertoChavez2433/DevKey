@@ -3,12 +3,8 @@ package dev.devkey.keyboard.core
 import android.content.Context
 import android.os.SystemClock
 import android.util.Log
-import dev.devkey.keyboard.dictionary.user.AutoDictionary
 import dev.devkey.keyboard.PREF_QUICK_FIXES
 import dev.devkey.keyboard.R
-import dev.devkey.keyboard.suggestion.engine.Suggest
-import dev.devkey.keyboard.dictionary.bigram.UserBigramDictionary
-import dev.devkey.keyboard.dictionary.user.UserDictionary
 import dev.devkey.keyboard.data.db.DevKeyDatabase
 import dev.devkey.keyboard.data.repository.SettingsRepository
 import dev.devkey.keyboard.feature.prediction.DictionaryProvider
@@ -17,9 +13,7 @@ import dev.devkey.keyboard.feature.prediction.PredictionEngine
 import dev.devkey.keyboard.feature.smarttext.AnySoftKeyboardDictionary
 import dev.devkey.keyboard.feature.smarttext.AnySoftKeyboardSmartTextEngine
 import dev.devkey.keyboard.feature.smarttext.SmartTextImportMetrics
-import dev.devkey.keyboard.core.prefs.ImePrefsUtil
 import dev.devkey.keyboard.debug.DevKeyLogger
-import dev.devkey.keyboard.suggestion.engine.WordPromotionDelegate
 import dev.devkey.keyboard.ui.keyboard.SessionDependencies
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -36,7 +30,6 @@ internal class DictionaryManager(
     private val candidateViewHost: CandidateViewHost,
     private val preferenceObserver: PreferenceObserver,
     private val puncHeuristics: PunctuationHeuristics,
-    private val wordPromotionDelegate: WordPromotionDelegate,
     private val reloadKeyboards: () -> Unit,
     private val updateShiftKeyState: (android.view.inputmethod.EditorInfo?) -> Unit,
     private val isPredictionOn: () -> Boolean,
@@ -46,40 +39,14 @@ internal class DictionaryManager(
     fun initSuggest(locale: String) {
         state.mInputLocale = locale
 
-        val conf = context.resources.configuration
-        val saveLocale = conf.locales[0]
-        val localeConf = android.os.LocaleList.forLanguageTags(locale)
-        val localizedConf = android.content.res.Configuration(conf).apply { setLocales(localeConf) }
-        val localizedContext = context.createConfigurationContext(localizedConf)
-        val localizedResources = localizedContext.resources
-        state.mSuggest?.close()
-
         state.mQuickFixes = settingsRepository.getBoolean(
             PREF_QUICK_FIXES,
             context.resources.getBoolean(R.bool.default_quick_fixes)
         )
 
-        val dictionaries = ImePrefsUtil.getDictionary(localizedResources)
-        state.mSuggest = Suggest(context, dictionaries)
-        preferenceObserver.updateAutoTextEnabled(saveLocale)
-        state.mUserDictionary?.close()
-        state.mUserDictionary = UserDictionary(context, state.mInputLocale!!)
-        state.mAutoDictionary?.close()
-        state.mAutoDictionary = AutoDictionary(
-            context, wordPromotionDelegate, state.mInputLocale!!, Suggest.DIC_AUTO
-        )
-        state.mUserBigramDictionary?.close()
-        state.mUserBigramDictionary = UserBigramDictionary(
-            context, wordPromotionDelegate, state.mInputLocale!!, Suggest.DIC_USER
-        )
-        state.mSuggest!!.setUserBigramDictionary(state.mUserBigramDictionary)
-        state.mSuggest!!.setUserDictionary(state.mUserDictionary)
-        state.mSuggest!!.setAutoDictionary(state.mAutoDictionary)
-        SessionDependencies.suggest = state.mSuggest
-
-        // Initialize the modern prediction pipeline
+        // Initialize the donor-backed smart-text pipeline.
         val db = DevKeyDatabase.getInstance(context)
-        val dictProvider = DictionaryProvider(state.mSuggest)
+        val dictProvider = DictionaryProvider()
         val learnEngine = LearningEngine(db.learnedWordDao())
         val smartTextEngine = AnySoftKeyboardSmartTextEngine(
             dictProvider,

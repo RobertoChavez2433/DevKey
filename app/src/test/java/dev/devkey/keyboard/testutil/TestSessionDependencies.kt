@@ -11,7 +11,6 @@ import dev.devkey.keyboard.ui.keyboard.SessionDependencies
  * This file must remain under src/test/ — never move to production source sets.
  */
 fun resetSessionDependencies() {
-    SessionDependencies.suggest = null
     SessionDependencies.commandModeDetector = null
     SessionDependencies.currentPackageName = null
     SessionDependencies.dictionaryProvider = null
@@ -19,6 +18,7 @@ fun resetSessionDependencies() {
     SessionDependencies.smartTextEngine = null
     SessionDependencies.predictionEngine = null
     SessionDependencies.smartTextCorrectionLevel = SmartTextCorrectionLevel.MILD
+    SessionDependencies.smartTextImportMetrics = null
     SessionDependencies.voiceInputEngine = null
     SessionDependencies.resetPredictionState = null
     SessionDependencies.triggerNextSuggestions = null

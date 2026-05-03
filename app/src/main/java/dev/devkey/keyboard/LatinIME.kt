@@ -2,7 +2,6 @@
 package dev.devkey.keyboard
 
 import android.content.BroadcastReceiver
-import android.content.SharedPreferences
 import android.content.res.Configuration
 import android.inputmethodservice.InputMethodService
 import android.util.Log
@@ -11,16 +10,17 @@ import android.view.View
 import android.view.inputmethod.CompletionInfo
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
-import androidx.preference.PreferenceManager
 import dev.devkey.keyboard.core.*
 import dev.devkey.keyboard.data.repository.SettingsRepository
 import dev.devkey.keyboard.dictionary.loader.PluginManager
 import dev.devkey.keyboard.feature.clipboard.DevKeyClipboardManager
 import dev.devkey.keyboard.feature.command.CommandModeDetector
-import dev.devkey.keyboard.suggestion.engine.WordPromotionDelegate
 import dev.devkey.keyboard.suggestion.word.WordComposer
+import dev.devkey.keyboard.ui.keyboard.SessionDependencies
 import java.io.FileDescriptor
 import java.io.PrintWriter
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 /**
  * Wiring shell for the DevKey input method.
@@ -28,8 +28,7 @@ import java.io.PrintWriter
  * lifecycle logic in [ImeLifecycleDelegate], init in [ImeInitializer].
  */
 class LatinIME : InputMethodService(),
-    KeyboardActionListener, SharedPreferences.OnSharedPreferenceChangeListener,
-    WordPromotionDelegate, InputConnectionProvider, CandidateViewHost {
+    KeyboardActionListener, InputConnectionProvider, CandidateViewHost {
 
     internal val state = ImeState()
     internal val col = ImeCollaborators()
@@ -41,6 +40,7 @@ class LatinIME : InputMethodService(),
     internal var keyMapDumpReceiver: BroadcastReceiver? = null
     internal var mDebugReceivers: dev.devkey.keyboard.debug.DebugReceiverManager? = null
     private lateinit var lifecycle: ImeLifecycleDelegate
+    private var settingsChangeRegistration: AutoCloseable? = null
 
     override val inputConnection: InputConnection? get() = currentInputConnection
     override val editorInfo: EditorInfo? get() = currentInputEditorInfo
@@ -56,13 +56,21 @@ class LatinIME : InputMethodService(),
         Log.i(TAG, "onCreate(), os.version=${System.getProperty("os.version")}")
         super.onCreate()
         sInstance = this
-        sKeyboardSettings = SettingsRepository(PreferenceManager.getDefaultSharedPreferences(this))
+        sKeyboardSettings = SettingsRepository.from(this)
         lifecycle = ImeLifecycleDelegate(this, state, col)
         ImeInitializer(this, state, col, sKeyboardSettings).run { val lang = initialize(); initPhase2(); lifecycle.finishCreate(lang) }
-        PreferenceManager.getDefaultSharedPreferences(this).registerOnSharedPreferenceChangeListener(this)
+        settingsChangeRegistration = sKeyboardSettings.registerChangeCallback { key ->
+            col.preferenceObserver.onPreferenceChanged(sKeyboardSettings, key)
+        }
     }
 
-    override fun onDestroy() { lifecycle.onDestroy(); sInstance = null; super.onDestroy() }
+    override fun onDestroy() {
+        settingsChangeRegistration?.close()
+        settingsChangeRegistration = null
+        lifecycle.onDestroy()
+        sInstance = null
+        super.onDestroy()
+    }
     override fun onConfigurationChanged(conf: Configuration) {
         lifecycle.onConfigurationChanged(conf)
         state.mConfigurationChanging = true
@@ -104,19 +112,14 @@ class LatinIME : InputMethodService(),
     override fun onPress(primaryCode: Int) = col.modifierHandler.onPress(primaryCode)
     override fun onRelease(primaryCode: Int) = col.modifierHandler.onRelease(primaryCode)
 
-    override fun promoteToUserDictionary(word: String, frequency: Int) {
-        if (!state.mUserDictionary!!.isValidWord(word)) {
-            state.mUserDictionary!!.addWord(word, frequency)
-        }
-    }
-    override fun getCurrentWord(): WordComposer = state.mWord
-    override fun onSharedPreferenceChanged(sharedPreferences: SharedPreferences, key: String?) {
-        col.preferenceObserver.onPreferenceChanged(sharedPreferences, key)
-    }
+    fun getCurrentWord(): WordComposer = state.mWord
 
     fun pickSuggestionManually(index: Int, suggestion: CharSequence) = col.suggestionPicker.pickSuggestionManually(index, suggestion)
     fun addWordToDictionary(word: String): Boolean {
-        state.mUserDictionary!!.addWord(word, 128)
+        val learningEngine = SessionDependencies.learningEngine ?: return false
+        state.serviceScope.launch(Dispatchers.IO) {
+            learningEngine.addCustomWord(word)
+        }
         col.suggestionCoordinator.postUpdateSuggestions()
         return true
     }

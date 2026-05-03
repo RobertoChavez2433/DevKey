@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import android.util.Log
 import androidx.preference.PreferenceManager
 import dev.devkey.keyboard.ui.keyboard.LayoutMode
+import java.util.concurrent.CopyOnWriteArraySet
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.filter
@@ -16,6 +17,7 @@ class SettingsRepository(
 ) : PrefRegistry(), SharedPreferences.OnSharedPreferenceChangeListener {
 
     private val changeFlow = MutableSharedFlow<String>(extraBufferCapacity = 64)
+    private val changeCallbacks = CopyOnWriteArraySet<(String?) -> Unit>()
 
     init {
         prefs.registerOnSharedPreferenceChangeListener(this)
@@ -45,10 +47,17 @@ class SettingsRepository(
 
     fun close() {
         prefs.unregisterOnSharedPreferenceChangeListener(this)
+        changeCallbacks.clear()
     }
 
     override fun onSharedPreferenceChanged(sharedPreferences: SharedPreferences?, key: String?) {
         key?.let { changeFlow.tryEmit(it) }
+        changeCallbacks.forEach { callback -> callback(key) }
+    }
+
+    fun registerChangeCallback(callback: (String?) -> Unit): AutoCloseable {
+        changeCallbacks.add(callback)
+        return AutoCloseable { changeCallbacks.remove(callback) }
     }
 
     // =========================================================================

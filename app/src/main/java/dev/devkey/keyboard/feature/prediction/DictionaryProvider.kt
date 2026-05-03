@@ -1,20 +1,14 @@
 package dev.devkey.keyboard.feature.prediction
 
 import dev.devkey.keyboard.feature.smarttext.AnySoftKeyboardDictionary
-import dev.devkey.keyboard.suggestion.engine.Suggest
 
 /**
  * Dictionary provider backed by the imported smart-text donor dictionary.
- *
- * The constructor keeps the legacy [Suggest] parameter only so older lifecycle
- * wiring can be staged out without changing call sites in the same patch.
  */
-open class DictionaryProvider(@Suppress("UNUSED_PARAMETER") suggest: Suggest?) {
+open class DictionaryProvider {
 
     @Volatile
     var donorDictionary: AnySoftKeyboardDictionary? = null
-
-    fun updateSuggest(@Suppress("UNUSED_PARAMETER") newSuggest: Suggest?) = Unit
 
     fun hasDictionary(): Boolean = (donorDictionary?.size ?: 0) > 0
 

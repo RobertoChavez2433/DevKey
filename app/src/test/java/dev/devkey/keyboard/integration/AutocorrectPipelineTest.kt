@@ -19,7 +19,6 @@ import dev.devkey.keyboard.feature.prediction.PredictionEngine
 import dev.devkey.keyboard.feature.smarttext.AnySoftKeyboardDictionary
 import dev.devkey.keyboard.feature.smarttext.AnySoftKeyboardSmartTextEngine
 import dev.devkey.keyboard.feature.smarttext.SmartTextCorrectionLevel
-import dev.devkey.keyboard.suggestion.engine.Suggest
 import dev.devkey.keyboard.testutil.FakeLearnedWordDao
 import dev.devkey.keyboard.testutil.MockInputConnection
 import dev.devkey.keyboard.testutil.loadAnySoftKeyboardDictionaryWithWords
@@ -33,7 +32,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.mockito.kotlin.any
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.whenever
 import org.robolectric.RobolectricTestRunner
@@ -41,7 +39,7 @@ import org.robolectric.annotation.Config
 
 /**
  * Integration test wiring real [InputHandlers] + donor-backed smart text.
- * Only [InputConnection] and [Suggest] (JNI boundary) are stubbed.
+ * Only [InputConnection] and collaborators around the smart-text boundary are stubbed.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE)
@@ -52,7 +50,6 @@ class AutocorrectPipelineTest {
     private lateinit var icProvider: TestIcProvider
     private lateinit var candidateHost: TestCandidateHost
     private lateinit var coordinator: SuggestionCoordinator
-    private lateinit var suggest: Suggest
     private lateinit var dictionaryProvider: DictionaryProvider
     private lateinit var learningEngine: LearningEngine
     private lateinit var predictionEngine: PredictionEngine
@@ -79,15 +76,7 @@ class AutocorrectPipelineTest {
 
         donorDictionary = loadTestDictionary()
 
-        suggest = mock<Suggest>()
-        whenever(suggest.getSuggestions(any(), any(), any(), any())).thenReturn(emptyList())
-        whenever(suggest.getNextWordSuggestions(any())).thenReturn(emptyList())
-        whenever(suggest.hasMinimalCorrection()).thenReturn(false)
-        whenever(suggest.isValidWord(any())).thenReturn(false)
-        whenever(suggest.getNextLettersFrequencies()).thenReturn(IntArray(0))
-        state.mSuggest = suggest
-
-        dictionaryProvider = DictionaryProvider(suggest)
+        dictionaryProvider = DictionaryProvider()
         dictionaryProvider.donorDictionary = donorDictionary
         learningEngine = LearningEngine(FakeLearnedWordDao())
         learningEngine.initialize()
@@ -98,7 +87,6 @@ class AutocorrectPipelineTest {
         )
         predictionEngine = PredictionEngine(smartTextEngine)
 
-        SessionDependencies.suggest = suggest
         SessionDependencies.dictionaryProvider = dictionaryProvider
         SessionDependencies.learningEngine = learningEngine
         SessionDependencies.smartTextEngine = smartTextEngine

@@ -3,10 +3,8 @@ package dev.devkey.keyboard.core
 import android.view.KeyEvent
 import android.view.inputmethod.InputConnection
 import dev.devkey.keyboard.ASCII_ENTER
-import dev.devkey.keyboard.dictionary.user.AutoDictionary
 import dev.devkey.keyboard.DELETE_ACCELERATE_AT
 import dev.devkey.keyboard.keyboard.model.Keyboard
-import dev.devkey.keyboard.suggestion.engine.Suggest
 import dev.devkey.keyboard.core.input.TextEntryState
 import dev.devkey.keyboard.core.text.EditingUtil
 import dev.devkey.keyboard.debug.DevKeyLogger
@@ -151,7 +149,6 @@ internal class InputHandlers(
                 } else {
                     TextEntryState.acceptedTyped(state.mComposing)
                 }
-                suggestionPicker.addToDictionaries(state.mComposing, AutoDictionary.FREQUENCY_FOR_TYPED)
                 SessionDependencies.commitWord(state.mComposing.toString(), state.serviceScope)
             }
             SessionDependencies.composingWord.value = ""

@@ -5,11 +5,9 @@ import android.util.Log
 import android.widget.Toast
 import dev.devkey.keyboard.*
 import dev.devkey.keyboard.core.prefs.ImePrefsUtil
-import dev.devkey.keyboard.suggestion.engine.Suggest
 import dev.devkey.keyboard.data.repository.SettingsRepository
 import dev.devkey.keyboard.feature.smarttext.SmartTextCorrectionLevel
 import dev.devkey.keyboard.ui.keyboard.SessionDependencies
-import java.util.Locale
 
 internal class PreferenceObserver(
     private val state: ImeState,
@@ -173,35 +171,24 @@ internal class PreferenceObserver(
 
         val autocorrectLevel = settings.getString(SettingsRepository.KEY_AUTOCORRECT_LEVEL, "mild")
         SessionDependencies.smartTextCorrectionLevel = parseSmartTextCorrectionLevel(autocorrectLevel)
-        updateAutoTextEnabled(res.configuration.locales[0])
         state.mLanguageSwitcher!!.loadLocales(settings)
         state.mAutoCapActive = state.mAutoCapPref && state.mLanguageSwitcher!!.allowAutoCap()
         state.mDeadKeysActive = state.mLanguageSwitcher!!.allowDeadKeys()
     }
 
     fun updateCorrectionMode() {
-        state.mHasDictionary = state.mSuggest?.hasMainDictionary() == true ||
-            SessionDependencies.dictionaryProvider?.hasDictionary() == true
+        state.mHasDictionary = SessionDependencies.dictionaryProvider?.hasDictionary() == true
         state.mAutoCorrectOn = (state.mAutoCorrectEnabled || state.mQuickFixes)
             && !state.mInputTypeNoAutoCorrect && state.mHasDictionary
         state.mCorrectionMode = when {
-            state.mAutoCorrectOn && state.mAutoCorrectEnabled -> Suggest.CORRECTION_FULL
-            state.mAutoCorrectOn -> Suggest.CORRECTION_BASIC
-            else -> Suggest.CORRECTION_NONE
+            state.mAutoCorrectOn && state.mAutoCorrectEnabled -> CorrectionModes.FULL
+            state.mAutoCorrectOn -> CorrectionModes.BASIC
+            else -> CorrectionModes.NONE
         }
         if (state.suggestionsDisabled()) {
             state.mAutoCorrectOn = false
-            state.mCorrectionMode = Suggest.CORRECTION_NONE
+            state.mCorrectionMode = CorrectionModes.NONE
         }
-        state.mSuggest?.setCorrectionMode(state.mCorrectionMode)
-    }
-
-    fun updateAutoTextEnabled(systemLocale: Locale) {
-        if (state.mSuggest == null) return
-        val different = !systemLocale.language.equals(
-            state.mInputLocale!!.take(2), ignoreCase = true
-        )
-        state.mSuggest!!.setAutoTextEnabled(!different && state.mQuickFixes)
     }
 
     fun initSuggestPuncList() {

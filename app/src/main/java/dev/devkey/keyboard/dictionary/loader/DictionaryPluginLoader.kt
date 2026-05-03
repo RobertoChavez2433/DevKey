@@ -1,6 +1,6 @@
 package dev.devkey.keyboard.dictionary.loader
 import dev.devkey.keyboard.dictionary.base.BinaryDictionary
-import dev.devkey.keyboard.suggestion.engine.Suggest
+import dev.devkey.keyboard.dictionary.base.DictionaryType
 
 import android.content.Context
 import android.content.pm.PackageManager
@@ -30,7 +30,7 @@ internal abstract class DictPluginSpecBase : PluginManager.DictPluginSpec {
     override fun getDict(context: Context): BinaryDictionary? {
         val res = getResources(context) ?: return null
         val dicts = getStreams(res) ?: return null
-        val dict = BinaryDictionary(context, dicts, Suggest.DIC_MAIN)
+        val dict = BinaryDictionary(context, dicts, DictionaryType.MAIN)
         if (dict.getSize() == 0) return null
         return dict
     }

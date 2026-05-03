@@ -165,6 +165,38 @@ class InputHandlersTest {
     }
 
     @Test
+    fun `handleBackspace reverts donor applied correction`() {
+        val mockDictProvider = mock<DictionaryProvider>()
+        whenever(mockDictProvider.isValidWord(any())).thenReturn(false)
+        whenever(mockDictProvider.getFuzzyCorrections(any(), any())).thenReturn(listOf("the"))
+
+        val learnEngine = LearningEngine(FakeLearnedWordDao())
+        kotlinx.coroutines.runBlocking { learnEngine.initialize() }
+
+        SessionDependencies.smartTextCorrectionLevel = SmartTextCorrectionLevel.AGGRESSIVE
+        SessionDependencies.learningEngine = learnEngine
+        SessionDependencies.smartTextEngine = AnySoftKeyboardSmartTextEngine(
+            mockDictProvider,
+            learnEngine,
+            correctionLevel = { SessionDependencies.smartTextCorrectionLevel },
+        )
+
+        state.mPredicting = true
+        state.mAutoCorrectOn = false
+        state.mComposing.append("teh")
+        state.mWord.add('t'.code, intArrayOf('t'.code))
+        state.mWord.add('e'.code, intArrayOf('e'.code))
+        state.mWord.add('h'.code, intArrayOf('h'.code))
+
+        handlers.handleSeparator(32)
+        handlers.handleBackspace()
+
+        assertTrue("mPredicting should be true after donor correction revert", state.mPredicting)
+        assertEquals("teh", state.mComposing.toString())
+        assertTrue("IC should delete corrected text during revert", mockIc.deleteSurroundingTextCount >= 2)
+    }
+
+    @Test
     fun `handleBackspace accelerated delete`() {
         state.mPredicting = false
         state.mDeleteCount = DELETE_ACCELERATE_AT + 1

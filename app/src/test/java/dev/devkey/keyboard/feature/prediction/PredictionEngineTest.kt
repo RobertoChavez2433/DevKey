@@ -142,8 +142,8 @@ class PredictionEngineTest {
     }
 }
 
-/** Test double that returns canned suggestions without needing Suggest/JNI. */
-class FakeDictionaryProvider : DictionaryProvider(null) {
+/** Test double that returns canned suggestions without needing JNI dictionaries. */
+class FakeDictionaryProvider : DictionaryProvider() {
     var suggestions: List<String> = emptyList()
     var fuzzyCorrections: List<String> = emptyList()
     var validWords: Set<String> = emptySet()

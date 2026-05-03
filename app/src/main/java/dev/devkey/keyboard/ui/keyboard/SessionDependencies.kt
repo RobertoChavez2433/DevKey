@@ -1,6 +1,5 @@
 package dev.devkey.keyboard.ui.keyboard
 
-import dev.devkey.keyboard.suggestion.engine.Suggest
 import dev.devkey.keyboard.feature.command.CommandModeDetector
 import dev.devkey.keyboard.debug.DevKeyLogger
 import dev.devkey.keyboard.feature.prediction.AutocorrectResult
@@ -27,10 +26,6 @@ import kotlinx.coroutines.launch
  * cleaner but is overkill for this stage of the project.
  */
 object SessionDependencies {
-    /** The active Suggest instance from LatinIME, for dictionary lookups. */
-    @Volatile
-    var suggest: Suggest? = null
-
     /** The command mode detector, initialized in LatinIME. */
     @Volatile
     var commandModeDetector: CommandModeDetector? = null

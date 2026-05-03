@@ -12,7 +12,6 @@ import dev.devkey.keyboard.core.SuggestionCoordinator
 import dev.devkey.keyboard.core.SuggestionPicker
 import dev.devkey.keyboard.core.input.TextEntryState
 import dev.devkey.keyboard.data.repository.SettingsRepository
-import dev.devkey.keyboard.suggestion.engine.Suggest
 import dev.devkey.keyboard.testutil.MockInputConnection
 import dev.devkey.keyboard.testutil.resetSessionDependencies
 import dev.devkey.keyboard.testutil.testImeState
@@ -21,7 +20,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.mockito.kotlin.any
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.whenever
 import org.robolectric.RobolectricTestRunner
@@ -29,7 +27,7 @@ import org.robolectric.annotation.Config
 
 /**
  * Integration test wiring real [PunctuationHeuristics] + [InputHandlers].
- * Mock IC, Suggest (JNI), and other collaborators.
+ * Mock IC and other collaborators.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE)
@@ -74,10 +72,6 @@ class PunctuationPipelineTest {
         }
         mockModifierHandler = mock()
         mockKeyEventSender = mock()
-
-        val suggest: Suggest = mock()
-        whenever(suggest.getSuggestions(any(), any(), any(), any())).thenReturn(emptyList())
-        state.mSuggest = suggest
 
         resetSessionDependencies()
         TextEntryState.reset()

@@ -48,7 +48,6 @@ internal class ImeLifecycleDelegate(
         ime.clipboardManager?.stopListening()
         ime.keyMapDumpReceiver?.let { ime.unregisterReceiver(it) }
         ime.mDebugReceivers?.unregisterAll()
-        state.mUserDictionary?.close()
         ime.unregisterReceiver(col.feedbackManager.ringerModeReceiver)
         ime.unregisterReceiver(ime.mPluginManager)
         col.notificationController.destroy()
@@ -90,8 +89,6 @@ internal class ImeLifecycleDelegate(
 
     fun onFinishInput() {
         ime.onAutoCompletionStateChanged(false)
-        state.mAutoDictionary?.flushPendingWrites()
-        state.mUserBigramDictionary?.flushPendingWrites()
     }
 
     fun onFinishInputView() {

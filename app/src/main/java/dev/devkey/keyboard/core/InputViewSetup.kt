@@ -182,7 +182,7 @@ internal class InputViewSetup(
         )
         suggestionCoordinator.updateSuggestions()
 
-        state.mHasDictionary = state.mSuggest!!.hasMainDictionary()
+        state.mHasDictionary = SessionDependencies.dictionaryProvider?.hasDictionary() == true
         preferenceObserver.updateCorrectionMode()
 
         checkReCorrectionOnStart()

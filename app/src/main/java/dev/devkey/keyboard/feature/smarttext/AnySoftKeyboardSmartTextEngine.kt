@@ -232,6 +232,116 @@ class AnySoftKeyboardSmartTextEngine(
         return decision
     }
 
+    override fun punctuation(request: SmartTextPunctuationRequest): SmartTextPunctuationDecision {
+        val decision = when (request.transform) {
+            SmartTextPunctuationTransform.PUNCTUATION_SPACE_SWAP ->
+                punctuationSpaceSwap(request.contextBeforeCursor, request.sentenceSeparators)
+            SmartTextPunctuationTransform.PERIOD_RESWAP ->
+                periodReswap(request.contextBeforeCursor)
+            SmartTextPunctuationTransform.DOUBLE_SPACE_PERIOD ->
+                doubleSpacePeriod(request.contextBeforeCursor)
+            SmartTextPunctuationTransform.REMOVE_TRAILING_SPACE ->
+                removeTrailingSpace(request.contextBeforeCursor)
+            SmartTextPunctuationTransform.REMOVE_PREVIOUS_PERIOD ->
+                removePreviousPeriod(request.contextBeforeCursor)
+        }
+        logPunctuation(request, decision)
+        return decision
+    }
+
+    private fun punctuationSpaceSwap(
+        contextBeforeCursor: CharSequence?,
+        sentenceSeparators: String,
+    ): SmartTextPunctuationDecision {
+        if (contextBeforeCursor.isNullOrEmpty()) return punctuationNoop(SmartTextPunctuationReason.EMPTY_CONTEXT)
+        if (contextBeforeCursor.length < 2) return punctuationNoop(SmartTextPunctuationReason.CONTEXT_TOO_SHORT)
+        val space = contextBeforeCursor[contextBeforeCursor.length - 2]
+        val punctuation = contextBeforeCursor[contextBeforeCursor.length - 1]
+        return when {
+            space != ' ' -> punctuationNoop(SmartTextPunctuationReason.NOT_PATTERN)
+            punctuation !in sentenceSeparators -> punctuationNoop(SmartTextPunctuationReason.NOT_SENTENCE_SEPARATOR)
+            else -> SmartTextPunctuationDecision(
+                apply = true,
+                reason = SmartTextPunctuationReason.MATCH,
+                deleteBeforeCursor = 2,
+                replacement = "$punctuation ",
+            )
+        }
+    }
+
+    private fun periodReswap(contextBeforeCursor: CharSequence?): SmartTextPunctuationDecision {
+        if (contextBeforeCursor.isNullOrEmpty()) return punctuationNoop(SmartTextPunctuationReason.EMPTY_CONTEXT)
+        if (contextBeforeCursor.length < 3) return punctuationNoop(SmartTextPunctuationReason.CONTEXT_TOO_SHORT)
+        val start = contextBeforeCursor.length - 3
+        return if (
+            contextBeforeCursor[start] == '.' &&
+            contextBeforeCursor[start + 1] == ' ' &&
+            contextBeforeCursor[start + 2] == '.'
+        ) {
+            SmartTextPunctuationDecision(
+                apply = true,
+                reason = SmartTextPunctuationReason.MATCH,
+                deleteBeforeCursor = 3,
+                replacement = " ..",
+            )
+        } else {
+            punctuationNoop(SmartTextPunctuationReason.NOT_PATTERN)
+        }
+    }
+
+    private fun doubleSpacePeriod(contextBeforeCursor: CharSequence?): SmartTextPunctuationDecision {
+        if (contextBeforeCursor.isNullOrEmpty()) return punctuationNoop(SmartTextPunctuationReason.EMPTY_CONTEXT)
+        if (contextBeforeCursor.length < 3) return punctuationNoop(SmartTextPunctuationReason.CONTEXT_TOO_SHORT)
+        val start = contextBeforeCursor.length - 3
+        val wordBoundary = contextBeforeCursor[start]
+        return if (
+            wordBoundary.isLetterOrDigit() &&
+            contextBeforeCursor[start + 1] == ' ' &&
+            contextBeforeCursor[start + 2] == ' '
+        ) {
+            SmartTextPunctuationDecision(
+                apply = true,
+                reason = SmartTextPunctuationReason.MATCH,
+                deleteBeforeCursor = 2,
+                replacement = ". ",
+                charsRemoved = 2,
+            )
+        } else if (!wordBoundary.isLetterOrDigit()) {
+            punctuationNoop(SmartTextPunctuationReason.NOT_WORD_BOUNDARY)
+        } else {
+            punctuationNoop(SmartTextPunctuationReason.NOT_PATTERN)
+        }
+    }
+
+    private fun removeTrailingSpace(contextBeforeCursor: CharSequence?): SmartTextPunctuationDecision {
+        if (contextBeforeCursor.isNullOrEmpty()) return punctuationNoop(SmartTextPunctuationReason.EMPTY_CONTEXT)
+        return if (contextBeforeCursor.last() == ' ') {
+            SmartTextPunctuationDecision(
+                apply = true,
+                reason = SmartTextPunctuationReason.MATCH,
+                deleteBeforeCursor = 1,
+            )
+        } else {
+            punctuationNoop(SmartTextPunctuationReason.NOT_PATTERN)
+        }
+    }
+
+    private fun removePreviousPeriod(contextBeforeCursor: CharSequence?): SmartTextPunctuationDecision {
+        if (contextBeforeCursor.isNullOrEmpty()) return punctuationNoop(SmartTextPunctuationReason.EMPTY_CONTEXT)
+        return if (contextBeforeCursor.last() == '.') {
+            SmartTextPunctuationDecision(
+                apply = true,
+                reason = SmartTextPunctuationReason.MATCH,
+                deleteBeforeCursor = 1,
+            )
+        } else {
+            punctuationNoop(SmartTextPunctuationReason.NOT_PATTERN)
+        }
+    }
+
+    private fun punctuationNoop(reason: SmartTextPunctuationReason): SmartTextPunctuationDecision =
+        SmartTextPunctuationDecision(apply = false, reason = reason)
+
     private fun logCorrection(
         request: SmartTextCorrectionRequest,
         corrected: Boolean,
@@ -275,6 +385,25 @@ class AnySoftKeyboardSmartTextEngine(
                 "max_results" to request.maxResults,
                 "reason" to reason,
                 "dictionary_source" to dictionaryProvider.activeDictionarySource(),
+            )
+        )
+    }
+
+    private fun logPunctuation(
+        request: SmartTextPunctuationRequest,
+        decision: SmartTextPunctuationDecision,
+    ) {
+        DevKeyLogger.text(
+            "smart_text_punctuation",
+            mapOf(
+                "engine" to "anysoftkeyboard",
+                "transform" to request.transform.wireName,
+                "context_length" to (request.contextBeforeCursor?.length ?: 0),
+                "applied" to decision.apply,
+                "reason" to decision.reason.wireName,
+                "delete_before_cursor" to decision.deleteBeforeCursor,
+                "replacement_length" to decision.replacement.length,
+                "chars_removed" to decision.charsRemoved,
             )
         )
     }

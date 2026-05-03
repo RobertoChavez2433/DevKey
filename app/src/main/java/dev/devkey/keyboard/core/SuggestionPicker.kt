@@ -1,11 +1,9 @@
 package dev.devkey.keyboard.core
 
 import android.view.inputmethod.EditorInfo
-import dev.devkey.keyboard.dictionary.user.AutoDictionary
 import dev.devkey.keyboard.core.text.EditingUtil
 import dev.devkey.keyboard.keyboard.model.Keyboard
 import dev.devkey.keyboard.ASCII_SPACE
-import dev.devkey.keyboard.suggestion.engine.Suggest
 import dev.devkey.keyboard.suggestion.word.WordAlternatives
 import dev.devkey.keyboard.core.input.TextEntryState
 import dev.devkey.keyboard.suggestion.word.TypedWordAlternatives
@@ -39,7 +37,6 @@ internal class SuggestionPicker(
             TextEntryState.acceptedDefault(typed, best)
             state.mJustAccepted = true
             pickSuggestion(best, false)
-            addToDictionaries(best, AutoDictionary.FREQUENCY_FOR_TYPED)
             if (typed != null && best.toString() != typed.toString()) {
                 DevKeyLogger.text("autocorrect_applied", mapOf(
                     "action" to "applied",
@@ -77,18 +74,13 @@ internal class SuggestionPicker(
         }
         state.mJustAccepted = true
         pickSuggestion(suggestion, correcting)
-        if (index == 0) {
-            addToDictionaries(suggestion, AutoDictionary.FREQUENCY_FOR_PICKED)
-        } else {
-            addToBigramDictionary(suggestion, 1)
-        }
         TextEntryState.acceptedSuggestion(state.mComposing.toString(), suggestion)
         if (state.mAutoSpace && !correcting) {
             sendSpace()
             state.mJustAddedAutoSpace = true
         }
         val showingAddToDictionaryHint = index == 0
-            && state.mCorrectionMode > 0 && !isKnownWord(suggestion)
+            && state.mCorrectionMode != CorrectionModes.NONE && !isKnownWord(suggestion)
             && !isKnownWord(suggestion.toString().lowercase())
         if (!correcting) {
             TextEntryState.typedCharacter(ASCII_SPACE.toChar(), true)
@@ -153,30 +145,6 @@ internal class SuggestionPicker(
             return true
         }
         return false
-    }
-
-    fun addToDictionaries(suggestion: CharSequence, frequencyDelta: Int) =
-        checkAddToDictionary(suggestion, frequencyDelta, false)
-
-    fun addToBigramDictionary(suggestion: CharSequence, frequencyDelta: Int) =
-        checkAddToDictionary(suggestion, frequencyDelta, true)
-
-    private fun checkAddToDictionary(suggestion: CharSequence?, frequencyDelta: Int, addToBigramDictionary: Boolean) {
-        if (suggestion == null || suggestion.length < 1) return
-        if (state.mCorrectionMode != Suggest.CORRECTION_FULL && state.mCorrectionMode != Suggest.CORRECTION_FULL_BIGRAM) return
-        if (!addToBigramDictionary
-            && state.mAutoDictionary!!.isValidWord(suggestion)
-            || (!isKnownWord(suggestion.toString())
-                && !isKnownWord(suggestion.toString().lowercase()))
-        ) {
-            state.mAutoDictionary!!.addWord(suggestion.toString(), frequencyDelta)
-        }
-        if (state.mUserBigramDictionary != null) {
-            val prevWord = EditingUtil.getPreviousWord(icProvider.inputConnection, state.mSentenceSeparators ?: "")
-            if (!prevWord.isNullOrEmpty()) {
-                state.mUserBigramDictionary!!.addBigrams(prevWord.toString(), suggestion.toString())
-            }
-        }
     }
 
     private fun isKnownWord(word: CharSequence?): Boolean {

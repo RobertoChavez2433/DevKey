@@ -290,4 +290,58 @@ class ModifierHandlerTest {
             currentShiftState,
         )
     }
+
+    @Test
+    fun `updateShiftKeyState auto-capitalizes after committed sentence ending`() {
+        state.mAutoCapActive = true
+        val editorInfo = EditorInfo().apply {
+            inputType = EditorInfo.TYPE_CLASS_TEXT or EditorInfo.TYPE_TEXT_FLAG_CAP_SENTENCES
+        }
+        val sentenceProvider = object : InputConnectionProvider {
+            override val inputConnection: InputConnection = SentenceCapsInputConnection("hello. ")
+            override val editorInfo: EditorInfo = editorInfo
+            override fun sendDownUpKeyEvents(keyEventCode: Int) {}
+            override fun sendKeyChar(c: Char) {}
+        }
+
+        currentShiftState = Keyboard.SHIFT_OFF
+        ModifierHandler(state, sentenceProvider, feedbackManager, keyEventSender, settings)
+            .updateShiftKeyState(editorInfo)
+
+        assertEquals(Keyboard.SHIFT_CAPS, currentShiftState)
+    }
+
+    @Test
+    fun `updateShiftKeyState does not auto-capitalize after committed comma`() {
+        state.mAutoCapActive = true
+        val editorInfo = EditorInfo().apply {
+            inputType = EditorInfo.TYPE_CLASS_TEXT or EditorInfo.TYPE_TEXT_FLAG_CAP_SENTENCES
+        }
+        val sentenceProvider = object : InputConnectionProvider {
+            override val inputConnection: InputConnection = SentenceCapsInputConnection("hello, ")
+            override val editorInfo: EditorInfo = editorInfo
+            override fun sendDownUpKeyEvents(keyEventCode: Int) {}
+            override fun sendKeyChar(c: Char) {}
+        }
+
+        currentShiftState = Keyboard.SHIFT_OFF
+        ModifierHandler(state, sentenceProvider, feedbackManager, keyEventSender, settings)
+            .updateShiftKeyState(editorInfo)
+
+        assertEquals(Keyboard.SHIFT_OFF, currentShiftState)
+    }
+
+    private class SentenceCapsInputConnection(
+        private val committedText: String,
+    ) : MockInputConnection() {
+        override fun getCursorCapsMode(reqModes: Int): Int {
+            if (reqModes and EditorInfo.TYPE_TEXT_FLAG_CAP_SENTENCES == 0) return 0
+            val trimmed = committedText.trimEnd()
+            return if (trimmed.isEmpty() || trimmed.last() in ".!?") {
+                EditorInfo.TYPE_TEXT_FLAG_CAP_SENTENCES
+            } else {
+                0
+            }
+        }
+    }
 }

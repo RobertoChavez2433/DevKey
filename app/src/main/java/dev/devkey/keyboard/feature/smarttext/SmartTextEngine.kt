@@ -29,6 +29,12 @@ interface SmartTextEngine {
                 request.cursorCapsMode != 0,
             reason = SmartTextCapitalizationReason.DEFAULT_RULE,
         )
+
+    fun punctuation(request: SmartTextPunctuationRequest): SmartTextPunctuationDecision =
+        SmartTextPunctuationDecision(
+            apply = false,
+            reason = SmartTextPunctuationReason.UNAVAILABLE,
+        )
 }
 
 data class SmartTextCorrectionRequest(
@@ -75,6 +81,20 @@ data class SmartTextCapitalizationDecision(
     val reason: SmartTextCapitalizationReason,
 )
 
+data class SmartTextPunctuationRequest(
+    val transform: SmartTextPunctuationTransform,
+    val contextBeforeCursor: CharSequence?,
+    val sentenceSeparators: String = ".!?",
+)
+
+data class SmartTextPunctuationDecision(
+    val apply: Boolean,
+    val reason: SmartTextPunctuationReason,
+    val deleteBeforeCursor: Int = 0,
+    val replacement: String = "",
+    val charsRemoved: Int = 0,
+)
+
 enum class SmartTextSuggestionKind {
     AUTOCORRECT,
     COMPLETION,
@@ -96,6 +116,24 @@ enum class SmartTextCapitalizationReason(val wireName: String) {
     EDITOR_INACTIVE("editor_inactive"),
     NO_SENTENCE_CONTEXT("no_sentence_context"),
     CURSOR_CAPS_MODE("cursor_caps_mode"),
+}
+
+enum class SmartTextPunctuationTransform(val wireName: String) {
+    PUNCTUATION_SPACE_SWAP("punctuation_space_swap"),
+    PERIOD_RESWAP("period_reswap"),
+    DOUBLE_SPACE_PERIOD("double_space_period"),
+    REMOVE_TRAILING_SPACE("remove_trailing_space"),
+    REMOVE_PREVIOUS_PERIOD("remove_previous_period"),
+}
+
+enum class SmartTextPunctuationReason(val wireName: String) {
+    MATCH("match"),
+    UNAVAILABLE("unavailable"),
+    EMPTY_CONTEXT("empty_context"),
+    CONTEXT_TOO_SHORT("context_too_short"),
+    NOT_SENTENCE_SEPARATOR("not_sentence_separator"),
+    NOT_PATTERN("not_pattern"),
+    NOT_WORD_BOUNDARY("not_word_boundary"),
 }
 
 enum class SmartTextCorrectionLevel {

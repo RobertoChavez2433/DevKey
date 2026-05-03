@@ -72,7 +72,7 @@ internal class ImeCollaboratorWiring(
         )
         inputViewSetup.commandModeDetector = ime.commandModeDetector
         col.dictionaryManager = DictionaryManager(
-            state, ime, ime, ime, col.preferenceObserver, col.puncHeuristics, ime,
+            state, ime, ime, ime, col.preferenceObserver, col.puncHeuristics,
             reloadKeyboards = { state.reloadKeyboards(settingsRepository) },
             updateShiftKeyState = { attr -> col.modifierHandler.updateShiftKeyState(attr) },
             isPredictionOn = { state.isPredictionOn(col.suggestionCoordinator.isPredictionWanted()) },

@@ -23,7 +23,7 @@ class FakeLearnedWordDao : LearnedWordDao {
         words.value.find { it.word == word && it.contextApp == contextApp }
 
     override suspend fun findWordAny(word: String): LearnedWordEntity? =
-        words.value.find { it.word == word }
+        words.value.filter { it.word == word }.maxByOrNull { it.frequency }
 
     override fun getUserAddedWords(): Flow<List<LearnedWordEntity>> =
         words.map { list -> list.filter { it.isUserAdded } }

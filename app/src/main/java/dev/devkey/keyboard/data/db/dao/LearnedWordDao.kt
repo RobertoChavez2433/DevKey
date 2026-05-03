@@ -21,10 +21,18 @@ interface LearnedWordDao {
     @Query("SELECT * FROM learned_words WHERE is_command = 0 ORDER BY frequency DESC")
     fun getNormalWords(): Flow<List<LearnedWordEntity>>
 
-    @Query("SELECT * FROM learned_words WHERE word = :word AND context_app = :contextApp LIMIT 1")
+    @Query(
+        """
+        SELECT * FROM learned_words
+        WHERE word = :word
+          AND ((:contextApp IS NULL AND context_app IS NULL) OR context_app = :contextApp)
+        ORDER BY frequency DESC
+        LIMIT 1
+        """
+    )
     suspend fun findWord(word: String, contextApp: String?): LearnedWordEntity?
 
-    @Query("SELECT * FROM learned_words WHERE word = :word LIMIT 1")
+    @Query("SELECT * FROM learned_words WHERE word = :word ORDER BY frequency DESC LIMIT 1")
     suspend fun findWordAny(word: String): LearnedWordEntity?
 
     @Query("SELECT * FROM learned_words WHERE is_user_added = 1 ORDER BY word ASC")
